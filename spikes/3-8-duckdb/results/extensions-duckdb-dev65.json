@@ -1,0 +1,467 @@
+{
+  "alias": "duckdb-dev65",
+  "version": "v1.5.6",
+  "scenarios": {
+    "A_default_repo": {
+      "steps": {
+        "install_load": [
+          {
+            "sql": "INSTALL spatial",
+            "ms": 2,
+            "rows": []
+          },
+          {
+            "sql": "LOAD spatial",
+            "ms": 1703,
+            "rows": []
+          },
+          {
+            "sql": "select ST_AsText(ST_Point(1,2)) wkt",
+            "ms": 11,
+            "rows": [
+              {
+                "wkt": "POINT (1 2)"
+              }
+            ]
+          }
+        ],
+        "parquet_autoload": [
+          {
+            "sql": "create table t as select 1 a",
+            "ms": 14,
+            "rows": [
+              {
+                "Count": 1
+              }
+            ]
+          },
+          {
+            "sql": "copy t to 'a.parquet' (format parquet)",
+            "ms": 658,
+            "rows": [
+              {
+                "Count": 1
+              }
+            ]
+          }
+        ],
+        "json": [
+          {
+            "sql": "select '{\"a\":1}'::JSON j",
+            "ms": 305,
+            "rows": [
+              {
+                "j": "{\"a\":1}"
+              }
+            ]
+          }
+        ],
+        "icu": [
+          {
+            "sql": "LOAD icu",
+            "ms": 457,
+            "rows": []
+          },
+          {
+            "sql": "select '2026-01-01 00:00:00+02'::timestamptz::varchar tz",
+            "ms": 3,
+            "rows": [
+              {
+                "tz": "2026-01-01 00:00:00+02"
+              }
+            ]
+          }
+        ]
+      },
+      "init": {
+        "ok": true,
+        "v": "v1.5.6"
+      },
+      "nonLocalRequests": [
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm",
+          "failed": null
+        },
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/parquet.duckdb_extension.wasm",
+          "failed": null
+        },
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/json.duckdb_extension.wasm",
+          "failed": null
+        },
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/icu.duckdb_extension.wasm",
+          "failed": null
+        }
+      ],
+      "extensionRequests": [
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm",
+          "status": 200,
+          "encoding": "zstd",
+          "wireBytes": 6027853
+        },
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/parquet.duckdb_extension.wasm",
+          "status": 200,
+          "encoding": "zstd",
+          "wireBytes": 700540
+        },
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/json.duckdb_extension.wasm",
+          "status": 200,
+          "encoding": "zstd",
+          "wireBytes": 171268
+        },
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/icu.duckdb_extension.wasm",
+          "status": 200,
+          "encoding": "zstd",
+          "wireBytes": 1922212
+        }
+      ],
+      "serverLog": [],
+      "blockedByTest": [],
+      "console": [
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "warning: Buffering missing file: a.parquet"
+      ]
+    },
+    "B_self_hosted_strict_csp_third_parties_blocked": {
+      "steps": {
+        "setup": [
+          {
+            "sql": "SET custom_extension_repository='http://127.0.0.1:36669/ext'",
+            "ms": 2,
+            "rows": []
+          },
+          {
+            "sql": "SET autoinstall_known_extensions=false",
+            "ms": 2,
+            "rows": []
+          },
+          {
+            "sql": "SET autoload_known_extensions=false",
+            "ms": 1,
+            "rows": []
+          }
+        ],
+        "load": [
+          {
+            "sql": "INSTALL spatial",
+            "ms": 1,
+            "rows": []
+          },
+          {
+            "sql": "LOAD spatial",
+            "ms": 1367,
+            "rows": []
+          },
+          {
+            "sql": "LOAD parquet",
+            "ms": 363,
+            "rows": []
+          },
+          {
+            "sql": "LOAD json",
+            "ms": 90,
+            "rows": []
+          },
+          {
+            "sql": "select ST_AsText(ST_Point(1,2)) wkt",
+            "ms": 4,
+            "rows": [
+              {
+                "wkt": "POINT (1 2)"
+              }
+            ]
+          },
+          {
+            "sql": "create table t as select 1 a",
+            "ms": 10,
+            "rows": [
+              {
+                "Count": 1
+              }
+            ]
+          },
+          {
+            "sql": "copy t to 'a.parquet' (format parquet)",
+            "ms": 36,
+            "rows": [
+              {
+                "Count": 1
+              }
+            ]
+          },
+          {
+            "sql": "select count(*) n from 'a.parquet'",
+            "ms": 12,
+            "rows": [
+              {
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "load_icu": [
+          {
+            "sql": "LOAD icu",
+            "ms": 346,
+            "rows": []
+          },
+          {
+            "sql": "select '2026-01-01 00:00:00+02'::timestamptz::varchar tz",
+            "ms": 6,
+            "rows": [
+              {
+                "tz": "2026-01-01 00:00:00+02"
+              }
+            ]
+          }
+        ],
+        "verify": [
+          {
+            "sql": "select extension_name, loaded, installed, install_path from duckdb_extensions() where loaded and extension_name in ('spatial','parquet','icu')",
+            "ms": 5,
+            "rows": [
+              {
+                "extension_name": "icu",
+                "loaded": true,
+                "installed": false,
+                "install_path": ""
+              },
+              {
+                "extension_name": "parquet",
+                "loaded": true,
+                "installed": false,
+                "install_path": ""
+              },
+              {
+                "extension_name": "spatial",
+                "loaded": true,
+                "installed": false,
+                "install_path": ""
+              }
+            ]
+          }
+        ]
+      },
+      "init": {
+        "ok": true,
+        "v": "v1.5.6"
+      },
+      "nonLocalRequests": [],
+      "extensionRequests": [
+        {
+          "url": "<console-origin>/ext/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm",
+          "status": 200,
+          "encoding": "br",
+          "wireBytes": 5298113
+        },
+        {
+          "url": "<console-origin>/ext/v1.5.6/wasm_eh/parquet.duckdb_extension.wasm",
+          "status": 200,
+          "encoding": "br",
+          "wireBytes": 617577
+        },
+        {
+          "url": "<console-origin>/ext/v1.5.6/wasm_eh/json.duckdb_extension.wasm",
+          "status": 200,
+          "encoding": "br",
+          "wireBytes": 150153
+        },
+        {
+          "url": "<console-origin>/ext/v1.5.6/wasm_eh/icu.duckdb_extension.wasm",
+          "status": 200,
+          "encoding": "br",
+          "wireBytes": 1611144
+        }
+      ],
+      "serverLog": [
+        {
+          "path": "/ext/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm",
+          "status": 200,
+          "bytes": 23626951,
+          "transfer": 5298113,
+          "enc": "br",
+          "ext": true
+        },
+        {
+          "path": "/ext/v1.5.6/wasm_eh/parquet.duckdb_extension.wasm",
+          "status": 200,
+          "bytes": 3221597,
+          "transfer": 617577,
+          "enc": "br",
+          "ext": true
+        },
+        {
+          "path": "/ext/v1.5.6/wasm_eh/json.duckdb_extension.wasm",
+          "status": 200,
+          "bytes": 822239,
+          "transfer": 150153,
+          "enc": "br",
+          "ext": true
+        },
+        {
+          "path": "/ext/v1.5.6/wasm_eh/icu.duckdb_extension.wasm",
+          "status": 200,
+          "bytes": 6363720,
+          "transfer": 1611144,
+          "enc": "br",
+          "ext": true
+        }
+      ],
+      "blockedByTest": [],
+      "console": [
+        "warning: Buffering missing file: a.parquet"
+      ]
+    },
+    "C_self_hosted_autoload_on": {
+      "steps": {
+        "setup": [
+          {
+            "sql": "SET custom_extension_repository='http://127.0.0.1:34127/ext'",
+            "ms": 3,
+            "rows": []
+          }
+        ],
+        "autoload_parquet": [
+          {
+            "sql": "create table t as select 1 a",
+            "ms": 11,
+            "rows": [
+              {
+                "Count": 1
+              }
+            ]
+          },
+          {
+            "sql": "copy t to 'a.parquet' (format parquet)",
+            "ms": 231,
+            "rows": [
+              {
+                "Count": 1
+              }
+            ]
+          },
+          {
+            "sql": "select count(*) n from 'a.parquet'",
+            "ms": 12,
+            "rows": [
+              {
+                "n": 1
+              }
+            ]
+          }
+        ]
+      },
+      "init": {
+        "ok": true,
+        "v": "v1.5.6"
+      },
+      "nonLocalRequests": [],
+      "extensionRequests": [
+        {
+          "url": "<console-origin>/ext/v1.5.6/wasm_eh/parquet.duckdb_extension.wasm",
+          "status": 200,
+          "encoding": "br",
+          "wireBytes": 617577
+        }
+      ],
+      "serverLog": [
+        {
+          "path": "/ext/v1.5.6/wasm_eh/parquet.duckdb_extension.wasm",
+          "status": 200,
+          "bytes": 3221597,
+          "transfer": 617577,
+          "enc": "br",
+          "ext": true
+        }
+      ],
+      "blockedByTest": [],
+      "console": [
+        "warning: Buffering missing file: a.parquet"
+      ]
+    },
+    "D_default_repo_blocked": {
+      "steps": {
+        "load": [
+          {
+            "sql": "INSTALL spatial",
+            "ms": 2,
+            "rows": []
+          },
+          {
+            "sql": "LOAD spatial",
+            "ms": 43,
+            "error": "Failed to execute 'send' on 'XMLHttpRequest': Failed to load 'https://extensions.duckdb.org/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm'."
+          }
+        ]
+      },
+      "init": {
+        "ok": true,
+        "v": "v1.5.6"
+      },
+      "nonLocalRequests": [
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm",
+          "failed": "net::ERR_BLOCKED_BY_CLIENT.Inspector"
+        }
+      ],
+      "extensionRequests": [
+        {
+          "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm",
+          "failed": "net::ERR_BLOCKED_BY_CLIENT.Inspector"
+        }
+      ],
+      "serverLog": [],
+      "blockedByTest": [
+        "https://extensions.duckdb.org/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm"
+      ],
+      "console": []
+    },
+    "F_offline_after_cache_self_hosted_immutable": {
+      "online": [
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "offline": [
+        "ok",
+        "ok",
+        "ok"
+      ]
+    },
+    "F_offline_after_cache_default_repo": {
+      "online": [
+        "Failed to execute 'send' on 'XMLHttpRequest': Failed to load 'https://extensions.duckdb.org/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm'.",
+        "Catalog Error: Scalar Function with name \"st_point\" is not in the catalog, but it exists in the spatial extension.\n\nPlease try installing and loading the spatial extension:\nINSTALL spatial;\nLOAD spatial;\n\n"
+      ],
+      "offlineError": "page.goto: net::ERR_INTERNET_DISCONNECTED at http://127.0.0.1:40531/\nCall log:\n  - navigating to \"http://127.0.0.1:40531/\", waiting until \"load\"\n"
+    },
+    "E_tampered_extension": [
+      {
+        "sql": "SET custom_extension_repository='http://127.0.0.1:41077/ext'",
+        "ms": 3,
+        "rows": []
+      },
+      {
+        "sql": "SET autoload_known_extensions=false",
+        "ms": 3,
+        "rows": []
+      },
+      {
+        "sql": "INSTALL json",
+        "ms": 1,
+        "rows": []
+      },
+      {
+        "sql": "LOAD json",
+        "ms": 111,
+        "error": "IO Error: Extension \"http://127.0.0.1:41077/ext/v1.5.6/wasm_eh/json.duckdb_extension.wasm\" could not be loaded because its signature is either missing or invalid and unsigned extensions are disabled by configuration (allow_unsigned_extensions)"
+      }
+    ]
+  }
+}

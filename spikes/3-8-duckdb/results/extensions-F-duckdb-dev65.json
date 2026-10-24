@@ -1,0 +1,50 @@
+{
+  "alias": "duckdb-dev65",
+  "version": "v1.5.6",
+  "scenarios": {
+    "F_offline_after_cache_self_hosted_immutable": {
+      "online": [
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "offline": [
+        "ok",
+        "ok",
+        "ok"
+      ]
+    },
+    "F_offline_after_cache_default_repo": {
+      "online": [
+        "ok",
+        "ok"
+      ],
+      "offline": [
+        "ok",
+        "ok"
+      ]
+    },
+    "E_tampered_extension": [
+      {
+        "sql": "SET custom_extension_repository='http://127.0.0.1:33573/ext'",
+        "ms": 2,
+        "rows": []
+      },
+      {
+        "sql": "SET autoload_known_extensions=false",
+        "ms": 4,
+        "rows": []
+      },
+      {
+        "sql": "INSTALL json",
+        "ms": 1,
+        "rows": []
+      },
+      {
+        "sql": "LOAD json",
+        "ms": 110,
+        "error": "IO Error: Extension \"http://127.0.0.1:33573/ext/v1.5.6/wasm_eh/json.duckdb_extension.wasm\" could not be loaded because its signature is either missing or invalid and unsigned extensions are disabled by configuration (allow_unsigned_extensions)"
+      }
+    ]
+  }
+}
