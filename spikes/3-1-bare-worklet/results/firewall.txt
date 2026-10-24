@@ -1,0 +1,27 @@
+runtime: Bare v1.33.4
+HyperDHT createServer({ firewall })
+  return false: connected; firewall called 1x with 3 args
+PASS firewall returning false ALLOWS the connection
+  return true: blocked: PEER_CONNECTION_FAILED; firewall called 1x with 3 args
+PASS firewall returning true BLOCKS the connection
+  async true: blocked: PEER_CONNECTION_FAILED; firewall called 1x with 3 args
+PASS async firewall resolving true BLOCKS (HyperDHT awaits it)
+  async false: connected; firewall called 1x with 3 args
+PASS async firewall resolving false ALLOWS
+  throws: blocked: PEER_CONNECTION_FAILED; firewall called 1x with 3 args
+PASS firewall that THROWS BLOCKS (fails closed)
+  return undefined: connected; firewall called 1x with 3 args
+PASS firewall returning undefined ALLOWS (falsy)
+Hyperswarm({ firewall })
+  swarm true: blocked (server conns 0, client conns 0)
+PASS swarm firewall returning true BLOCKS
+  swarm false!: connected (server conns 1, client conns 1)
+PASS swarm firewall returning false ALLOWS
+  swarm client true: blocked (server conns 0, client conns 0)
+PASS swarm firewall on the dialling (client) side returning true BLOCKS
+  swarm server async(false): connected (server conns 1, client conns 1)
+PASS swarm SERVER side: async firewall resolving false ALLOWS (passed through to HyperDHT, awaited)
+  swarm client async(false): blocked (server conns 0, client conns 0)
+PASS swarm CLIENT side: firewall is SYNC only, a Promise is truthy and BLOCKS even if it resolves false
+
+ALL CHECKS PASSED

@@ -1,0 +1,3 @@
+derived local key matches: true
+pre-synced local length 3 of 3
+RESULT pre-sync before opening Autobase -> history linearised: true writable true pledges 3

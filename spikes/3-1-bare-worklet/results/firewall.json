@@ -1,0 +1,19 @@
+{
+  "runtime": "Bare v1.33.4",
+  "f12_hyperdht_createServer": [
+    {"case": "return false", "blocks": false, "outcome": "connected", "args": 3},
+    {"case": "return true", "blocks": true, "outcome": "blocked: PEER_CONNECTION_FAILED", "args": 3},
+    {"case": "async true", "blocks": true, "outcome": "blocked: PEER_CONNECTION_FAILED", "args": 3},
+    {"case": "async false", "blocks": false, "outcome": "connected", "args": 3},
+    {"case": "throws", "blocks": true, "outcome": "blocked: PEER_CONNECTION_FAILED", "args": 3},
+    {"case": "return undefined", "blocks": false, "outcome": "connected", "args": 3}
+  ],
+  "f12_hyperswarm": [
+    {"case": "swarm firewall returning true (server side context)", "blocks": true, "outcome": "blocked (server conns 0, client conns 0)"},
+    {"case": "swarm firewall returning false", "blocks": false, "outcome": "connected (server conns 1, client conns 1)"},
+    {"case": "swarm firewall on dialling (client) side returning true", "blocks": true, "outcome": "blocked (server conns 0, client conns 0)"},
+    {"case": "swarm SERVER side: async firewall resolving false", "blocks": false, "outcome": "connected (server conns 1, client conns 1)"},
+    {"case": "swarm CLIENT side: firewall is SYNC only, Promise truthy", "blocks": true, "outcome": "blocked (server conns 0, client conns 0)"}
+  ],
+  "conclusion": "returning true or throwing blocks; returning false/undefined allows. On Hyperswarm firewall is checked; on the CLIENT side the firewall callback is treated as sync (returning a Promise is truthy -> blocks). HyperDHT awaits async firewall results."
+}

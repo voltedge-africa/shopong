@@ -1,0 +1,15 @@
+{
+  "runtime": "Bare v1.33.4 linux x64",
+  "bootstrapper": "local HyperDHT bootstrapper 127.0.0.1:49861",
+  "tests": {
+    "a_writer_admission_via_host_addWriter": {"pass": true, "ms": 15},
+    "b_divergent_offline_writes_converge_after_reconnect": {"pass": true, "reconvergeMs": 9, "lostEvents": false},
+    "c_replication_via_base_replicate_conn_not_store_replicate": {"pass": true, "evidence": "Peer.join() does conn.on('connection', c=>{this.base.replicate(c)}) and pipe() uses base.replicate(true/false); code inspected"},
+    "d_signedLength_advances_when_indexer_acks": {"pass": true, "from": 22, "to": 34},
+    "e_replay_determinism_across_arrival_orders": {"pass": true, "R1(AthenB)_sha512": "10dc224445f9ef610fdba0ac3c30732c9103e1a8e4b01ef5fa42c441109d562997a64fcbfcfd74cddf5cabbd2294308fd4146ffb037ae3c34ac0b40e623c1651", "R2(BthenA)_sha512_same_as_R1": true, "R3(BthenA_no_fastforward)_sha512_same_as_R1": true, "writers_equal_readers": true}
+  },
+  "findings": ["R2 (B then A, fastForward default) stalled at 6/11 pledges until after reconnect+ack then healed in 83ms"],
+  "viewSha512": "10dc224445f9ef610fdba0ac3c30732c9103e1a8e4b01ef5fa42c441109d562997a64fcbfcfd74cddf5cabbd2294308fd4146ffb037ae3c34ac0b40e623c1651",
+  "entries": 16,
+  "viewBytes": 3338
+}
