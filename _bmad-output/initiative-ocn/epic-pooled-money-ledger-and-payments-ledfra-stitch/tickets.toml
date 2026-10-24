@@ -3,71 +3,103 @@
 [[entry]]
 id = 1
 type = "spike"
-title = "Spike: Ledfra fit (tenancy, reversal, export, self-host)"
-description = "Tests the Ledfra sandbox for per-community ledgers, guarded accounts, idempotency conflicts, reversals and reports, and collects the vendor's written answers on self-hosting, export, licence and residency. Ends with decision D-2."
-verify = "Each sandbox behaviour and the vendor's written answers are recorded, and decision D-2 (hosted ledger with a mirror strategy, or another ledger) is recorded with the 2026-12-31 Early Access deadline considered."
-hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+title = "Ledfra fit (tenancy, reversal, export, self-host)"
+description = "Tests the Ledfra sandbox for per-community ledgers, guarded accounts, idempotency conflicts, reversals and reports, and collects the vendor's written answers on self-hosting, export, licence and residency, ending in decision D-2."
+verify = "A reviewer finds each sandbox behaviour and the vendor's written answers recorded, and decision D-2 (hosted ledger with a mirror strategy, or another ledger) recorded with the 2026-12-31 Early Access deadline considered."
+covers = ["FR10", "FR12", "AR3"]
+after = ["1.6"]
+refine = true
+hitl = true
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#de-ledger-via-ledfra", "architecture-ocn/architecture-ocn.md#9-decisions"]
 
 [[entry]]
 id = 2
 type = "story"
 title = "Ledger adapter and chart of accounts"
-description = "Implements the Ledger port with the Ledfra adapter so each event becomes one balanced transaction keyed by its event id, with member accounts guarded against overdraw. Posting the same event twice creates no second transaction."
+description = "Implements the Ledger port with the Ledfra adapter so each event becomes one balanced transaction keyed by its event id, with member accounts guarded against overdraw and repeat posts creating no second transaction."
 verify = "A transaction posted twice with the same Idempotency-Key creates one ledger transaction and records the idempotent replay, and guarded member accounts cannot be overdrawn by refunds."
+covers = ["FR10", "FR12", "NFR6", "AR5", "AR6"]
+after = [1, "1.2", "1.3", "1.5", "1.6", "3.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#de-ledger-via-ledfra"]
 
 [[entry]]
 id = 3
 type = "story"
 title = "Pay my contribution by bank payment"
-description = "A member taps Pay on a pledge and completes it in their own banking app through a Stitch payment request, with card payments disabled. Returning to the app shows waiting for confirmation rather than paid."
+description = "A member taps Pay on a pledge and completes it in their own banking app through a Stitch payment request with card disabled, and returning to the app shows waiting for confirmation rather than paid."
 verify = "Tapping Pay creates a Stitch request keyed by the event id that opens in an in-app browser tab, and the app never marks a payment paid from redirect parameters alone."
+covers = ["FR9", "UX-DR1"]
+after = [2, "1.2", "1.3", "1.5", "1.6", "3.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#payment-processor-via-stitch"]
 
 [[entry]]
 id = 4
 type = "spike"
-title = "Spike: Stitch disbursements, auth and webhook verification"
-description = "Confirms Stitch's payout API, client-credentials flow, webhook signature method and settlement times through the IDE, the Postman collection and a test disbursement. Lists any changes needed to stories 4.5 to 4.7."
+title = "Stitch disbursements, auth and webhook verification"
+description = "Confirms Stitch's payout API, client-credentials flow, webhook signature method and settlement times through the IDE, Postman collection and a test disbursement, recording any changes needed to stories 4.5 to 4.7."
 verify = "Endpoints, scopes, limits, signature verification and settlement times are recorded from a test disbursement, and a decision record lists any changes to stories 4.5 to 4.7."
+covers = ["FR11", "NFR5", "AR3"]
+after = ["1.6"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#payment-processor-via-stitch"]
 
 [[entry]]
 id = 5
 type = "story"
 title = "Payment confirmation by verified webhook, with reconciliation"
-description = "Confirms payments only from verified, de-duplicated Stitch webhooks, with a poller that resolves payments whose webhook never arrives. Webhook replays and failures are visible to the operator."
+description = "Confirms payments only from verified, de-duplicated Stitch webhooks, with a poller that resolves payments whose webhook never arrives and shows webhook replays and failures to the operator."
 verify = "A verified PaymentInitiationRequestCompleted webhook posts to the ledger once and appends payment.completed, and the poller resolves a payment whose webhook has timed out."
+covers = ["FR9", "FR10", "NFR5", "NFR6"]
+after = [2, 3, 4, "1.3", "1.5", "3.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#payment-processor-via-stitch"]
 
 [[entry]]
 id = 6
 type = "story"
 title = "Pooled funds and member balances view"
-description = "Members see the pool total, their own contribution, each member's status and the target, read from the ledger and matched to the record. Mismatches are flagged rather than hidden."
+description = "Members see the pool total, their own contribution, each member's status and the target, read from the ledger, with any mismatch against the record flagged rather than hidden."
 verify = "The pool view shows totals read from the ledger and matched to the record, and a mismatch between the two is flagged."
+covers = ["FR10"]
+after = [2, 5, "3.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#de-ledger-via-ledfra"]
 
 [[entry]]
 id = 7
 type = "story"
 title = "Approve and pay a supplier from the pool"
-description = "The pool pays a supplier once the required number of payment/approve holders approve within their ceilings. A missing approval or an exceeded ceiling refuses the payment and shows the reason."
+description = "The pool pays a supplier once the required number of payment/approve holders approve within their ceilings, and a missing approval or exceeded ceiling refuses the payment and shows the reason."
 verify = "With a funded pool and enough approvals within their ceilings the Node pays through Stitch and posts a balanced transaction, and a missing approval or exceeded ceiling refuses payment with the reason shown."
+covers = ["FR11", "NFR6", "UX-DR2"]
+after = [2, 3, 4, 5, "2.4", "3.2", "3.3"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#payment-processor-via-stitch"]
 
 [[entry]]
 id = 8
 type = "story"
 title = "Refunds, shortfalls and partial funding"
-description = "Handles cancelled orders by refunding each member with per-member events and compensating ledger entries, and records the treasurer's choice when the pool falls short. Members see the effect on their share."
+description = "Handles cancelled orders by refunding each member with per-member events and compensating ledger entries, and records the treasurer's choice when the pool falls short, with members seeing the effect on their share."
 verify = "A cancelled order creates per-member refund events and compensating ledger entries, and a shortfall choice to proceed smaller or extend is recorded and shown to members."
+covers = ["FR10", "FR12", "UX-DR1"]
+after = [2, 5, 6, "3.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#de-ledger-via-ledfra"]

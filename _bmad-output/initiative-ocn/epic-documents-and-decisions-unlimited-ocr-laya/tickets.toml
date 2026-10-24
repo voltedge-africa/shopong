@@ -3,53 +3,77 @@
 [[entry]]
 id = 1
 type = "spike"
-title = "Spike: Unlimited-OCR on real documents and GPU sizing"
-description = "Measures Unlimited-OCR accuracy and cost on at least 30 real South African supplier documents, covering VRAM, pages per minute and output format. Ends with decision D-4 on where GPU compute runs."
+title = "Unlimited-OCR on real documents and GPU sizing"
+description = "Measures Unlimited-OCR accuracy and cost on at least 30 real South African supplier documents, covering VRAM, pages per minute and output format, ending in decision D-4 on where GPU compute runs."
 verify = "Field accuracy, pages per minute, VRAM and cost per page are recorded on at least 30 real documents, and decision D-4 is recorded."
-hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+covers = ["FR7", "AR3"]
+after = []
+refine = true
+hitl = true
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ocr-via-unlimited-ocr", "architecture-ocn/architecture-ocn.md#9-decisions"]
 
 [[entry]]
 id = 2
 type = "story"
 title = "OCR service behind the Ocr port"
-description = "Uploaded price lists in Hyperdrive are queued by the Node, rasterised at 300 DPI and sent to the OCR endpoint, with the raw output stored beside the source. Failures retry with backoff and show in the operator view."
+description = "Uploaded price lists in Hyperdrive are queued by the Node, rasterised at 300 DPI and sent to the OCR endpoint, with the raw output stored beside the source and failures retried with backoff and shown in the operator view."
 verify = "An uploaded price list is rasterised at 300 DPI, its raw output with boxes is stored beside the source, and failures retry with backoff and surface in the operator view."
+covers = ["FR7", "AR1", "NFR7"]
+after = [1, "3.7"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#ocr-via-unlimited-ocr"]
 
 [[entry]]
 id = 3
 type = "story"
 title = "Structured quotes with human review"
-description = "Shows each extracted price-list row beside its source region so a treasurer can accept, edit or reject it before it counts. Accepted rows become quote.added events carrying the source hash."
+description = "Shows each extracted price-list row beside its source region so a treasurer can accept, edit or reject it before it counts, and accepted rows become quote.added events carrying the source hash."
 verify = "Each extracted row (item, unit, pack size, price) can be accepted, edited or rejected beside its source, and accepted rows become quote.added events with the source hash."
+covers = ["FR5", "FR7"]
+after = [2, "3.7"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#ocr-via-unlimited-ocr"]
 
 [[entry]]
 id = 4
 type = "spike"
-title = "Spike: Laya calibration and fine-tune on our decisions"
-description = "Tests whether Laya beats the majority-class baseline on our own labelled decisions after calibration and fine-tuning, question by question. Questions that do not beat the baseline stay human decisions."
+title = "Laya calibration and fine-tune on our decisions"
+description = "Tests whether Laya beats the majority-class baseline on our own labelled decisions after calibration and fine-tuning, question by question, so that questions that do not beat the baseline stay human decisions."
 verify = "Accuracy, calibration error and confidence threshold are recorded for each question against the baseline, and any question that does not beat it is not shipped."
+covers = ["FR8", "AR3"]
+after = []
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#system-1-decision-model-via-laya"]
 
 [[entry]]
 id = 5
 type = "story"
 title = "Rank supplier quotes with confidence"
-description = "Ranks three to eight supplier quotes through laya-serve with a stated confidence and criteria, and says no clear recommendation below the threshold. A treasurer's override is logged as a labelled example."
+description = "Ranks three to eight supplier quotes through laya-serve with a stated confidence and criteria, saying no clear recommendation below the threshold, and logs a treasurer's override as a labelled example."
 verify = "A ranking shows rank, confidence and criteria, falls back to 'no clear recommendation' below the threshold, and a logged override is stored as a labelled example."
+covers = ["FR8"]
+after = [3, 4]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#system-1-decision-model-via-laya"]
 
 [[entry]]
 id = 6
 type = "story"
 title = "Flag odd payments and mismatched delivery notes"
-description = "Attaches a flag with confidence to unusual payment requests and to delivery notes that do not match their order, and surfaces the flags to approvers. Nothing is blocked automatically."
+description = "Attaches a flag with confidence to unusual payment requests and to delivery notes that do not match their order, and surfaces the flags to approvers without blocking anything automatically."
 verify = "A flag above the confidence threshold is attached to a payment request or delivery note, shown to the approvers, and nothing is blocked automatically."
+covers = ["FR7"]
+after = [2, 4]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#system-1-decision-model-via-laya"]

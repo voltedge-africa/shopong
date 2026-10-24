@@ -2,6 +2,7 @@
 type: initiative
 title: "OCN (Open Commerce Network) and Shopong"
 parent: none
+covers: [FR1, FR2, FR3, FR4, FR5, FR6, FR7, FR8, FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19, FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, NFR1, NFR2, NFR3, NFR4, NFR5, NFR6, NFR7, NFR8, NFR9, AR1, AR2, AR3, AR4, AR5, AR6, AR7, AR8, AR9, AR10, AR11, AR12, AR13, UX-DR1, UX-DR2, UX-DR3, UX-DR4, UX-DR5]
 assignee: ""
 status: in-progress
 risk: high
@@ -19,9 +20,13 @@ A real stokvel completes a bulk grocery order using only OCN capabilities, with 
 
 ## Done when
 
-- All 12 epics in `tickets.toml` are done, each meeting the acceptance criteria in its plan file.
+- Every requirement in the spec (FR1 to FR28, NFR1 to NFR9, AR1 to AR13) is delivered by the epic that owns it, and the provisional UX requirements are confirmed through `bmad-ux` and delivered or parked.
 - The three success signals in the product brief are confirmed with the product owner (they are marked to be confirmed) and met by the first demonstration and the builder layer.
 - Spike decisions that gate later epics (2.1, 3.1, 4.1, 4.4, 5.1, 6.1, 6.4, 7.1, 11.1) are recorded before the stories that assume them.
+
+## Boundaries
+
+The OCN Node and the Shopong app (iOS, Android, web) with its web console, over the capability ports. Not the third-party services themselves (Ledfra, Stitch, the stablecoin issuers, the LLM providers), which sit behind adapters; the brief's section Out of Scope at This Stage lists what is excluded. Tracer path: the scripted stokvel order from proposal to collection on in-memory adapters (entry 1.4), then the same order on real sandbox adapters.
 
 ## References
 
@@ -29,3 +34,8 @@ A real stokvel completes a bulk grocery order using only OCN capabilities, with 
 - architecture — _bmad-output/initiative-ocn/architecture-ocn/architecture-ocn.md (non-negotiable rules and AD-* decisions)
 - technology register — _bmad-output/initiative-ocn/spec-ocn/technology-register.md (verified facts, [unverified] items owned by spikes)
 - spec — _bmad-output/initiative-ocn/spec-ocn/spec-ocn.md (requirements inventory)
+
+## Notes
+
+- Parked: UX-DR5 (accessible touch targets, contrast, screen-reader labels, more than one South African language) is not placed on any epic; the UX requirements are provisional until `bmad-ux` has run, so the placement waits for the user.
+- Open question: the epic prerequisites in the Epic List of the former planning document understated some real ones (for example epic 10 needs delivery and pledge events from epics 7 and 9); the epic notes record each case for the user.

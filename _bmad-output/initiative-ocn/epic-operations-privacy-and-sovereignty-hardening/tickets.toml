@@ -4,37 +4,52 @@
 id = 1
 type = "story"
 title = "Self-host kit"
-description = "One compose file and an operator guide let a community run the Node, the tile host, laya-serve and optional GPU services on its own infrastructure, with secrets supplied out of band."
-verify = "Following the operator guide on a clean machine starts all services and passes a smoke test, with secrets provided out of band and not in the repo."
+description = "Packages one compose file and an operator guide so a community can run the Node, the tile host, laya-serve and optional GPU services on its own infrastructure, with secrets supplied out of band."
+verify = "Following the operator guide on a clean machine starts all services and passes a smoke test, with secrets supplied out of band and none in the repo."
+covers = ["FR27", "NFR5"]
+after = ["1.5", "3.5", "6.2", "6.5", "7.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#ad-3"]
 
 [[entry]]
 id = 2
 type = "story"
 title = "Backup, restore and recovery drill"
-description = "Tests restoring the Node on new hardware and a member recovering on a new phone, and rebuilding the ledger from mirrored record events. The results must match the originals."
-verify = "After restore, the record, the member's identity and balances match the originals, and the ledger rebuilt from record events matches Ledfra."
-hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+description = "Tests restoring the Node on new hardware, a member recovering on a new phone, and rebuilding the ledger from mirrored record events, and checks that the results match the originals."
+verify = "After restore the record, the member's identity and balances match the originals, and the ledger rebuilt from record events matches Ledfra."
+covers = ["FR28"]
+after = [1, "2.6", "3.5", "4.2"]
+refine = true
+hitl = true
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-8", "architecture-ocn/architecture-ocn.md#ad-18"]
 
 [[entry]]
 id = 3
 type = "story"
 title = "POPIA and data-minimisation review"
-description = "Reviews which personal data is stored where and classifies each field by device, commitment, ledger metadata or shared record, with its lawful basis, retention and deletion approach. Gaps become new stories."
+description = "Reviews which personal data is stored where and classifies each field by device, commitment, ledger metadata or shared record, with its lawful basis, retention and deletion approach, turning each gap into a new story."
 verify = "Every field in the data inventory is classified with its lawful basis, retention and deletion approach, and any gap found is turned into a story."
-hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+covers = ["NFR3"]
+after = ["2.7", "3.2"]
+refine = true
+hitl = true
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#7-security-privacy-and-sovereignty"]
 
 [[entry]]
 id = 4
 type = "story"
 title = "Observability"
-description = "Dashboards and alerts for replication lag, webhook failures, stalled queues and reconciliation problems, so issues are found before members find them."
+description = "Adds dashboards and alerts for replication lag, webhook failures, stalled queues and reconciliation problems, so issues are found before members find them."
 verify = "A failed webhook, a stalled queue or replication lag beyond a threshold fires an alert that names the space and event id."
+covers = ["NFR7"]
+after = ["3.5", "4.5", "10.3"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
 
 [[entry]]
 id = 5
@@ -42,23 +57,33 @@ type = "story"
 title = "Low-end Android performance and data budgets"
 description = "Measures start-up time, memory, battery and data per flow on the device baseline from decision D-6, and adds a low-data mode that defers photos and large files."
 verify = "The performance suite meets the stated budgets for start-up, memory, battery and data per flow, and low-data mode defers photos and large files."
+covers = ["NFR2", "NFR9", "UX-DR3"]
+after = ["8.7", "9.6"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
 
 [[entry]]
 id = 6
 type = "story"
 title = "Security review and hardening"
-description = "An independent review of key handling, webhooks, the sandbox and the web console, with findings triaged to owners and the WASM content security policy scoped to the console origin."
+description = "Has an independent review of key handling, webhooks, the sandbox and the web console, triages each finding to an owner, and scopes the WASM content security policy to the console origin only."
 verify = "Review findings are triaged with owners, and the CSP for WASM is scoped to the console origin only."
-hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+covers = ["AR8"]
+after = ["1.2", "2.6", "3.8", "4.5", "5.2", "11.3"]
+refine = true
+hitl = true
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#7-security-privacy-and-sovereignty"]
 
 [[entry]]
 id = 7
 type = "story"
 title = "Licences, attribution and supply-chain register"
-description = "Generates a register of every dependency's and data source's licence, including Apache-2.0 and MIT components, OSM ODbL attribution and Valhalla's compiled-dependency notices. CI fails when an unregistered licence appears."
+description = "Generates a register of every dependency's and data source's licence, including Apache-2.0 and MIT components, OSM ODbL attribution and Valhalla's compiled-dependency notices, and fails CI when an unregistered licence appears."
 verify = "The generated register lists every licence and attribution, and CI fails when an unregistered licence appears."
+covers = ["NFR8"]
+after = ["1.1", "7.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "low"

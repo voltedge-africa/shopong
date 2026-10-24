@@ -4,43 +4,58 @@
 id = 1
 type = "story"
 title = "Obligation model derived from events"
-description = "Derives who owes whom what, and by when, from events such as pledge.created, funding.accepted and delivery.confirmed, with state open, due, overdue or settled. The same events always give the same obligations."
-verify = "Obligations derived from events carry their state, and identical events always produce identical obligations."
+description = "Derives who owes whom what, and by when, from events such as pledge.created, funding.accepted and delivery.confirmed, with state open, due, overdue or settled, so the same events always give the same obligations."
+verify = "Rebuilding obligations from the same events twice gives identical obligations, each with its state of open, due, overdue or settled."
+covers = ["FR20"]
+after = ["3.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
 
 [[entry]]
 id = 2
 type = "story"
 title = "Transparent transaction timeline"
-description = "One timeline per transaction joins record events, ledger postings and any on-chain proof by event id, so each participant can see exactly what happened."
-verify = "A payment shows the request, confirmation, ledger posting and any transaction link in order, joined by event id."
+description = "Joins record events, ledger postings and any on-chain proof for each transaction by event id into one timeline that each participant can read."
+verify = "A payment shows its request, confirmation, ledger posting and any transaction link, in that order and joined by event id."
+covers = ["FR21"]
+after = ["3.2", "4.2", "4.5"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
 
 [[entry]]
 id = 3
 type = "story"
 title = "Reconciliation and discrepancy flags"
-description = "A scheduled reconciliation checks that the record, the ledger and the payment processor agree, and creates a discrepancy when a total or status differs. Discrepancies stay visible until resolved with a recorded reason."
-verify = "A total or status mismatch creates a discrepancy with both values and the event id, visible to approvers until resolved with a recorded reason."
+description = "A scheduled reconciliation checks that the record, the ledger and the payment processor agree, and opens a discrepancy with both values and the event id when a total or status differs."
+verify = "A total or status mismatch between the three systems creates a discrepancy showing both values and the event id, visible to approvers until resolved with a recorded reason."
+covers = ["FR21", "AR5"]
+after = ["3.2", "4.2", "4.5"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
 
 [[entry]]
 id = 4
 type = "story"
 title = "Audit export for members and funders"
-description = "Permitted members and funders export an audit bundle of events with their proofs and hashes that a stand-alone verifier can check without the app."
-verify = "A permitted export yields a bundle of events with proofs and hashes that a stand-alone verifier can check."
+description = "Lets permitted members and funders export an audit bundle of events with their proofs and hashes, which a stand-alone verifier can check without the app."
+verify = "A permitted export yields a bundle of events with proofs and hashes that a stand-alone verifier accepts without the app."
+covers = ["FR21", "FR22"]
+after = ["3.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
 
 [[entry]]
 id = 5
 type = "story"
 title = "Verifiable track record and proof bundle"
-description = "Builds a proof bundle of signed events and counterparty confirmations for closed obligations and confirmed deliveries, with a summary the user chooses to share. The verifier distinguishes verified parts from the user's own claims."
-verify = "The proof bundle contains signed events, counterparty confirmations and the chosen summary, and the verifier marks which parts are verified and which are the user's claims."
+description = "Builds a proof bundle of signed events and counterparty confirmations for closed obligations and confirmed deliveries, with a summary the user chooses to share."
+verify = "The proof bundle contains signed events, counterparty confirmations and the chosen summary, and the verifier marks which parts are verified and which are the user's own claims."
+covers = ["FR22"]
+after = [1, 4, "3.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"

@@ -3,62 +3,83 @@
 [[entry]]
 id = 1
 type = "spike"
-title = "Spike: Valhalla tiles, routing and mobile viability"
-description = "Builds tiles from an OSM extract and tests routing, isochrones, matrix and optimised routes in the browser and Node, and whether the routing engine can run on iOS and Android. Records the decision."
-verify = "Tile size, build time, route latency and memory are recorded in the browser and Node, each Valhalla feature is recorded as working or not, and mobile viability is decided."
+title = "Valhalla tiles, routing and mobile viability"
+description = "Builds tiles from an OSM extract and tests Valhalla routing, isochrones, matrix and optimised routes in the browser and Node, and whether the engine runs on iOS and Android, ending in a recorded decision."
+verify = "Tile size, build time, route latency and memory are recorded for browser and Node, each Valhalla feature is marked working or not, and a mobile viability decision is on record."
+covers = ["AR7"]
+after = []
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
 
 [[entry]]
 id = 2
 type = "story"
 title = "Tile build pipeline and hosting"
-description = "A reproducible pipeline builds tiles, graph.tar and a versioned manifest from a pinned OSM extract into static storage, so routes stay consistent and attribution stays complete."
-verify = "The pipeline outputs tiles, graph.tar and a manifest with a release id to static storage, and the app and Node show OSM (ODbL) attribution."
+description = "A reproducible pipeline builds tiles, graph.tar and a versioned manifest from a pinned OSM extract into static storage, with OSM attribution shown in the app and Node."
+verify = "Running the pipeline on the pinned extract writes tiles, graph.tar and a manifest with a release id to static storage, and the app and Node display the OSM (ODbL) attribution."
+covers = ["AR9", "NFR8"]
+after = [1]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
 
 [[entry]]
 id = 3
 type = "story"
 title = "Map of members, collection points and demand"
-description = "Shows demand clusters and candidate collection points on a map in the console, using member locations coarsened before they leave the device. No exact home address enters the shared record."
-verify = "Coarsened member locations load into DuckDB-WASM and Kepler.gl showing demand clusters and candidate collection points, with no exact address in the shared record."
+description = "Shows demand clusters and candidate collection points on the console map from member locations coarsened on the device, so no exact home address enters the shared record."
+verify = "Coarsened member locations load into DuckDB-WASM and Kepler.gl and show demand clusters and candidate collection points, and inspecting the shared record finds no exact address."
+covers = ["FR14", "AR7", "NFR3"]
+after = ["3.8"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
 
 [[entry]]
 id = 4
 type = "story"
 title = "Plan a route to the collection point"
-description = "A driver requests a truck route from a supplier depot to a collection point, seeing distance, time and the route line on a map. The polyline and manifest release id are stored in a delivery.planned event."
-verify = "A truck route from Valhalla is shown with distance, time and map line, and its polyline6 and manifest release id are stored in the delivery.planned event."
+description = "A driver requests a truck route from a supplier depot to a collection point, sees its distance, time and line on a map, and the polyline and manifest release id are stored in a delivery.planned event."
+verify = "A Valhalla truck route shows distance, time and map line, and its polyline6 and manifest release id are present in the delivery.planned event."
+covers = ["FR15", "AR4", "AR7"]
+after = [1, 2, "3.2"]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
 
 [[entry]]
 id = 5
 type = "story"
 title = "Multi-stop delivery runs"
-description = "Orders two to eight collection points into one run using the approach chosen in spike 7.1, and shows the total time. The run is stored with its ordering method named."
-verify = "A run of two to eight stops is ordered, total time is shown, and the run is stored with the ordering method named."
+description = "Orders two to eight collection points into one run using the approach decided in spike 7.1, shows the total time, and stores the run with its ordering method named."
+verify = "A run of two to eight stops is ordered, its total time is shown, and the stored run names its ordering method."
+covers = ["FR15"]
+after = [1, 4]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
 
 [[entry]]
 id = 6
 type = "story"
 title = "Proof of delivery and proof of collection"
-description = "A driver with delivery/confirm records a signed arrival event with time, coarse location and a photo, and each member confirms collection of their share. Both events show progress on the order."
-verify = "A driver's signed delivery event with a SHA-512-referenced photo is recorded, each member's confirmation is recorded as collection.confirmed, and the order shows progress."
+description = "A driver with delivery/confirm records a signed arrival with time, coarse location and a SHA-512-referenced photo, and each member's collection is recorded as collection.confirmed, both showing progress on the order."
+verify = "A driver's signed delivery event with a photo referenced by SHA-512 is recorded, each member's confirmation is recorded as collection.confirmed, and the order shows progress."
+covers = ["FR16", "AR4"]
+after = [4, "3.7", "4.7"]
+refine = true
 hitl = true
-references = ["spec-ocn/spec-ocn.md"]
+risk = "high"
 
 [[entry]]
 id = 7
 type = "story"
 title = "Follow a delivery and handle exceptions"
-description = "Members see a delivery's status (planned, started, arrived, collected) and its last confirmed point, and a late, failed or partial delivery creates an exception visible to all approvers."
+description = "Members see a delivery's status (planned, started, arrived, collected) and its last confirmed point, and a late, failed or partial delivery creates an exception event visible to all approvers."
 verify = "Delivery status and the last confirmed point are visible to members, and a late, failed or partial delivery creates an exception event visible to all approvers."
+covers = ["FR17"]
+after = [4, 6]
+refine = true
 hitl = false
-references = ["spec-ocn/spec-ocn.md"]
+risk = "medium"
