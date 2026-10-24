@@ -30,7 +30,45 @@ importers:
         specifier: 'catalog:'
         version: 0.3.0(@voidzero-dev/vite-plus-core@0.3.0(typescript@7.0.2))(typescript@7.0.2)
 
+  packages/adapters-memory:
+    dependencies:
+      '@shopong/ports':
+        specifier: workspace:*
+        version: link:../ports
+    devDependencies:
+      '@shopong/ports-contract':
+        specifier: workspace:*
+        version: link:../ports-contract
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.0(@voidzero-dev/vite-plus-core@0.3.0(typescript@7.0.2))(typescript@7.0.2)
+
   packages/events:
+    devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.0(@voidzero-dev/vite-plus-core@0.3.0(typescript@7.0.2))(typescript@7.0.2)
+
+  packages/ports:
+    devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.0(@voidzero-dev/vite-plus-core@0.3.0(typescript@7.0.2))(typescript@7.0.2)
+
+  packages/ports-contract:
+    dependencies:
+      '@shopong/ports':
+        specifier: workspace:*
+        version: link:../ports
     devDependencies:
       typescript:
         specifier: 7.0.2
