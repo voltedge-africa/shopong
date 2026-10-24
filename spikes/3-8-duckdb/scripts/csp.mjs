@@ -107,3 +107,24 @@ for (const [name, key, suffix, coi, bundle] of rows) {
   await srv.close();
 }
 save(`csp-${alias}.json`, out);
+// fail loudly: the policies A POLICY PASS MATTERS FOR (the task policy + the variants we intend
+// to use) must pass every step with zero CSP violations; the deliberately-broken rows
+// (noBlob/noWasmEval/noWorkerDirective/unsafeEval) are informational, their FAIL text is data.
+const intended = ["task policy (shim build)", "task policy, stock apache-arrow"];
+const bad = out.filter(
+  (r) =>
+    intended.includes(r.name) &&
+    (r.fatal || Object.values(r.steps).some((s) => String(s).startsWith("FAIL"))),
+);
+if (bad.length) {
+  console.error(
+    `CSP FAILURES:\n` +
+      bad
+        .map(
+          (r) =>
+            `- ${r.name}: ${r.fatal ?? JSON.stringify(r.steps)} ${JSON.stringify(r.violations)}`,
+        )
+        .join("\n"),
+  );
+  process.exit(1);
+}

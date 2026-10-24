@@ -19,7 +19,7 @@ async function scenario(
     _offlineAfterFirst = false,
   },
 ) {
-  const srv = await startServer({ dir, csp, extDir: "ext-mirror" });
+  const srv = await startServer({ dir, csp, extDir: ".cache/ext-mirror" });
   const browser = await launch();
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
@@ -149,7 +149,7 @@ for (const mode of ["self_hosted_immutable", "default_repo"]) {
   const srv = await startServer({
     dir,
     csp: mode === "default_repo" ? "none" : "strict",
-    extDir: "ext-mirror",
+    extDir: ".cache/ext-mirror",
     cacheControl: "public, max-age=31536000, immutable",
   });
   const browser = await launch();
@@ -188,12 +188,12 @@ for (const mode of ["self_hosted_immutable", "default_repo"]) {
 
 // E. Unsigned / tampered file: flip one byte in the mirrored extension and see whether LOAD rejects it.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-mkdirSync(`ext-mirror-tampered/${version}/wasm_eh`, { recursive: true });
-const b = readFileSync(`ext-mirror/${version}/wasm_eh/json.duckdb_extension.wasm`);
+mkdirSync(`.cache/ext-mirror-tampered/${version}/wasm_eh`, { recursive: true });
+const b = readFileSync(`.cache/ext-mirror/${version}/wasm_eh/json.duckdb_extension.wasm`);
 b[Math.floor(b.length / 2)] ^= 0xff;
-writeFileSync(`ext-mirror-tampered/${version}/wasm_eh/json.duckdb_extension.wasm`, b);
+writeFileSync(`.cache/ext-mirror-tampered/${version}/wasm_eh/json.duckdb_extension.wasm`, b);
 {
-  const srv = await startServer({ dir, csp: "strict", extDir: "ext-mirror-tampered" });
+  const srv = await startServer({ dir, csp: "strict", extDir: ".cache/ext-mirror-tampered" });
   const browser = await launch();
   const page = await browser.newPage();
   await page.goto(srv.url);
@@ -215,3 +215,30 @@ writeFileSync(`ext-mirror-tampered/${version}/wasm_eh/json.duckdb_extension.wasm
 }
 if (!ONLY_F) save(`extensions-${alias}.json`, results);
 else save(`extensions-F-${alias}.json`, results);
+
+// fail loudly: scenario B (self-hosted under strict CSP, third parties blocked) must pass every
+// statement with no third-party request; F self-hosted must work offline; E (tampered file) must
+// ERROR on LOAD — a tampered extension that loads silently would be the worst outcome.
+const loud = [];
+{
+  const B = results.scenarios.B_self_hosted_strict_csp_third_parties_blocked;
+  const stepErrs = Object.values(B.steps ?? {})
+    .flat()
+    .filter((c) => c.error);
+  if (stepErrs.length) loud.push(`B step errors: ${JSON.stringify(stepErrs).slice(0, 400)}`);
+  if (B.nonLocalRequests?.length)
+    loud.push(`B non-local requests: ${JSON.stringify(B.nonLocalRequests).slice(0, 400)}`);
+  if (B.blockedByTest?.length)
+    loud.push(`B attempted third-party requests: ${JSON.stringify(B.blockedByTest)}`);
+  const f = results.scenarios.F_offline_after_cache_self_hosted_immutable;
+  if (!f || f.offline?.[0] !== "ok" || f.offline?.[1] !== "ok")
+    loud.push(`F self-hosted offline not both ok: ${JSON.stringify(f)}`);
+  const e = results.scenarios.E_tampered_extension;
+  const lastLoad = e?.[e.length - 1];
+  if (!lastLoad?.error)
+    loud.push(`E tampered extension: LOAD json did not error: ${JSON.stringify(lastLoad)}`);
+}
+if (loud.length) {
+  console.error(`EXTENSION-SOVEREIGNTY FAILURES:\n- ` + loud.join("\n- "));
+  process.exit(1);
+}

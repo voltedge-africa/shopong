@@ -1,6 +1,5 @@
 node_modules
 dist
 public/duckdb
-ext-mirror
 .tmp
-ext-mirror-tampered
+.cache

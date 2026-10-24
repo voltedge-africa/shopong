@@ -31,7 +31,10 @@ const rows = (tbl: arrow.Table) =>
 const q = async (sql: string) => rows(await conn!.query(sql));
 
 const api = {
-  /** Instantiate AsyncDuckDB in a worker from self-hosted bundles. */
+  /** Instantiate AsyncDuckDB in a worker from self-hosted bundles.
+   *  `path: "opfs://…"` opens a persistent OPFS database. Feature-detected at init with a real
+   *  `navigator.storage.getDirectory()` call; an `opfs://` path with no OPFS falls back to an
+   *  in-memory database (`storage: "memory"`), so data lives for the session only. */
   async init(
     opts: {
       bundle?: string;
@@ -53,6 +56,24 @@ const api = {
     db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
     await db.instantiate(pick.mainModule, pick.pthreadWorker);
     const instantiateMs = performance.now() - start;
+    let storage: "opfs" | "file" | "memory" = opts.path?.startsWith("opfs://")
+      ? "opfs"
+      : opts.path
+        ? "file"
+        : "memory";
+    if (storage === "opfs") {
+      let opfs = false;
+      try {
+        opfs = "storage" in navigator && !!(await navigator.storage.getDirectory());
+      } catch {
+        opfs = false;
+      }
+      if (!opfs) {
+        log("opfs unavailable — falling back to an in-memory database");
+        storage = "memory";
+        opts = { ...opts, path: undefined };
+      }
+    }
     if (opts.path) {
       await db.open({
         path: opts.path,
@@ -73,6 +94,7 @@ const api = {
       bundle: key,
       alias: info!.alias,
       pkgVersion: info!.version,
+      storage,
       instantiateMs: Math.round(instantiateMs),
       version: v[0],
       platform,

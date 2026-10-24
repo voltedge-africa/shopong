@@ -1,0 +1,199 @@
+[
+  {
+    "name": "task policy (shim build)",
+    "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'",
+    "build": "arrow isValid shim",
+    "coi": false,
+    "bundle": "auto",
+    "steps": {
+      "instantiate (wasm + worker)": "ok",
+      "insert JSON rows": "ok",
+      "insert Arrow rows (apache-arrow Builder)": "ok",
+      "SQL aggregates": "ok",
+      "LOAD spatial from console origin": "FAIL: IO Error: Extension http://127.0.0.1:37063/ext/v1.4.3/wasm_eh/spatial.duckdb_extension.wasm is not available",
+      "Parquet export/import": "FAIL: page.evaluate: Error: Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'parquet':"
+    },
+    "bundleUsed": "eh",
+    "crossOriginIsolated": false,
+    "engine": "v1.4.3",
+    "violations": [],
+    "otherConsoleErrors": []
+  },
+  {
+    "name": "task policy, stock apache-arrow",
+    "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'",
+    "build": "stock apache-arrow",
+    "coi": false,
+    "bundle": "auto",
+    "steps": {
+      "instantiate (wasm + worker)": "ok",
+      "insert JSON rows": "ok",
+      "insert Arrow rows (apache-arrow Builder)": "FAIL: page.evaluate: EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self' 'wasm-u",
+      "SQL aggregates": "FAIL: page.evaluate: Error: Catalog Error: Table with name orders does not exist!",
+      "LOAD spatial from console origin": "FAIL: IO Error: Extension http://127.0.0.1:36205/ext/v1.4.3/wasm_eh/spatial.duckdb_extension.wasm is not available",
+      "Parquet export/import": "FAIL: page.evaluate: Error: Catalog Error: Table with name orders does not exist!"
+    },
+    "bundleUsed": "eh",
+    "crossOriginIsolated": false,
+    "engine": "v1.4.3",
+    "violations": [],
+    "otherConsoleErrors": []
+  },
+  {
+    "name": "no blob: in worker-src",
+    "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'",
+    "build": "arrow isValid shim",
+    "coi": false,
+    "bundle": "auto",
+    "steps": {
+      "instantiate (wasm + worker)": "ok",
+      "insert JSON rows": "ok",
+      "insert Arrow rows (apache-arrow Builder)": "ok",
+      "SQL aggregates": "ok",
+      "LOAD spatial from console origin": "FAIL: IO Error: Extension http://127.0.0.1:37235/ext/v1.4.3/wasm_eh/spatial.duckdb_extension.wasm is not available",
+      "Parquet export/import": "FAIL: page.evaluate: Error: Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'parquet':"
+    },
+    "bundleUsed": "eh",
+    "crossOriginIsolated": false,
+    "engine": "v1.4.3",
+    "violations": [],
+    "otherConsoleErrors": []
+  },
+  {
+    "name": "no worker-src directive (falls back to script-src)",
+    "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'",
+    "build": "arrow isValid shim",
+    "coi": false,
+    "bundle": "auto",
+    "steps": {
+      "instantiate (wasm + worker)": "ok",
+      "insert JSON rows": "ok",
+      "insert Arrow rows (apache-arrow Builder)": "ok",
+      "SQL aggregates": "ok",
+      "LOAD spatial from console origin": "FAIL: IO Error: Extension http://127.0.0.1:35397/ext/v1.4.3/wasm_eh/spatial.duckdb_extension.wasm is not available",
+      "Parquet export/import": "FAIL: page.evaluate: Error: Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'parquet':"
+    },
+    "bundleUsed": "eh",
+    "crossOriginIsolated": false,
+    "engine": "v1.4.3",
+    "violations": [],
+    "otherConsoleErrors": []
+  },
+  {
+    "name": "no 'wasm-unsafe-eval'",
+    "csp": "default-src 'self'; script-src 'self'; worker-src 'self' blob:; connect-src 'self'",
+    "build": "arrow isValid shim",
+    "coi": false,
+    "bundle": "auto",
+    "steps": {
+      "instantiate (wasm + worker)": "FAIL: page.evaluate: Target page, context or browser has been closed",
+      "insert JSON rows": "FAIL: page.evaluate: Target page, context or browser has been closed",
+      "insert Arrow rows (apache-arrow Builder)": "FAIL: page.evaluate: Target page, context or browser has been closed",
+      "SQL aggregates": "FAIL: page.evaluate: Target page, context or browser has been closed",
+      "LOAD spatial from console origin": "FAIL: page.evaluate: Target page, context or browser has been closed",
+      "Parquet export/import": "FAIL: page.evaluate: Target page, context or browser has been closed"
+    },
+    "violations": [],
+    "otherConsoleErrors": []
+  },
+  {
+    "name": "default-src none, script-src self+wasm-unsafe-eval, connect-src self (no worker-src)",
+    "csp": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'",
+    "build": "arrow isValid shim",
+    "coi": false,
+    "bundle": "auto",
+    "steps": {
+      "instantiate (wasm + worker)": "ok",
+      "insert JSON rows": "ok",
+      "insert Arrow rows (apache-arrow Builder)": "ok",
+      "SQL aggregates": "ok",
+      "LOAD spatial from console origin": "FAIL: IO Error: Extension http://127.0.0.1:46399/ext/v1.4.3/wasm_eh/spatial.duckdb_extension.wasm is not available",
+      "Parquet export/import": "FAIL: page.evaluate: Error: Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'parquet':"
+    },
+    "bundleUsed": "eh",
+    "crossOriginIsolated": false,
+    "engine": "v1.4.3",
+    "violations": [],
+    "otherConsoleErrors": []
+  },
+  {
+    "name": "same + 'unsafe-eval' instead of wasm-unsafe-eval, stock arrow",
+    "csp": "default-src 'self'; script-src 'self' 'unsafe-eval'; worker-src 'self' blob:; connect-src 'self'",
+    "build": "stock apache-arrow",
+    "coi": false,
+    "bundle": "auto",
+    "steps": {
+      "instantiate (wasm + worker)": "ok",
+      "insert JSON rows": "ok",
+      "insert Arrow rows (apache-arrow Builder)": "ok",
+      "SQL aggregates": "ok",
+      "LOAD spatial from console origin": "FAIL: IO Error: Extension http://127.0.0.1:44987/ext/v1.4.3/wasm_eh/spatial.duckdb_extension.wasm is not available",
+      "Parquet export/import": "FAIL: page.evaluate: Error: Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'parquet':"
+    },
+    "bundleUsed": "eh",
+    "crossOriginIsolated": false,
+    "engine": "v1.4.3",
+    "violations": [],
+    "otherConsoleErrors": []
+  },
+  {
+    "name": "task policy + COOP/COEP, threaded coi bundle",
+    "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'",
+    "build": "arrow isValid shim",
+    "coi": true,
+    "bundle": "coi",
+    "steps": {
+      "instantiate (wasm + worker)": "ok",
+      "insert JSON rows": "ok",
+      "insert Arrow rows (apache-arrow Builder)": "ok",
+      "SQL aggregates": "ok",
+      "LOAD spatial from console origin": "FAIL: IO Error: Extension http://127.0.0.1:44787/ext/v1.4.3/wasm_threads/spatial.duckdb_extension.wasm is not available",
+      "Parquet export/import": "FAIL: page.evaluate: Error: Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'parquet':"
+    },
+    "bundleUsed": "coi",
+    "crossOriginIsolated": true,
+    "engine": "v1.4.3",
+    "violations": [],
+    "otherConsoleErrors": []
+  },
+  {
+    "name": "no blob + COOP/COEP, threaded coi bundle",
+    "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'",
+    "build": "arrow isValid shim",
+    "coi": true,
+    "bundle": "coi",
+    "steps": {
+      "instantiate (wasm + worker)": "ok",
+      "insert JSON rows": "ok",
+      "insert Arrow rows (apache-arrow Builder)": "ok",
+      "SQL aggregates": "ok",
+      "LOAD spatial from console origin": "FAIL: IO Error: Extension http://127.0.0.1:37089/ext/v1.4.3/wasm_threads/spatial.duckdb_extension.wasm is not available",
+      "Parquet export/import": "FAIL: page.evaluate: Error: Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'parquet':"
+    },
+    "bundleUsed": "coi",
+    "crossOriginIsolated": true,
+    "engine": "v1.4.3",
+    "violations": [],
+    "otherConsoleErrors": []
+  },
+  {
+    "name": "task policy, mvp bundle (non-EH fallback)",
+    "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'",
+    "build": "arrow isValid shim",
+    "coi": false,
+    "bundle": "mvp",
+    "steps": {
+      "instantiate (wasm + worker)": "ok",
+      "insert JSON rows": "ok",
+      "insert Arrow rows (apache-arrow Builder)": "ok",
+      "SQL aggregates": "ok",
+      "LOAD spatial from console origin": "FAIL: _setThrew is not defined",
+      "Parquet export/import": "FAIL: page.evaluate: ReferenceError: _setThrew is not defined"
+    },
+    "bundleUsed": "mvp",
+    "crossOriginIsolated": false,
+    "engine": "v1.4.3",
+    "violations": [],
+    "otherConsoleErrors": []
+  }
+]
