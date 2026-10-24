@@ -55,3 +55,6 @@ _bmad/custom/*.user.toml
 *.mov
 *.wav
 *.mp3
+
+# Downloaded sandbox data (OSM extracts); never committed
+.cache/
