@@ -1,4 +1,4 @@
-# Epic 11: Builder layer: agents and generated interfaces. Story order follows epics.md.
+# Epic 11: Builder layer: agents and generated interfaces. Story order is build order.
 
 [[entry]]
 id = 1
@@ -7,7 +7,7 @@ title = "Spike: OpenCode server vs Pi as the agent runtime"
 description = "Compares OpenCode server mode with Pi for running agent sessions on the OCN Node, covering denial of built-in tools, permission requests, custom and MCP tools, and tool calls on a local model. Confirms or reverses AD-10 and records D-9."
 verify = "Both runtimes are run in a sandbox against a stub capability MCP server and a local endpoint, and AD-10 and D-9 are recorded as confirmed or reversed."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 2
@@ -16,7 +16,7 @@ title = "OCN Capability MCP server with authority checks"
 description = "Exposes the platform's capabilities once as an MCP server in which every tool needs a UCAN and is classified as read, write or money. A money tool returns needs-confirmation and performs nothing until the member approves."
 verify = "A call without the right authority is refused with a reason, and a money-classified tool returns needs-confirmation and performs nothing until the member approves in the UI."
 hitl = true
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 3
@@ -25,7 +25,7 @@ title = "Sandboxed agent sessions with narrower authority"
 description = "Each agent session runs in a sandbox with deny-by-default permissions, no network except the capability MCP server and a model endpoint, and a short-lived UCAN strictly narrower than the member's. Session actions are appended as agent.action events."
 verify = "A session runs sandboxed with a UCAN narrower than the member's, and a built-in tool such as bash or edit is refused and the attempt logged."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 4
@@ -34,7 +34,7 @@ title = "OCN component library for generated interfaces"
 description = "Provides an approved component library (Stack, Metric, Table, Form and others) that the model may use, with each component declaring which capability it may bind to. The spec and system prompt are generated locally with no hosted service."
 verify = "createLibrary, generate --spec and generateSystemPrompt produce the spec and prompt locally, and each component declares the capability read or action it may bind to."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 5
@@ -43,7 +43,7 @@ title = "Describe a workflow and get a screen"
 description = "A member describes what they need in plain language and an agent streams a working screen with real data. Invalid or out-of-library components are dropped with a visible notice."
 verify = "A plain-language request streams a screen with real data progressively, and an invalid or out-of-library component is dropped with a visible notice."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 6
@@ -52,7 +52,7 @@ title = "Actions from generated screens with human confirmation"
 description = "Buttons in generated screens call capability APIs with the member's UCAN, and any money action shows a confirmation step that cannot be bypassed."
 verify = "A generated button calls the capability API with the member's UCAN, and a money action cannot run without the confirmation step."
 hitl = true
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 7
@@ -61,7 +61,7 @@ title = "Safety rails and red-team tests"
 description = "A test suite of injected instructions in documents, names and messages checks that the agent makes no out-of-authority call, no unconfirmed money action and no access to another space's data. Per-space spend and token limits are enforced."
 verify = "Injected-instruction tests cause no out-of-authority call, unconfirmed money action or cross-space data access, and per-space spend and token limits are enforced."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 8
@@ -70,7 +70,7 @@ title = "Save, share and fork a custom solution"
 description = "A builder saves a working solution's OpenUI source and tool bindings in Hyperdrive with a SHA-512, and shares it under a UCAN so another community can fork it under its own authority."
 verify = "A saved solution is stored with its SHA-512, and a shared copy can be forked by another community under that community's own authority."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 9
@@ -79,4 +79,4 @@ title = "Model routing and local fallback"
 description = "Operators choose models per task with a local fallback and cost caps, so the Node falls back to a local model when a hosted provider fails or a cap is hit. Prompts carry no raw personal data and payloads are not logged."
 verify = "When a hosted provider fails or the cap is reached, the Node falls back to the local model or refuses with a clear message, and prompts contain no raw personal data."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]

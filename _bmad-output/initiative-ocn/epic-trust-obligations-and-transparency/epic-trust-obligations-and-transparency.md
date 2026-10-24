@@ -15,8 +15,8 @@ Every transaction has a timeline anyone entitled can inspect, obligations are de
 
 ## Done when
 
-- Every story in `tickets.toml` is done, each meeting its acceptance criteria in `_bmad-output/planning-artifacts/epics.md`.
+- Every story in `tickets.toml` is done, each meeting the acceptance criteria in its plan file.
 
 ## References
 
-- source — _bmad-output/planning-artifacts/epics.md, section Epic 10: Trust, obligations and transparency
+- source — _bmad-output/initiative-ocn/spec-ocn/spec-ocn.md; the acceptance criteria of each story are in its plan file in this folder

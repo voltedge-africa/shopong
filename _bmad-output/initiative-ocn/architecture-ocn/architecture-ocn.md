@@ -3,8 +3,8 @@ title: "OCN / Shopong: Architecture and Technology Integration Plan"
 status: draft
 created: 2026-10-24
 inputs:
-  - _bmad-output/planning-artifacts/product-brief-ocn.md
-  - _bmad-output/planning-artifacts/technology-register.md
+  - _bmad-output/initiative-ocn/brief-ocn/brief-ocn.md
+  - _bmad-output/initiative-ocn/spec-ocn/technology-register.md
   - docs/source/technology-stack-diagram.png
   - docs/source/ocn-shopong-project-spine.pdf
   - docs/source/technology-links.docx
@@ -14,7 +14,7 @@ inputs:
 
 > **Revision (2026-10-24, second pass).** After reading the Pears building-block pages (Hypercore, Corestore, Hyperdrive, HyperDHT, Autobee, Bare Kit, Bluetooth) and OpenCode's server, SDK, permissions, providers, MCP and custom-tool docs, the Data and Intelligence sections below were rewritten. Material changes: writer keys can be restored from one seed (Corestore `primaryKey`); `base.replicate` replaces `store.replicate`; native addons must be linked in the app; iOS suspends worklets after about 30 s; OpenCode has the permission model and authenticated HTTP server that Pi lacks, so the agent runtime is now a spike-gated choice that leans OpenCode, with capability tools exposed through our own MCP server (AD-10, AD-17).
 >
-> **How to read this.** Section 1-3 give the shape. Section 4 goes capability by capability and, for every technology in the stack diagram, states **what it is (verified), what we use, how we use it, and what for**. Section 5 walks three end-to-end flows. Sections 6-9 cover data, security, deployment and decisions. Section 10 lists risks and the spike that retires each one. Facts about each technology were checked against its documentation on 2026-10-24 (see `technology-register.md`); anything the docs did not state is marked **[unverified]** and owned by a spike story in `epics.md`.
+> **How to read this.** Section 1-3 give the shape. Section 4 goes capability by capability and, for every technology in the stack diagram, states **what it is (verified), what we use, how we use it, and what for**. Section 5 walks three end-to-end flows. Sections 6-9 cover data, security, deployment and decisions. Section 10 lists risks and the spike that retires each one. Facts about each technology were checked against its documentation on 2026-10-24 (see `technology-register.md`); anything the docs did not state is marked **[unverified]** and owned by a spike story in the epic folders in `_bmad-output/initiative-ocn/`.
 
 ## 1. Purpose and principles
 

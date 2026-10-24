@@ -8,16 +8,18 @@ The acronym is **OCN**. Never write "OCM".
 
 ## Where the plan lives
 
-| File                                                       | What it holds                                                                   |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `_bmad-output/planning-artifacts/product-brief-ocn.md`     | The idea, the spine, who it serves                                              |
-| `_bmad-output/planning-artifacts/architecture.md`          | Runtime places, ports and adapters, event envelope, security, decisions (AD-\*) |
-| `_bmad-output/planning-artifacts/technology-register.md`   | Verified facts per technology, with links                                       |
-| `_bmad-output/planning-artifacts/epics.md`                 | 12 epics, 81 stories, each with acceptance criteria                             |
-| `_bmad-output/implementation-artifacts/sprint-status.yaml` | Story status, owned by the orchestrator                                         |
-| `docs/source/`                                             | Original inputs: project spine PDF, technology-stack diagram, technology links  |
+| Path                                            | What it holds                                                                     |
+| ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| `_bmad-output/initiative-ocn/brief-ocn/`        | The idea, the spine, who it serves                                                |
+| `_bmad-output/initiative-ocn/architecture-ocn/` | Runtime places, ports and adapters, event envelope, security, decisions (AD-\*)   |
+| `_bmad-output/initiative-ocn/spec-ocn/`         | Requirements inventory and `technology-register.md` (verified facts, links)       |
+| `_bmad-output/initiative-ocn/tickets.toml`      | The 12 epics in build order, with the `after` prerequisites between them          |
+| `_bmad-output/initiative-ocn/epic-*/`           | One folder per epic: `tickets.toml` (stories), epic file, one plan file per story |
+| `docs/source/`                                  | Original inputs: project spine PDF, technology-stack diagram, technology links    |
 
-Read the story in `epics.md` and the relevant sections of `architecture.md` before you start. If the plan and the code disagree, stop and say so in the PR rather than silently picking one.
+A story's acceptance criteria and its status live in its plan file (`_bmad-output/initiative-ocn/epic-*/<type>-<slug>-plan.md`): the criteria in the body, the status in the `status:` frontmatter. The folder layout follows the Paseo BMAD Console's ticket tree, the same as the sovren project.
+
+Read the story's plan file and the relevant sections of `_bmad-output/initiative-ocn/architecture-ocn/architecture-ocn.md` before you start. If the plan and the code disagree, stop and say so in the PR rather than silently picking one.
 
 ## Non-negotiable architecture rules
 
@@ -36,7 +38,7 @@ Read the story in `epics.md` and the relevant sections of `architecture.md` befo
 - **One PR per story.** Keep it scoped to that story's acceptance criteria.
 - **PR body** lists every acceptance criterion of the story as a checkbox, ticked, with how each was verified (test name, command output, screenshot).
 - **Tests are required.** New behaviour comes with tests; `pnpm run ci` must pass.
-- **Do not edit `sprint-status.yaml`** in a story PR. The orchestrator updates it after merge.
+- **Do not edit the `status:` of a plan file** in a story PR. The orchestrator updates it after merge.
 - **Never commit secrets**, `.env` files, keys, tokens or media files. Use `.env.example` with placeholder values.
 - **No new dependency without a note** in the PR saying why it is needed and what its licence is. Pin versions; commit the lockfile.
 - `main` is protected by convention: every change lands through a PR.

@@ -1,4 +1,4 @@
-# Epic 9: Demonstration 2: small retailer stock and funding. Story order follows epics.md.
+# Epic 9: Demonstration 2: small retailer stock and funding. Story order is build order.
 
 [[entry]]
 id = 1
@@ -7,7 +7,7 @@ title = "Retailer profile and verifiable business identity"
 description = "A small retailer creates a business profile signed by their DID that shows only what they choose to reveal, and a supplier circle can invite them with a capability."
 verify = "A business profile is signed by the retailer's DID with only the chosen fields shown, and a supplier circle can invite the retailer with a capability."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 2
@@ -16,7 +16,7 @@ title = "Find suppliers and stock offers"
 description = "A retailer searches a supplier circle's published offers by item and sees each offer with its price history and the supplier's delivery record."
 verify = "Searching by item returns current offers with price history from DuckDB and each supplier's delivery record."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 3
@@ -25,7 +25,7 @@ title = "Request funding for a stock order"
 description = "A retailer requests funding for a stock order, visible to holders of funding/offer, and can attach their verifiable track record if they choose."
 verify = "A funding.requested event becomes visible to holders of funding/offer, and the retailer's verifiable record can be attached if chosen."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 4
@@ -34,7 +34,7 @@ title = "Receive and accept a funding offer"
 description = "A retailer compares funding offers and accepts one, which creates an obligation with amount, due date and repayment schedule and ledger receivable and payable accounts for both parties."
 verify = "Accepting an offer emits funding.accepted, creating the obligation and the matching receivable and payable accounts for both parties."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 5
@@ -43,7 +43,7 @@ title = "Get stock delivered and record sales"
 description = "Confirmed delivery of a funded order adds the stock to the retailer's record, and simple sales events are recorded with totals shown."
 verify = "A confirmed delivery adds stock to the retailer's record, and recorded sales show totals."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 6
@@ -52,4 +52,4 @@ title = "Track and repay obligations"
 description = "A retailer sees what they owe, when and to whom, and repays through a Stitch pay-in. A settled payment closes the obligation on both sides."
 verify = "Open obligations show amount, due date and counterparty, and a settled Stitch payment closes the obligation on both sides."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]

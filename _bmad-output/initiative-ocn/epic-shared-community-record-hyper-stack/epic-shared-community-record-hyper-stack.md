@@ -15,9 +15,9 @@ Each community has a transparent, replicated record that works offline, converge
 
 ## Done when
 
-- Every story in `tickets.toml` is done, each meeting its acceptance criteria in `_bmad-output/planning-artifacts/epics.md`.
+- Every story in `tickets.toml` is done, each meeting the acceptance criteria in its plan file.
 - Spike decision records (3.1, 3.8, 3.9) are written before the stories that assume them.
 
 ## References
 
-- source — _bmad-output/planning-artifacts/epics.md, section Epic 3: Shared community record (Hyper* stack)
+- source — _bmad-output/initiative-ocn/spec-ocn/spec-ocn.md; the acceptance criteria of each story are in its plan file in this folder

@@ -1,4 +1,4 @@
-# Epic 8: Demonstration 1: stokvel bulk order. Story order follows epics.md.
+# Epic 8: Demonstration 1: stokvel bulk order. Story order is build order.
 
 [[entry]]
 id = 1
@@ -7,7 +7,7 @@ title = "Start a stokvel and invite members"
 description = "A stokvel treasurer sets up the stokvel with a name, rules and roles and brings members in by invitation, with the creator able to work offline. The member list shows who has joined and their roles."
 verify = "Creating a stokvel and inviting members shows the joined members with their roles, and the creator can work offline with changes synced once online."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 2
@@ -16,7 +16,7 @@ title = "Propose a bulk grocery order"
 description = "A member with order/propose submits a bulk order with a list, a budget and a deadline for the group to decide on. The treasurer can approve it to open quotes and pledges."
 verify = "A submitted proposal appears to all members with the budget per member and the deadline, and the treasurer's approval opens quotes and pledges."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 3
@@ -25,7 +25,7 @@ title = "Compare supplier options"
 description = "Members compare supplier quotes side by side on price per item, totals, delivery terms and the ranked suggestion with its confidence, and the treasurer selects a supplier."
 verify = "The comparison shows price per item, totals, delivery terms and the ranked suggestion for at least two suppliers, and the treasurer's selection is recorded as quote.selected."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 4
@@ -34,7 +34,7 @@ title = "Pledge and pay, with funding progress"
 description = "Members commit and pay their share through Stitch, moving from requested to paid, while the funding bar updates for everyone. Unpaid members are shown as unpaid without exposing bank details."
 verify = "A pledge moves from requested to paid through Stitch, the funding bar updates for all members, and unpaid members are shown as such without bank details."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 5
@@ -43,7 +43,7 @@ title = "Approve and pay the supplier"
 description = "Once the pool is funded and the required approvers agree, the supplier is paid and every member sees supplier paid. The ledger and the record must agree."
 verify = "With a funded pool and the required approvals, the supplier is paid and the ledger, the record and every member's view show supplier paid."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 6
@@ -52,7 +52,7 @@ title = "Arrange delivery to the shared collection point"
 description = "A treasurer plans delivery of a paid order to the chosen collection point, assigning a route, an ETA and a driver, and members are notified of the window."
 verify = "A paid order with a collection point gets a route, ETA and driver assigned, and members are notified of the delivery window."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 7
@@ -61,4 +61,4 @@ title = "Collect and close the order"
 description = "Each member confirms collection of their share and the order closes with a summary of cost per member, any refund or difference and the full timeline. Open obligations are created for follow-up where needed."
 verify = "When every member confirms collection, the order closes with a per-member cost summary, the full timeline, and any open obligations created for follow-up."
 hitl = true
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]

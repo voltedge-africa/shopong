@@ -15,9 +15,9 @@ Members pay into a pool by South African bank payment, the pool is kept in doubl
 
 ## Done when
 
-- Every story in `tickets.toml` is done, each meeting its acceptance criteria in `_bmad-output/planning-artifacts/epics.md`.
+- Every story in `tickets.toml` is done, each meeting the acceptance criteria in its plan file.
 - Spike decision records (4.1, 4.4) are written before the stories that assume them.
 
 ## References
 
-- source — _bmad-output/planning-artifacts/epics.md, section Epic 4: Pooled money: ledger and payments (Ledfra, Stitch)
+- source — _bmad-output/initiative-ocn/spec-ocn/spec-ocn.md; the acceptance criteria of each story are in its plan file in this folder

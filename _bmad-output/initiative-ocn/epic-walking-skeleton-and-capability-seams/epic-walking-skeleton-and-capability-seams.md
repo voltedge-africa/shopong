@@ -15,8 +15,8 @@ A builder can run Shopong on iOS, Android and web against in-memory adapters and
 
 ## Done when
 
-- Every story in `tickets.toml` is done, each meeting its acceptance criteria in `_bmad-output/planning-artifacts/epics.md`.
+- Every story in `tickets.toml` is done, each meeting the acceptance criteria in its plan file.
 
 ## References
 
-- source — _bmad-output/planning-artifacts/epics.md, section Epic 1: Walking skeleton and capability seams
+- source — _bmad-output/initiative-ocn/spec-ocn/spec-ocn.md; the acceptance criteria of each story are in its plan file in this folder

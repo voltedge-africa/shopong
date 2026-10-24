@@ -1,4 +1,4 @@
-# Epic 7: Logistics: map, route, delivery (DuckDB-WASM, Kepler.gl, Valhalla). Story order follows epics.md.
+# Epic 7: Logistics: map, route, delivery (DuckDB-WASM, Kepler.gl, Valhalla). Story order is build order.
 
 [[entry]]
 id = 1
@@ -7,7 +7,7 @@ title = "Spike: Valhalla tiles, routing and mobile viability"
 description = "Builds tiles from an OSM extract and tests routing, isochrones, matrix and optimised routes in the browser and Node, and whether the routing engine can run on iOS and Android. Records the decision."
 verify = "Tile size, build time, route latency and memory are recorded in the browser and Node, each Valhalla feature is recorded as working or not, and mobile viability is decided."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 2
@@ -16,7 +16,7 @@ title = "Tile build pipeline and hosting"
 description = "A reproducible pipeline builds tiles, graph.tar and a versioned manifest from a pinned OSM extract into static storage, so routes stay consistent and attribution stays complete."
 verify = "The pipeline outputs tiles, graph.tar and a manifest with a release id to static storage, and the app and Node show OSM (ODbL) attribution."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 3
@@ -25,7 +25,7 @@ title = "Map of members, collection points and demand"
 description = "Shows demand clusters and candidate collection points on a map in the console, using member locations coarsened before they leave the device. No exact home address enters the shared record."
 verify = "Coarsened member locations load into DuckDB-WASM and Kepler.gl showing demand clusters and candidate collection points, with no exact address in the shared record."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 4
@@ -34,7 +34,7 @@ title = "Plan a route to the collection point"
 description = "A driver requests a truck route from a supplier depot to a collection point, seeing distance, time and the route line on a map. The polyline and manifest release id are stored in a delivery.planned event."
 verify = "A truck route from Valhalla is shown with distance, time and map line, and its polyline6 and manifest release id are stored in the delivery.planned event."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 5
@@ -43,7 +43,7 @@ title = "Multi-stop delivery runs"
 description = "Orders two to eight collection points into one run using the approach chosen in spike 7.1, and shows the total time. The run is stored with its ordering method named."
 verify = "A run of two to eight stops is ordered, total time is shown, and the run is stored with the ordering method named."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 6
@@ -52,7 +52,7 @@ title = "Proof of delivery and proof of collection"
 description = "A driver with delivery/confirm records a signed arrival event with time, coarse location and a photo, and each member confirms collection of their share. Both events show progress on the order."
 verify = "A driver's signed delivery event with a SHA-512-referenced photo is recorded, each member's confirmation is recorded as collection.confirmed, and the order shows progress."
 hitl = true
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 7
@@ -61,4 +61,4 @@ title = "Follow a delivery and handle exceptions"
 description = "Members see a delivery's status (planned, started, arrived, collected) and its last confirmed point, and a late, failed or partial delivery creates an exception visible to all approvers."
 verify = "Delivery status and the last confirmed point are visible to members, and a late, failed or partial delivery creates an exception event visible to all approvers."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]

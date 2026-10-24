@@ -15,9 +15,9 @@ A person describes a workflow in plain language; an agent composes it from platf
 
 ## Done when
 
-- Every story in `tickets.toml` is done, each meeting its acceptance criteria in `_bmad-output/planning-artifacts/epics.md`.
+- Every story in `tickets.toml` is done, each meeting the acceptance criteria in its plan file.
 - Spike decision records (11.1) are written before the stories that assume them.
 
 ## References
 
-- source — _bmad-output/planning-artifacts/epics.md, section Epic 11: Builder layer: agents and generated interfaces
+- source — _bmad-output/initiative-ocn/spec-ocn/spec-ocn.md; the acceptance criteria of each story are in its plan file in this folder

@@ -15,9 +15,9 @@ Members see where demand and collection points are, a driver gets a route, and d
 
 ## Done when
 
-- Every story in `tickets.toml` is done, each meeting its acceptance criteria in `_bmad-output/planning-artifacts/epics.md`.
+- Every story in `tickets.toml` is done, each meeting the acceptance criteria in its plan file.
 - Spike decision records (7.1) are written before the stories that assume them.
 
 ## References
 
-- source — _bmad-output/planning-artifacts/epics.md, section Epic 7: Logistics: map, route, delivery (DuckDB-WASM, Kepler.gl, Valhalla)
+- source — _bmad-output/initiative-ocn/spec-ocn/spec-ocn.md; the acceptance criteria of each story are in its plan file in this folder

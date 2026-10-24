@@ -1,4 +1,4 @@
-# Epic 3: Shared community record (Hyper* stack). Story order follows epics.md.
+# Epic 3: Shared community record (Hyper* stack). Story order is build order.
 
 [[entry]]
 id = 1
@@ -7,7 +7,7 @@ title = "Spike: Hypercore stack in a Bare worklet inside Expo"
 description = "Measures whether Corestore, Autobase, Hyperbee, Hyperdrive and Hyperswarm run in a react-native-bare-kit worklet on low-end iOS and Android, including start-up, memory, battery and iOS background suspension. Selects the Node-held-writers fallback if the budget fails."
 verify = "On device, start-up time, memory, 30-minute battery use, sync success and iOS background behaviour are recorded and a decision record selects the mobile architecture against the budget."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 2
@@ -16,7 +16,7 @@ title = "Create a community space with a deterministic view"
 description = "Creates each community's own Autobase with a Hyperbee view and a versioned apply function, so one recorded event stream always yields the same view. Apply uses no wall clock, network or randomness."
 verify = "Replaying the same events in different arrival orders on two devices produces byte-identical views, as a property test shows."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 3
@@ -25,7 +25,7 @@ title = "Admit and remove writers by capability"
 description = "New members' devices become writers only through a valid invitation UCAN chain, and removing a member removes their writer key. The last indexer can never be removed."
 verify = "A valid member.joined event adds the writer key via host.addWriter, and removing a member calls removeWriter but refuses to remove the last indexer."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 4
@@ -34,7 +34,7 @@ title = "Offline writes that converge"
 description = "Members record actions offline for hours and sync later over Hyperswarm, so poor connectivity does not stop the group. Events the group has not yet seen are marked on the device."
 verify = "Two devices that diverge offline reconverge to the same view with no lost events, and unseen events are marked 'on your phone' until the group has seen them."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 5
@@ -43,7 +43,7 @@ title = "Always-on seeder, indexer, relay and bootstrap on the OCN Node"
 description = "The OCN Node replicates each space, acknowledges writes, serves the full record and relays connections for devices behind NAT, so the record stays available when phones are off. Clients also list the Node's bootstrap."
 verify = "The Node replicates and serves a space when members write, devices behind carrier-grade NAT sync through its relay, and a test confirms the Node refuses strangers dialling its firewall."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 6
@@ -52,7 +52,7 @@ title = "Deterministic capability checks in `apply` using log time"
 description = "Evaluates UCAN expiry and revocation against log time (the highest accepted claimedAt) rather than the device clock, so every peer reaches the same result. Later events that use a revoked capability are refused."
 verify = "UCAN expiry is evaluated against log time so that a replay on a later date gives the same result, and an event using a revoked capability is rejected and recorded as refused."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 7
@@ -61,7 +61,7 @@ title = "Files and photos in Hyperdrive with hash references"
 description = "Attaches price lists, receipts and delivery photos to the record as Hyperdrive files whose events carry a SHA-512, fetched lazily and freed on low storage. Large files are streamed."
 verify = "An attached file's event carries its SHA-512, a receiving device fetches and verifies it lazily, and a blob freed with clear(path) is re-fetched on demand."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 8
@@ -70,7 +70,7 @@ title = "Spike and first view: query community data with SQL in the web console"
 description = "Shows that the web console can export the Hyperbee view to Arrow, run DuckDB-WASM SQL and render the result in a table, so organisers can ask questions such as who has not paid without a server. Records the persistence and GeoJSON decisions."
 verify = "A pinned @duckdb/duckdb-wasm runs a query over the exported view and renders a table, and a decision record states OPFS persistence, GeoJSON handling and the pinned version."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
 
 [[entry]]
 id = 9
@@ -79,4 +79,4 @@ title = "Spike (optional): nearby sync over Bluetooth"
 description = "Tests whether two phones can exchange a Corestore replication stream over Bluetooth L2CAP with no internet, so a stokvel meeting can sync with no coverage. If that is not workable, the decision drops it or limits it to a small sync hint."
 verify = "Throughput and the iOS and Android permissions for a Bluetooth replication channel are recorded, and a decision record keeps, limits or drops the feature."
 hitl = false
-references = ["../../planning-artifacts/epics.md"]
+references = ["spec-ocn/spec-ocn.md"]
