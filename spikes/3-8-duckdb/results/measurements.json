@@ -1,0 +1,794 @@
+{
+  "capturedAt": "2026-10-24T15:53:46.637Z",
+  "alias": "duckdb-1.32.0",
+  "engine": "v1.4.3",
+  "runs": [
+    {
+      "n": 1,
+      "alias": "duckdb-1.32.0",
+      "engine": "v1.4.3",
+      "coldStartMs": 1670,
+      "instantiateMs": 1359,
+      "bundle": "eh",
+      "crossOriginIsolated": false,
+      "sizes": {
+        "bundles.json": {
+          "raw": 754,
+          "gzip": 224
+        },
+        "duckdb-browser-coi.pthread.worker.js": {
+          "raw": 667988,
+          "gzip": 155940
+        },
+        "duckdb-browser-coi.worker.js": {
+          "raw": 887105,
+          "gzip": 205590
+        },
+        "duckdb-browser-eh.worker.js": {
+          "raw": 772759,
+          "gzip": 188678
+        },
+        "duckdb-browser-mvp.worker.js": {
+          "raw": 844644,
+          "gzip": 194192
+        },
+        "duckdb-coi.wasm": {
+          "raw": 33968067,
+          "gzip": 7749242
+        },
+        "duckdb-eh.wasm": {
+          "raw": 34242586,
+          "gzip": 7677553
+        },
+        "duckdb-mvp.wasm": {
+          "raw": 39362651,
+          "gzip": 8730849
+        },
+        "app/index-Dcog_G7U.js": {
+          "raw": 223519,
+          "gzip": 53283
+        },
+        "index.html": {
+          "raw": 313,
+          "gzip": 228
+        }
+      },
+      "load10k": {
+        "json": {
+          "totalMs": 115,
+          "perTableMs": {
+            "members": 38,
+            "orders": 35,
+            "pledges": 16,
+            "deliveries": 26
+          },
+          "genMs": 6,
+          "counts": {
+            "members": 500,
+            "orders": 4000,
+            "pledges": 4000,
+            "deliveries": 1500
+          }
+        },
+        "arrow": {
+          "totalMs": 35,
+          "perTableMs": {
+            "members": 13,
+            "orders": 10,
+            "pledges": 8,
+            "deliveries": 4
+          },
+          "genMs": 5,
+          "counts": {
+            "members": 500,
+            "orders": 4000,
+            "pledges": 4000,
+            "deliveries": 1500
+          }
+        }
+      },
+      "load200k": {
+        "arrow": {
+          "totalMs": 200,
+          "perTableMs": {
+            "members": 31,
+            "orders": 85,
+            "pledges": 57,
+            "deliveries": 27
+          },
+          "genMs": 66,
+          "counts": {
+            "members": 10000,
+            "orders": 80000,
+            "pledges": 80000,
+            "deliveries": 30000
+          }
+        }
+      },
+      "latency10k": {
+        "spend_per_item": {
+          "medianMs": 2.3,
+          "minMs": 2,
+          "rows": 6
+        },
+        "who_has_not_paid": {
+          "medianMs": 2.9,
+          "minMs": 2.5,
+          "rows": 20
+        },
+        "delivery_hours_per_point": {
+          "medianMs": 2.1,
+          "minMs": 2.1,
+          "rows": 4
+        },
+        "price_history_by_month": {
+          "medianMs": 3.5,
+          "minMs": 3.3,
+          "rows": 72
+        },
+        "three_way_join": {
+          "medianMs": 4.5,
+          "minMs": 4.1,
+          "rows": 4
+        }
+      },
+      "latency200k": {
+        "spend_per_item": {
+          "medianMs": 7.4,
+          "minMs": 6.9,
+          "rows": 6
+        },
+        "who_has_not_paid": {
+          "medianMs": 6.4,
+          "minMs": 4.3,
+          "rows": 20
+        },
+        "delivery_hours_per_point": {
+          "medianMs": 4.3,
+          "minMs": 3.9,
+          "rows": 4
+        },
+        "price_history_by_month": {
+          "medianMs": 11.9,
+          "minMs": 10.7,
+          "rows": 72
+        },
+        "three_way_join": {
+          "medianMs": 14.9,
+          "minMs": 13.2,
+          "rows": 4
+        }
+      },
+      "spatial": {
+        "install": "ok",
+        "load": "ok",
+        "checks": {
+          "st_point": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "wkt": "POINT (27.91 -26.24)"
+            }
+          },
+          "st_distance": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "planar_deg": 0.031622776601685366
+            }
+          },
+          "st_distance_sphere": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "metres": 3477.519008047925
+            }
+          },
+          "st_read_geojson": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "name": "Orlando Hall catchment",
+              "cp": "cp1",
+              "wkt": "POLYGON ((27.885 -26.264999999999997, 27.935 -26.264999999999997, 27.935 -26.215, 27.885 -26.215, 27.885 -26.264999999999997))"
+            }
+          },
+          "st_within_count": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "members_in_catchments": 2995
+            }
+          },
+          "st_asgeojson": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "gj": "{\"type\":\"Point\",\"coordinates\":[27.91,-26.24]}"
+            }
+          },
+          "members_per_grid_cell": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "cell": "{\"type\":\"Point\",\"coordinates\":[27.87,-26.26]}",
+              "n": 48
+            }
+          },
+          "nearest_collection_point": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "cp": "cp1",
+              "members": 1550
+            }
+          }
+        },
+        "extensionTransferBytes": {
+          "wasm_eh/spatial.duckdb_extension.wasm": {
+            "raw": 23469719,
+            "wire": 5268529,
+            "enc": "br"
+          }
+        },
+        "extensionsLoaded": [
+          "core_functions",
+          "spatial"
+        ]
+      },
+      "peakJSHeapMb": 67,
+      "heapStartMb": 1,
+      "stepErrors": []
+    },
+    {
+      "n": 2,
+      "alias": "duckdb-1.32.0",
+      "engine": "v1.4.3",
+      "coldStartMs": 970,
+      "instantiateMs": 707,
+      "bundle": "eh",
+      "crossOriginIsolated": false,
+      "sizes": {
+        "bundles.json": {
+          "raw": 754,
+          "gzip": 224
+        },
+        "duckdb-browser-coi.pthread.worker.js": {
+          "raw": 667988,
+          "gzip": 155940
+        },
+        "duckdb-browser-coi.worker.js": {
+          "raw": 887105,
+          "gzip": 205590
+        },
+        "duckdb-browser-eh.worker.js": {
+          "raw": 772759,
+          "gzip": 188678
+        },
+        "duckdb-browser-mvp.worker.js": {
+          "raw": 844644,
+          "gzip": 194192
+        },
+        "duckdb-coi.wasm": {
+          "raw": 33968067,
+          "gzip": 7749242
+        },
+        "duckdb-eh.wasm": {
+          "raw": 34242586,
+          "gzip": 7677553
+        },
+        "duckdb-mvp.wasm": {
+          "raw": 39362651,
+          "gzip": 8730849
+        },
+        "app/index-Dcog_G7U.js": {
+          "raw": 223519,
+          "gzip": 53283
+        },
+        "index.html": {
+          "raw": 313,
+          "gzip": 228
+        }
+      },
+      "load10k": {
+        "json": {
+          "totalMs": 128,
+          "perTableMs": {
+            "members": 49,
+            "orders": 36,
+            "pledges": 17,
+            "deliveries": 26
+          },
+          "genMs": 8,
+          "counts": {
+            "members": 500,
+            "orders": 4000,
+            "pledges": 4000,
+            "deliveries": 1500
+          }
+        },
+        "arrow": {
+          "totalMs": 60,
+          "perTableMs": {
+            "members": 24,
+            "orders": 17,
+            "pledges": 13,
+            "deliveries": 6
+          },
+          "genMs": 7,
+          "counts": {
+            "members": 500,
+            "orders": 4000,
+            "pledges": 4000,
+            "deliveries": 1500
+          }
+        }
+      },
+      "load200k": {
+        "arrow": {
+          "totalMs": 330,
+          "perTableMs": {
+            "members": 55,
+            "orders": 100,
+            "pledges": 125,
+            "deliveries": 50
+          },
+          "genMs": 81,
+          "counts": {
+            "members": 10000,
+            "orders": 80000,
+            "pledges": 80000,
+            "deliveries": 30000
+          }
+        }
+      },
+      "latency10k": {
+        "spend_per_item": {
+          "medianMs": 3.7,
+          "minMs": 2.9,
+          "rows": 6
+        },
+        "who_has_not_paid": {
+          "medianMs": 4.2,
+          "minMs": 4,
+          "rows": 20
+        },
+        "delivery_hours_per_point": {
+          "medianMs": 3.5,
+          "minMs": 3.1,
+          "rows": 4
+        },
+        "price_history_by_month": {
+          "medianMs": 7.7,
+          "minMs": 5.1,
+          "rows": 72
+        },
+        "three_way_join": {
+          "medianMs": 9.3,
+          "minMs": 7.5,
+          "rows": 4
+        }
+      },
+      "latency200k": {
+        "spend_per_item": {
+          "medianMs": 14.2,
+          "minMs": 11.3,
+          "rows": 6
+        },
+        "who_has_not_paid": {
+          "medianMs": 15.8,
+          "minMs": 12.2,
+          "rows": 20
+        },
+        "delivery_hours_per_point": {
+          "medianMs": 11.8,
+          "minMs": 8.9,
+          "rows": 4
+        },
+        "price_history_by_month": {
+          "medianMs": 24.8,
+          "minMs": 13.9,
+          "rows": 72
+        },
+        "three_way_join": {
+          "medianMs": 25.5,
+          "minMs": 20.5,
+          "rows": 4
+        }
+      },
+      "spatial": {
+        "install": "ok",
+        "load": "ok",
+        "checks": {
+          "st_point": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "wkt": "POINT (27.91 -26.24)"
+            }
+          },
+          "st_distance": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "planar_deg": 0.031622776601685366
+            }
+          },
+          "st_distance_sphere": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "metres": 3477.519008047925
+            }
+          },
+          "st_read_geojson": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "name": "Orlando Hall catchment",
+              "cp": "cp1",
+              "wkt": "POLYGON ((27.885 -26.264999999999997, 27.935 -26.264999999999997, 27.935 -26.215, 27.885 -26.215, 27.885 -26.264999999999997))"
+            }
+          },
+          "st_within_count": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "members_in_catchments": 2995
+            }
+          },
+          "st_asgeojson": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "gj": "{\"type\":\"Point\",\"coordinates\":[27.91,-26.24]}"
+            }
+          },
+          "members_per_grid_cell": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "cell": "{\"type\":\"Point\",\"coordinates\":[27.87,-26.26]}",
+              "n": 48
+            }
+          },
+          "nearest_collection_point": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "cp": "cp1",
+              "members": 1550
+            }
+          }
+        },
+        "extensionTransferBytes": {
+          "wasm_eh/spatial.duckdb_extension.wasm": {
+            "raw": 23469719,
+            "wire": 5268529,
+            "enc": "br"
+          }
+        },
+        "extensionsLoaded": [
+          "core_functions",
+          "spatial"
+        ]
+      },
+      "peakJSHeapMb": 51,
+      "heapStartMb": 1,
+      "stepErrors": []
+    },
+    {
+      "n": 3,
+      "alias": "duckdb-1.32.0",
+      "engine": "v1.4.3",
+      "coldStartMs": 1113,
+      "instantiateMs": 814,
+      "bundle": "eh",
+      "crossOriginIsolated": false,
+      "sizes": {
+        "bundles.json": {
+          "raw": 754,
+          "gzip": 224
+        },
+        "duckdb-browser-coi.pthread.worker.js": {
+          "raw": 667988,
+          "gzip": 155940
+        },
+        "duckdb-browser-coi.worker.js": {
+          "raw": 887105,
+          "gzip": 205590
+        },
+        "duckdb-browser-eh.worker.js": {
+          "raw": 772759,
+          "gzip": 188678
+        },
+        "duckdb-browser-mvp.worker.js": {
+          "raw": 844644,
+          "gzip": 194192
+        },
+        "duckdb-coi.wasm": {
+          "raw": 33968067,
+          "gzip": 7749242
+        },
+        "duckdb-eh.wasm": {
+          "raw": 34242586,
+          "gzip": 7677553
+        },
+        "duckdb-mvp.wasm": {
+          "raw": 39362651,
+          "gzip": 8730849
+        },
+        "app/index-Dcog_G7U.js": {
+          "raw": 223519,
+          "gzip": 53283
+        },
+        "index.html": {
+          "raw": 313,
+          "gzip": 228
+        }
+      },
+      "load10k": {
+        "json": {
+          "totalMs": 148,
+          "perTableMs": {
+            "members": 57,
+            "orders": 37,
+            "pledges": 19,
+            "deliveries": 35
+          },
+          "genMs": 9,
+          "counts": {
+            "members": 500,
+            "orders": 4000,
+            "pledges": 4000,
+            "deliveries": 1500
+          }
+        },
+        "arrow": {
+          "totalMs": 42,
+          "perTableMs": {
+            "members": 15,
+            "orders": 14,
+            "pledges": 7,
+            "deliveries": 6
+          },
+          "genMs": 7,
+          "counts": {
+            "members": 500,
+            "orders": 4000,
+            "pledges": 4000,
+            "deliveries": 1500
+          }
+        }
+      },
+      "load200k": {
+        "arrow": {
+          "totalMs": 265,
+          "perTableMs": {
+            "members": 45,
+            "orders": 99,
+            "pledges": 87,
+            "deliveries": 34
+          },
+          "genMs": 87,
+          "counts": {
+            "members": 10000,
+            "orders": 80000,
+            "pledges": 80000,
+            "deliveries": 30000
+          }
+        }
+      },
+      "latency10k": {
+        "spend_per_item": {
+          "medianMs": 3.3,
+          "minMs": 2.3,
+          "rows": 6
+        },
+        "who_has_not_paid": {
+          "medianMs": 3.4,
+          "minMs": 3.1,
+          "rows": 20
+        },
+        "delivery_hours_per_point": {
+          "medianMs": 2.7,
+          "minMs": 2.6,
+          "rows": 4
+        },
+        "price_history_by_month": {
+          "medianMs": 5.4,
+          "minMs": 4.6,
+          "rows": 72
+        },
+        "three_way_join": {
+          "medianMs": 5.1,
+          "minMs": 5,
+          "rows": 4
+        }
+      },
+      "latency200k": {
+        "spend_per_item": {
+          "medianMs": 7.4,
+          "minMs": 7.2,
+          "rows": 6
+        },
+        "who_has_not_paid": {
+          "medianMs": 5.8,
+          "minMs": 5.4,
+          "rows": 20
+        },
+        "delivery_hours_per_point": {
+          "medianMs": 5.5,
+          "minMs": 4.3,
+          "rows": 4
+        },
+        "price_history_by_month": {
+          "medianMs": 12.5,
+          "minMs": 11.3,
+          "rows": 72
+        },
+        "three_way_join": {
+          "medianMs": 14.4,
+          "minMs": 13.3,
+          "rows": 4
+        }
+      },
+      "spatial": {
+        "install": "ok",
+        "load": "ok",
+        "checks": {
+          "st_point": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "wkt": "POINT (27.91 -26.24)"
+            }
+          },
+          "st_distance": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "planar_deg": 0.031622776601685366
+            }
+          },
+          "st_distance_sphere": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "metres": 3477.519008047925
+            }
+          },
+          "st_read_geojson": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "name": "Orlando Hall catchment",
+              "cp": "cp1",
+              "wkt": "POLYGON ((27.885 -26.264999999999997, 27.935 -26.264999999999997, 27.935 -26.215, 27.885 -26.215, 27.885 -26.264999999999997))"
+            }
+          },
+          "st_within_count": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "members_in_catchments": 2995
+            }
+          },
+          "st_asgeojson": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "gj": "{\"type\":\"Point\",\"coordinates\":[27.91,-26.24]}"
+            }
+          },
+          "members_per_grid_cell": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "cell": "{\"type\":\"Point\",\"coordinates\":[27.87,-26.26]}",
+              "n": 48
+            }
+          },
+          "nearest_collection_point": {
+            "ok": true,
+            "error": null,
+            "value": {
+              "cp": "cp1",
+              "members": 1550
+            }
+          }
+        },
+        "extensionTransferBytes": {
+          "wasm_eh/spatial.duckdb_extension.wasm": {
+            "raw": 23469719,
+            "wire": 5268529,
+            "enc": "br"
+          }
+        },
+        "extensionsLoaded": [
+          "core_functions",
+          "spatial"
+        ]
+      },
+      "peakJSHeapMb": 67,
+      "heapStartMb": 1,
+      "stepErrors": []
+    }
+  ],
+  "median": {
+    "coldStartMs": 1113,
+    "spread": {
+      "minMs": 970,
+      "maxMs": 1670
+    },
+    "latency10k": {
+      "spend_per_item": {
+        "medianMs": 3.3,
+        "minMs": 2.3,
+        "maxMs": 3.7
+      },
+      "who_has_not_paid": {
+        "medianMs": 3.4,
+        "minMs": 2.9,
+        "maxMs": 4.2
+      },
+      "delivery_hours_per_point": {
+        "medianMs": 2.7,
+        "minMs": 2.1,
+        "maxMs": 3.5
+      },
+      "price_history_by_month": {
+        "medianMs": 5.4,
+        "minMs": 3.5,
+        "maxMs": 7.7
+      },
+      "three_way_join": {
+        "medianMs": 5.1,
+        "minMs": 4.5,
+        "maxMs": 9.3
+      }
+    },
+    "latency200k": {
+      "spend_per_item": {
+        "medianMs": 7.4,
+        "minMs": 7.4,
+        "maxMs": 14.2
+      },
+      "who_has_not_paid": {
+        "medianMs": 6.4,
+        "minMs": 5.8,
+        "maxMs": 15.8
+      },
+      "delivery_hours_per_point": {
+        "medianMs": 5.5,
+        "minMs": 4.3,
+        "maxMs": 11.8
+      },
+      "price_history_by_month": {
+        "medianMs": 12.5,
+        "minMs": 11.9,
+        "maxMs": 24.8
+      },
+      "three_way_join": {
+        "medianMs": 14.9,
+        "minMs": 14.4,
+        "maxMs": 25.5
+      }
+    },
+    "load10kArrowTotalMs": {
+      "medianMs": 42,
+      "minMs": 35,
+      "maxMs": 60
+    },
+    "load200kArrowTotalMs": {
+      "medianMs": 265,
+      "minMs": 200,
+      "maxMs": 330
+    },
+    "peakJSHeapMb": {
+      "medianMb": 67,
+      "minMb": 51,
+      "maxMb": 67
+    }
+  }
+}
