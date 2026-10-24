@@ -50,7 +50,7 @@ pnpm run lint         # vp lint
 pnpm run format       # vp fmt
 pnpm run check-types  # tsc --noEmit in every package
 pnpm run build        # build every package
-pnpm run ci           # everything CI runs: vp check, check-types, test, build
+pnpm run ci           # full local check: vp check, check-types, test, build (no GitHub Actions workflow)
 ```
 
 New packages go in `packages/*` (libraries) or `apps/*` (runnables), named `@shopong/<name>`, with `build` and `check-types` scripts and a `tsconfig.json` that extends `../../tsconfig.base.json`. Tests import from `vite-plus/test`.
