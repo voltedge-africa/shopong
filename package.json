@@ -1,0 +1,23 @@
+{
+  "name": "shopong",
+  "private": true,
+  "scripts": {
+    "build": "vp run -r build",
+    "dev": "vp run -r dev",
+    "test": "vp test",
+    "lint": "vp lint",
+    "format": "vp fmt",
+    "check-types": "vp run -r check-types",
+    "ci": "vp check && vp run -r check-types && vp test && vp run -r build",
+    "prepare": "vp config"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.25.0"
+}
