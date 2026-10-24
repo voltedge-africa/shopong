@@ -1,3 +1,4 @@
+import { Link } from "expo-router";
 import { Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -36,6 +37,14 @@ export default function SignedOutHome() {
           </Text>
         </Pressable>
         <Text style={[styles.helper, { color: theme.mutedText }]}>{createIdentity.helper}</Text>
+        <Link
+          href="/demo"
+          accessibilityRole="link"
+          accessibilityHint={appInfo.demo.helper}
+          style={[styles.demoLink, { color: theme.primary }]}
+        >
+          {appInfo.demo.label}
+        </Link>
       </View>
     </SafeAreaView>
   );
@@ -66,4 +75,5 @@ const styles = StyleSheet.create({
   },
   buttonLabel: { fontSize: 17, fontWeight: "600" },
   helper: { fontSize: 14 },
+  demoLink: { fontSize: 17, fontWeight: "600", marginTop: 24, textDecorationLine: "underline" },
 });

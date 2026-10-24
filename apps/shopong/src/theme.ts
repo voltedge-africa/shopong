@@ -8,6 +8,11 @@ export type Theme = {
   primaryText: string;
   disabledBackground: string;
   disabledText: string;
+  surface: string;
+  border: string;
+  success: string;
+  danger: string;
+  track: string;
 };
 
 const themes: Record<ColorScheme, Theme> = {
@@ -19,6 +24,11 @@ const themes: Record<ColorScheme, Theme> = {
     primaryText: "#ffffff",
     disabledBackground: "#e5e7eb",
     disabledText: "#4b5563",
+    surface: "#f3f4f6",
+    border: "#d1d5db",
+    success: "#047857",
+    danger: "#b91c1c",
+    track: "#d1d5db",
   },
   dark: {
     background: "#0b1220",
@@ -28,6 +38,11 @@ const themes: Record<ColorScheme, Theme> = {
     primaryText: "#042f2e",
     disabledBackground: "#1f2937",
     disabledText: "#9ca3af",
+    surface: "#111a2e",
+    border: "#374151",
+    success: "#34d399",
+    danger: "#f87171",
+    track: "#374151",
   },
 };
 

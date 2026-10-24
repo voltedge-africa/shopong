@@ -15,8 +15,11 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "58.0.15",
+    "@shopong/events": "workspace:*",
+    "@shopong/scenario-stokvel": "workspace:*",
     "expo": "58.0.19",
     "expo-constants": "58.0.13",
+    "expo-crypto": "58.0.7",
     "expo-linking": "58.0.14",
     "expo-router": "58.0.26",
     "expo-status-bar": "58.0.4",
