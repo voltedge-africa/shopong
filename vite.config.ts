@@ -6,6 +6,8 @@ const ignorePatterns = [
   ".agents/**",
   ".claude/**",
   "docs/source/**",
+  // Spikes are throwaway evidence with their own lockfile and config (spikes/README.md).
+  "spikes/**",
 ];
 
 export default defineConfig({
@@ -20,6 +22,7 @@ export default defineConfig({
       "_bmad-output/**",
       ".agents/**",
       ".claude/**",
+      "spikes/**",
     ],
   },
   fmt: { ignorePatterns },
