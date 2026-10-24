@@ -6,14 +6,22 @@ import { createRouter, Router } from 'valhalla-server/node';
 import { PAIRS, TRUCK, RESULTS, shapeCheck, ms, median } from './lib.mjs';
 
 const manifestUrl = process.env.MANIFEST_URL;
-if (!manifestUrl) throw new Error('MANIFEST_URL required');
+if (!manifestUrl) { console.error('node-bench: MANIFEST_URL required, e.g. http://127.0.0.1:8090/datasets/<release>/manifest.json'); process.exit(1); }
+const OUT = path.join(RESULTS, 'node-bench.json');
+fs.rmSync(OUT, { force: true }); // no stale results survive a failed run
+process.on('beforeExit', (code) => { if (!fs.existsSync(OUT)) { console.error('node-bench: produced no results file (unexpected exit)'); process.exitCode = 1; } });
+process.on('uncaughtException', fail);
+process.on('unhandledRejection', fail);
+function fail(e) { console.error('node-bench FAILED:', e?.stack ?? e); fs.rmSync(OUT, { force: true }); process.exit(1); }
+
 const out = { runtime: `node ${process.version}`, manifestUrl, at: new Date().toISOString(), routes: [], behaviour: {} };
 const mb = (n) => +(n / 1048576).toFixed(1);
 const snap = () => { const m = process.memoryUsage(); return { rssMiB: mb(m.rss), heapUsedMiB: mb(m.heapUsed), externalMiB: mb(m.external) }; };
 const reqFor = (pair, costing) => ({ origin: pair.a, destination: pair.b, costing, ...(costing === 'truck' ? { costing_options: TRUCK } : {}) });
 const errInfo = (e) => ({ name: e?.name, code: e?.code, message: e?.message, retryable: e?.retryable });
 
-// ---- 1. startup (cold: fresh process-level worker thread, empty tile cache)
+try { await main(); } catch (e) { fail(e); }
+async function main() {
 {
   const t0 = performance.now();
   const r = new Router({ manifestUrl });
@@ -111,10 +119,10 @@ catch (e) { out.behaviour.pointInSouthAfricaPartOfBbox = errInfo(e); }
   out.behaviour.abortQueued = { first: (await first).native.trip.summary.length, queued: await queued, other: await other };
   await ra.dispose();
 }
-const d = await r.diagnostics();
-out.finalDiagnostics = { metrics: d.metrics, native: d.native, rss: snap() };
-await r.dispose();
+  const d = await r.diagnostics();
+  out.finalDiagnostics = { metrics: d.metrics, native: d.native, rss: snap() };
+  await r.dispose();
 
-fs.mkdirSync(RESULTS, { recursive: true });
-fs.writeFileSync(path.join(RESULTS, 'node-bench.json'), JSON.stringify(out, null, 2));
-console.log(JSON.stringify(out, null, 2));
+  fs.writeFileSync(OUT, JSON.stringify(out, null, 2));
+  console.log(JSON.stringify(out, null, 2));
+}

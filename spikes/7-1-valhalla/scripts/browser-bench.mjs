@@ -8,6 +8,12 @@ import { createServer, listen } from './range-server.mjs';
 import { CACHE, RESULTS } from './lib.mjs';
 
 const release = process.argv[2] ?? fs.readFileSync(path.join(CACHE, 'valhalla', 'RELEASE'), 'utf8').trim();
+const OUT = path.join(RESULTS, 'browser-bench.json');
+fs.mkdirSync(RESULTS, { recursive: true });
+fs.rmSync(OUT, { force: true }); // no stale results survive a failed run
+const _fail = (e) => { console.error('browser-bench FAILED:', e?.stack ?? e); fs.rmSync(OUT, { force: true }); process.exit(1); };
+process.on('uncaughtException', _fail);
+process.on('unhandledRejection', _fail);
 const log = [];
 const server = createServer({ log });
 const port = await listen(server, 0);
@@ -94,7 +100,6 @@ for (const c of cases) {
   srvA.close(); srvB.close();
 }
 
-fs.mkdirSync(RESULTS, { recursive: true });
-fs.writeFileSync(path.join(RESULTS, 'browser-bench.json'), JSON.stringify(out, null, 2));
+fs.writeFileSync(OUT, JSON.stringify(out, null, 2));
 console.log(JSON.stringify(out, null, 2));
 process.exit(0);
