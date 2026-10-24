@@ -1,48 +1,114 @@
 {
-  "runAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "libraries": {
-    "@ucans/ucans": {
+  "runAt": "2026-10-24T16:05:05.564Z",
+  "generatedBy": "scripts/results.mjs (vitest JSON reporter + vite library build + gzip)",
+  "command": "pnpm run results",
+  "node": "v24.22.1",
+  "candidates": {
+    "ts-ucan": {
+      "name": "@ucans/ucans",
       "version": "0.12.0",
       "spec": "UCAN 0.8.1",
       "adapter": "src/ts-ucan/adapter.ts",
-      "contractSuite": "@shopong/ports-contract CapabilityAuth (17 tests)",
+      "bundle": {
+        "rawBytes": 142324,
+        "gzipBytes": 38421
+      },
       "variants": [
-        { "name": "normal", "passed": 17, "failed": 0 },
-        { "name": "clock_and_network_trapped_in_verify", "passed": 17, "failed": 0 },
-        { "name": "no_attenuation_check_at_issue_verify_only", "passed": 17, "failed": 0 }
-      ],
-      "libraryIssues": [
-        "verify reads wall clock (Date.now) with no way to inject logTime; adapter disables library time checks and enforces window itself",
-        "attenuation/ceilings not enforced by library semantics; adapter implements capabilityCovers and checks",
-        "UCAN 0.8 tokenId is CIDv1 sha2-256 base32 (computed by adapter)",
-        "proof with nbf can break library chain walk in some cases; adapter handles"
-      ],
-      "notes": "All contract tests pass with adapter adding time/attenuation/ceiling enforcement."
+        {
+          "name": "normal",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "clock_and_network_trapped_in_verify",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "verify_only",
+          "total": 17,
+          "passed": 16,
+          "failed": 0,
+          "expectedFailed": 1
+        }
+      ]
     },
     "iso-ucan": {
+      "name": "iso-ucan",
       "version": "2.0.0",
       "spec": "UCAN 1.0",
       "adapter": "src/iso-ucan/adapter.ts",
-      "contractSuite": "@shopong/ports-contract CapabilityAuth (17 tests)",
+      "bundle": {
+        "rawBytes": 240599,
+        "gzipBytes": 61743
+      },
       "variants": [
-        { "name": "normal", "passed": 17, "failed": 0 },
-        { "name": "clock_and_network_trapped_in_verify", "passed": 17, "failed": 0 },
-        { "name": "no_attenuation_check_at_issue_verify_only", "passed": 17, "failed": 0 }
-      ],
-      "libraryIssues": [
-        "time injectable via now but must be passed explicitly; adapter passes logTime/nbf as now",
-        "child can outlive parent (no time-subset rule in UCAN 1.0); adapter enforces with outlivesParent",
-        "expiry is inclusive in seconds (exp == now valid); port requires exclusive - adapter enforces windowError with strict > for expiry",
-        "single command per delegation, different model (subject/cmd/pol); adapter maps to port model",
-        "chain passed with invocation proofs; adapter builds synthetic invocation for assertProofs"
-      ],
-      "notes": "All contract tests pass with adapter adding port-specific rules."
+        {
+          "name": "normal",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "clock_and_network_trapped_in_verify",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "verify_only",
+          "total": 17,
+          "passed": 16,
+          "failed": 0,
+          "expectedFailed": 1
+        }
+      ]
+    },
+    "inhouse": {
+      "name": "in-house minimal chain",
+      "version": "prototype",
+      "spec": "signed canonical JSON (not UCAN)",
+      "adapter": "src/inhouse/adapter.ts",
+      "bundle": {
+        "rawBytes": 38934,
+        "gzipBytes": 13871
+      },
+      "variants": [
+        {
+          "name": "normal",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "clock_and_network_trapped_in_verify",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "verify_only",
+          "total": 17,
+          "passed": 16,
+          "failed": 0,
+          "expectedFailed": 1
+        }
+      ]
     }
   },
   "summary": {
-    "both_pass_all_contract_tests": true,
-    "total_tests": 137,
-    "passed": 137,
-    "expected_fail": 3
+    "contractTestsPerVariant": 17,
+    "variantsPerCandidate": 3,
+    "candidates": 3,
+    "contractAssertions": 153,
+    "contractPassed": 150,
+    "contractExpectedFailed": 3,
+    "suiteTests": 191,
+    "suitePassed": 188,
+    "suiteExpectedFailed": 3,
+    "suiteFailed": 0,
+    "knownContractIssue": "a delegation from someone the proof was not issued to is refused"
   }
 }

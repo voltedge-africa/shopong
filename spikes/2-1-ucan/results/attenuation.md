@@ -13,3 +13,9 @@ Port rules (must hold): (a) payment ceiling can only decrease, (b) resource can 
 - **Verdict:** Partially enforced by library (ceilings/resources/abilities). Expiry extension and exclusive expiry must be enforced by our code.
 
 **Conclusion:** Neither library fully enforces all port attenuation rules out of the box. ts-ucan enforces almost nothing; iso-ucan enforces most but misses time-subset and has inclusive expiry semantics.
+
+## in-house minimal chain
+- **Enforcement:** the adapter applies `capabilityCovers()` to the requested capability at
+  every link, `checkIssueAttenuation()` at issue (unless the caller turns it off) and
+  `outlivesParent()` for the validity window. There is no library semantics to rely on.
+- **Verdict:** fully owned, same rules as the port, no gap found by the contract tests.

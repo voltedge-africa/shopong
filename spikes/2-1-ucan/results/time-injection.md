@@ -11,3 +11,12 @@
 - **Cost:** Must thread `now` through all calls. Library supports it well. Determinism test passes.
 
 **Conclusion:** Both can verify against explicit logTime. ts-ucan requires disabling library time checks and doing it ourselves (more error-prone). iso-ucan has first-class injection but we must be disciplined about passing it everywhere.
+
+## in-house minimal chain
+- **Design:** `verify` receives `request.logTime` and reads nothing else. The token stores
+  `nbf`/`exp` in milliseconds, so the port's inclusive-start/exclusive-end rule is applied
+  directly with no seconds conversion.
+- **Evidence:** the same contract case (valid at `T0`, invalid one ms before, expired at
+  `exp`) passes in the normal and clock-and-network-trapped variants.
+- **Cost:** none at verification beyond the shared `windowError()` check; the adapter also
+  refuses a child window that extends the parent's (`outlivesParent`).

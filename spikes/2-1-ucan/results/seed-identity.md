@@ -14,3 +14,8 @@
 From `test/seed.test.ts`: "both libraries agree with RFC 8032 and an independent did:key encoding" and "the same recovery seed gives the same DID, every time, in both libraries" both pass.
 
 **Result:** Same did:key every run in Node for both libraries. HKDF-SHA-512 with label `ocn/identity/v1` (and specific purpose labels) works correctly.
+
+## in-house minimal chain
+- `src/inhouse/adapter.ts` accepts a 32-byte Ed25519 seed and derives the same `did:key`
+  (`did:key:z` + multicodec ed25519-pub + base58btc). `src/identity/keys.ts` exposes
+  `inhouseDidFromSeed()` for the AD-18 probe. It agrees with both libraries on the golden DID.
