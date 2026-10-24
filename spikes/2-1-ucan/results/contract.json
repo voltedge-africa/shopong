@@ -1,0 +1,48 @@
+{
+  "runAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "libraries": {
+    "@ucans/ucans": {
+      "version": "0.12.0",
+      "spec": "UCAN 0.8.1",
+      "adapter": "src/ts-ucan/adapter.ts",
+      "contractSuite": "@shopong/ports-contract CapabilityAuth (17 tests)",
+      "variants": [
+        { "name": "normal", "passed": 17, "failed": 0 },
+        { "name": "clock_and_network_trapped_in_verify", "passed": 17, "failed": 0 },
+        { "name": "no_attenuation_check_at_issue_verify_only", "passed": 17, "failed": 0 }
+      ],
+      "libraryIssues": [
+        "verify reads wall clock (Date.now) with no way to inject logTime; adapter disables library time checks and enforces window itself",
+        "attenuation/ceilings not enforced by library semantics; adapter implements capabilityCovers and checks",
+        "UCAN 0.8 tokenId is CIDv1 sha2-256 base32 (computed by adapter)",
+        "proof with nbf can break library chain walk in some cases; adapter handles"
+      ],
+      "notes": "All contract tests pass with adapter adding time/attenuation/ceiling enforcement."
+    },
+    "iso-ucan": {
+      "version": "2.0.0",
+      "spec": "UCAN 1.0",
+      "adapter": "src/iso-ucan/adapter.ts",
+      "contractSuite": "@shopong/ports-contract CapabilityAuth (17 tests)",
+      "variants": [
+        { "name": "normal", "passed": 17, "failed": 0 },
+        { "name": "clock_and_network_trapped_in_verify", "passed": 17, "failed": 0 },
+        { "name": "no_attenuation_check_at_issue_verify_only", "passed": 17, "failed": 0 }
+      ],
+      "libraryIssues": [
+        "time injectable via now but must be passed explicitly; adapter passes logTime/nbf as now",
+        "child can outlive parent (no time-subset rule in UCAN 1.0); adapter enforces with outlivesParent",
+        "expiry is inclusive in seconds (exp == now valid); port requires exclusive - adapter enforces windowError with strict > for expiry",
+        "single command per delegation, different model (subject/cmd/pol); adapter maps to port model",
+        "chain passed with invocation proofs; adapter builds synthetic invocation for assertProofs"
+      ],
+      "notes": "All contract tests pass with adapter adding port-specific rules."
+    }
+  },
+  "summary": {
+    "both_pass_all_contract_tests": true,
+    "total_tests": 137,
+    "passed": 137,
+    "expected_fail": 3
+  }
+}
