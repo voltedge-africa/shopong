@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "jsx": "react-native",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowJs": false,
+    "types": []
+  },
+  "include": ["app", "src", "metro.config.js", "expo-env.d.ts", ".expo/types/**/*.ts"]
+}

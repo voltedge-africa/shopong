@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Shopong",
+    "slug": "shopong",
+    "scheme": "shopong",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "africa.voltedge.shopong"
+    },
+    "android": {
+      "package": "africa.voltedge.shopong"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Shopong"
+    },
+    "plugins": ["expo-router"]
+  }
+}
