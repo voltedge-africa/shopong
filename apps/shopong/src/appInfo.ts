@@ -6,4 +6,8 @@ export const appInfo = {
     helper: "Coming soon",
     enabled: false,
   },
+  demo: {
+    label: "See a stokvel order, step by step",
+    helper: "A practice run with pretend money",
+  },
 } as const;

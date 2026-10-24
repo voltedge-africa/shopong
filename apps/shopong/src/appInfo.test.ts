@@ -16,4 +16,8 @@ describe("appInfo", () => {
       enabled: false,
     });
   });
+
+  it("links to the stokvel demo in plain words", () => {
+    expect(appInfo.demo.label).toBe("See a stokvel order, step by step");
+  });
 });
