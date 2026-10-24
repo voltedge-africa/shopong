@@ -1,0 +1,13 @@
+{
+  "name": "spike-7-1-valhalla",
+  "private": true,
+  "type": "module",
+  "description": "Spike 7.1 - evidence scripts for Valhalla-WASM routing. NOT part of the pnpm workspace.",
+  "dependencies": {
+    "valhalla-browser": "0.2.1",
+    "valhalla-server": "0.2.1"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}

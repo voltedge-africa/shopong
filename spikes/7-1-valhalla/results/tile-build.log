@@ -1,0 +1,116 @@
+Working directory: /work/build/osm-rfs5swvi
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0 72.6M    0  5599    0     0   5984      0  3:32:10 --:--:--  3:32:10  5984 27 72.6M   27 20.0M    0     0  10.3M      0  0:00:07  0:00:01  0:00:06 19.9M 70 72.6M   70 51.0M    0     0  17.6M      0  0:00:04  0:00:02  0:00:02 26.0M100 72.6M  100 72.6M    0     0  20.3M      0  0:00:03  0:00:03 --:--:-- 27.4M
+SQLite version: 3.45.1
+SpatiaLite version: 5.1.0
+Inserted 304 rows into 'tz_world' from '/work/build/osm-rfs5swvi/timezone-input/combined-shapefile-with-oceans-1970.shp'
+1
+2026-10-24 15:23:38.407417747 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Cymru / Wales
+2026-10-24 15:23:38.407452792 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for United States
+2026-10-24 15:23:38.407457257 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Türkiye
+2026-10-24 15:23:38.407461260 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Greece
+2026-10-24 15:23:38.407464945 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Finland
+2026-10-24 15:23:38.407468608 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Switzerland
+2026-10-24 15:23:38.407472120 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for France
+2026-10-24 15:23:38.407475770 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for England
+2026-10-24 15:23:38.407479670 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Russia
+2026-10-24 15:23:38.407483272 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Belarus
+2026-10-24 15:23:38.407486921 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Hungary
+2026-10-24 15:23:38.407490529 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Belgium
+2026-10-24 15:23:38.407494306 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for United Kingdom
+2026-10-24 15:23:38.407498074 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Iceland
+2026-10-24 15:23:38.407501956 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Austria
+2026-10-24 15:23:38.407505953 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Brazil
+2026-10-24 15:23:38.407512612 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Denmark
+2026-10-24 15:23:38.407516183 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for China
+2026-10-24 15:23:38.407520084 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Spain
+2026-10-24 15:23:38.407523952 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Australia
+2026-10-24 15:23:38.407529698 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Ireland
+2026-10-24 15:23:38.407534489 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Netherlands
+2026-10-24 15:23:38.407538284 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Norway
+2026-10-24 15:23:38.407542038 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Italy
+2026-10-24 15:23:38.407545877 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Alba / Scotland
+2026-10-24 15:23:38.407549616 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Sweden
+2026-10-24 15:23:38.407553311 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Northern Ireland
+2026-10-24 15:23:38.407556976 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Oman
+2026-10-24 15:23:38.407560733 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Slovakia
+2026-10-24 15:23:38.407564438 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Philippines
+2026-10-24 15:23:38.407568214 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Poland
+2026-10-24 15:23:38.407571995 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for ประเทศไทย
+2026-10-24 15:23:38.407575808 [31;1m[ERROR][0m sqlite3_step() error: NOT NULL constraint failed: admin_access.admin_id.  Ignore if not using a planet extract or check if there was a name change for Romania
+2026-10-24 15:23:38.433874322 [32;1m[INFO][0m Running valhalla_build_tiles with 8 thread(s).
+2026-10-24 15:23:38.433895417 [32;1m[INFO][0m Start stage = initialize End stage = cleanup
+2026-10-24 15:23:39.062892411 [TIMING] src/mjolnir/pbfgraphparser.cc::clarify_and_fix took 0s
+2026-10-24 15:23:39.066775508 [TIMING] src/mjolnir/pbfgraphparser.cc::ParseWays took 0s
+2026-10-24 15:23:39.116069530 [TIMING] src/mjolnir/pbfgraphparser.cc::ParseRelations took 0s
+2026-10-24 15:23:40.623151536 [TIMING] src/mjolnir/pbfgraphparser.cc::ParseNodes took 1s
+2026-10-24 15:23:40.689136047 [TIMING] src/mjolnir/graphbuilder.cc::BuildEdges took 0s
+2026-10-24 15:23:40.704323159 [TIMING] src/mjolnir/linkclassification.cc::ReclassifyLinks took 0s
+2026-10-24 15:23:40.716699879 [TIMING] src/mjolnir/ferry_connections.cc::ReclassifyFerryConnections took 0s
+2026-10-24 15:23:40.733953273 [TIMING] src/mjolnir/graphbuilder.cc::ComputeFerrySpeeds took 0s
+2026-10-24 15:23:41.076971763 [TIMING] src/mjolnir/graphbuilder.cc::BuildLocalTiles took 0s
+2026-10-24 15:23:41.076992646 [TIMING] src/mjolnir/graphbuilder.cc::Build took 0s
+2026-10-24 15:23:41.345141072 [TIMING] src/mjolnir/graphenhancer.cc::Enhance took 0s
+2026-10-24 15:23:41.345187591 [TIMING] src/mjolnir/graphfilter.cc::Filter took 0s
+2026-10-24 15:23:41.363869258 [TIMING] src/mjolnir/hierarchybuilder.cc::CreateNodeAssociations took 0s
+2026-10-24 15:23:41.380134902 [TIMING] src/mjolnir/hierarchybuilder.cc::SortSequences took 0s
+2026-10-24 15:23:41.604901579 [TIMING] src/mjolnir/hierarchybuilder.cc::FormTilesInNewLevel took 0s
+2026-10-24 15:23:41.605669824 [TIMING] src/mjolnir/hierarchybuilder.cc::RemoveUnusedLocalTiles took 0s
+2026-10-24 15:23:41.605724226 [TIMING] src/mjolnir/hierarchybuilder.cc::Build took 0s
+2026-10-24 15:23:41.853522734 [TIMING] src/mjolnir/shortcutbuilder.cc::Build took 0s
+2026-10-24 15:23:41.971067268 [TIMING] src/mjolnir/restrictionbuilder.cc::HandleOnlyRestrictionProperties took 0s
+2026-10-24 15:23:41.985137321 [TIMING] src/mjolnir/restrictionbuilder.cc::HandleOnlyRestrictionProperties took 0s
+2026-10-24 15:23:41.989244595 [TIMING] src/mjolnir/restrictionbuilder.cc::HandleOnlyRestrictionProperties took 0s
+2026-10-24 15:23:41.989274976 [TIMING] src/mjolnir/restrictionbuilder.cc::Build took 0s
+2026-10-24 15:23:42.151662109 [TIMING] src/mjolnir/graphvalidator.cc::Validate took 0s
+2026-10-24 15:23:42.157356312 [TIMING] src/mjolnir/osmdata.cc::cleanup_temp_files took 0s
+2026-10-24 15:23:42.157538530 [TIMING] src/mjolnir/util.cc::build_tile_set took 3s
+WARNING: some nodes lack timezone/country assignments; inspect build-report.json and input boundary completeness.
+{
+  "archiveSha256": "4da73c46a48dcc25a285e900cf44b6c48b72819e995e3d08560906060bee1437",
+  "configSha256": "2fdb6fed08d3020347b48f3e89456512276173fab377d9699c27fe5e64cc52ea",
+  "valhallaRevision": "a60c7cbfc83e073f50887cd27e0109d02e6b64e5",
+  "costings": [
+    "auto",
+    "bicycle",
+    "pedestrian",
+    "truck"
+  ],
+  "coverage": [
+    30.785751,
+    -27.318256,
+    32.136984,
+    -25.717811
+  ],
+  "source": {
+    "kind": "openstreetmap",
+    "sha256": "0d1abcd2c222cd328315e268a1014b7acb88a21b5cd1669020fd631453c89777",
+    "timezone": {
+      "release": "2026c",
+      "url": "https://github.com/evansiroky/timezone-boundary-builder/releases/download/2026c/timezones-with-oceans-1970.shapefile.zip",
+      "sha256": "e68090f0c7b1f3574287098baeef7554ac73e21c52c4d548d7edf304efb417f2",
+      "license": "ODbL 1.0; timezone-boundary-builder / OpenStreetMap contributors"
+    },
+    "attribution": "\u00a9 OpenStreetMap contributors, ODbL 1.0.",
+    "licenseUrl": "https://www.openstreetmap.org/copyright",
+    "url": "https://download.geofabrik.de/africa/swaziland-261023.osm.pbf"
+  },
+  "sourceDateEpoch": 1789603200,
+  "release": "eswatini-2026-10-23-9417c9f2fb08c5d6",
+  "output": "/work/public/datasets/eswatini-2026-10-23-9417c9f2fb08c5d6",
+  "workDir": "/work/build/osm-rfs5swvi",
+  "audit": {
+    "tiles": 51,
+    "nodes": 106878,
+    "nodesWithTimezone": 106878,
+    "nodesWithCountry": 105760
+  },
+  "nativeConfigSha256": "c864fda0fcc7a3543ee775937d7df09c95d83a89075e67beb4a0e54a0dcd2aa7",
+  "archiveBytes": 22138880,
+  "tiles": 51,
+  "manifestBytes": 11422,
+  "nativeBuilderVersion": "3.8.3",
+  "nativeBuilderSha256": "37865b2fd03ab5aa2cc03aa290b2888bf8df7c6466ddac9209b9462a883fea3f"
+}
