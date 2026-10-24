@@ -1,0 +1,55 @@
+# Epic 1: Walking skeleton and capability seams. Story order follows epics.md.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Runnable Shopong app shell and CI"
+description = "Sets up the monorepo with the Expo universal Shopong app, the OCN Node service and CI, so every later story lands in a tested, runnable shell."
+verify = "A fresh clone installs and starts on iOS, Android and web to a signed-out home screen with the Node reporting healthy, and CI runs lint, type-check and unit tests with lockfile-pinned dependencies."
+hitl = false
+references = ["../../planning-artifacts/epics.md"]
+
+[[entry]]
+id = 2
+type = "story"
+title = "Capability ports and the contract test suite"
+description = "Defines typed ports for each capability with a documented interface and an in-memory adapter, plus a shared contract test suite that any adapter, real or fake, must pass."
+verify = "Each port has an in-memory adapter that passes its contract suite, and the suite can later be pointed at a real adapter without edits."
+hitl = false
+references = ["../../planning-artifacts/epics.md"]
+
+[[entry]]
+id = 3
+type = "story"
+title = "Shared event envelope and canonical hashing"
+description = "Introduces one versioned event envelope with canonical serialisation and a SHA-512 event id, so the record, ledger and payments reconcile on the same value. Unknown types or higher versions are preserved and ignored by older readers."
+verify = "The same event serialises to identical canonical bytes and SHA-512 id on different platforms, and an unknown type or higher version is preserved and ignored without error."
+hitl = false
+references = ["../../planning-artifacts/epics.md"]
+
+[[entry]]
+id = 4
+type = "story"
+title = "Scripted stokvel order on in-memory adapters (tracer)"
+description = "Runs a whole bulk stokvel order from proposal to collection in the app on in-memory adapters, so the product shape is real before any external system is connected."
+verify = "A seeded five-member stokvel shows the order proposed, pledges received, supplier paid, delivery planned and collection confirmed in that order, asserted by an end-to-end test."
+hitl = false
+references = ["../../planning-artifacts/epics.md"]
+
+[[entry]]
+id = 5
+type = "story"
+title = "OCN Node configuration, secrets and health"
+description = "The OCN Node loads configuration and secrets safely and exposes health and metrics, so credentials never reach devices and operators can see the Node working."
+verify = "The Node refuses to start when a required secret is missing, naming the key without printing any value, and /health reports component status for the record, ledger, payments and queue."
+hitl = false
+references = ["../../planning-artifacts/epics.md"]
+
+[[entry]]
+id = 6
+type = "story"
+title = "Sandbox accounts and fixtures"
+description = "Provides sandbox credentials for each outside service and recorded request/response fixtures, so tests run without touching real money or data."
+verify = "Following the sandbox setup guide yields the Stitch, Ledfra, Solana devnet and EVM testnet accounts, an OSM extract and sample documents, plus recorded fixtures for the first payment and ledger calls."
+hitl = true
+references = ["../../planning-artifacts/epics.md"]
