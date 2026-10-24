@@ -1,0 +1,12 @@
+{
+  "service": "stitch",
+  "scenario": "payment-completed-webhook",
+  "description": "Webhook Stitch sends to the OCN Node when the payment request completes. The webhook is the source of truth; redirect parameters are untrusted.",
+  "direction": "inbound",
+  "source": "synthetic-from-docs",
+  "references": [
+    "https://docs.stitch.money (payment initiation, webhooks, test scenarios), as summarised in _bmad-output/planning-artifacts/technology-register.md"
+  ],
+  "capturedAt": "2026-10-24",
+  "todo": "Replace with a captured delivery from the registered sandbox webhook endpoint. The payload shape and the signature headers are NOT documented in the pages we read (technology-register F-4): signature verification must not be built against this fixture."
+}

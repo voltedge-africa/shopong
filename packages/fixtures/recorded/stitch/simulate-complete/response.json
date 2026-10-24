@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "body": {
+    "data": {
+      "testClientPaymentInitiationRequestSimulateComplete": {
+        "paymentInitiationRequest": {
+          "id": "cGF5bWVudGluaXRpYXRpb25yZXF1ZXN0LzAwMDAwMDAw",
+          "state": {
+            "__typename": "PaymentInitiationRequestCompleted"
+          }
+        }
+      }
+    }
+  }
+}
