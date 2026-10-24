@@ -1,24 +1,24 @@
 {
-  "at": "2026-10-24T15:32:14.335Z",
-  "release": "eswatini-2026-10-23-9417c9f2fb08c5d6",
+  "at": "2026-10-24T15:53:29.144Z",
+  "release": "eswatini-2026-10-23-ee64eeb3ddec4d64",
   "main": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
     "crossOriginIsolated": false,
-    "manifestUrl": "http://127.0.0.1:37499/datasets/eswatini-2026-10-23-9417c9f2fb08c5d6/manifest.json",
+    "manifestUrl": "http://127.0.0.1:40095/datasets/eswatini-2026-10-23-ee64eeb3ddec4d64/manifest.json",
     "routes": [
       {
         "pair": "Mbabane -> Manzini",
         "costing": "auto",
         "distanceKm": 38.39,
         "timeS": 1456.754,
-        "coldRouteMs": 523.5,
-        "coldNativeMs": 522.5,
+        "coldRouteMs": 566.4,
+        "coldNativeMs": 565.2,
         "coldTileDownloads": 5,
         "coldRequests": 5,
         "coldBytes": 7382872,
-        "warmMedianMs": 43.7,
-        "warmMinMs": 40.3,
-        "warmMaxMs": 48.7,
+        "warmMedianMs": 44.3,
+        "warmMinMs": 37.8,
+        "warmMaxMs": 45.7,
         "warmRepeatIdentical": true,
         "wasmHeapCapacityHighWaterMiB": 128,
         "decodedCacheMiB": 7,
@@ -36,14 +36,14 @@
         "costing": "auto",
         "distanceKm": 10.419,
         "timeS": 798.551,
-        "coldRouteMs": 621.1,
-        "coldNativeMs": 620.1,
+        "coldRouteMs": 623.8,
+        "coldNativeMs": 622.8,
         "coldTileDownloads": 8,
         "coldRequests": 8,
         "coldBytes": 9719544,
-        "warmMedianMs": 72.5,
-        "warmMinMs": 69.4,
-        "warmMaxMs": 97.8,
+        "warmMedianMs": 60.5,
+        "warmMinMs": 50.3,
+        "warmMaxMs": 65.4,
         "warmRepeatIdentical": true,
         "wasmHeapCapacityHighWaterMiB": 128,
         "decodedCacheMiB": 9.3,
@@ -61,14 +61,14 @@
         "costing": "auto",
         "distanceKm": 2.898,
         "timeS": 214.511,
-        "coldRouteMs": 901.7,
-        "coldNativeMs": 899.9,
+        "coldRouteMs": 500.1,
+        "coldNativeMs": 499.5,
         "coldTileDownloads": 3,
         "coldRequests": 3,
         "coldBytes": 4396304,
-        "warmMedianMs": 34.3,
-        "warmMinMs": 29.1,
-        "warmMaxMs": 41.2,
+        "warmMedianMs": 15.5,
+        "warmMinMs": 14.3,
+        "warmMaxMs": 20.1,
         "warmRepeatIdentical": true,
         "wasmHeapCapacityHighWaterMiB": 128,
         "decodedCacheMiB": 4.2,
@@ -86,14 +86,14 @@
         "costing": "truck",
         "distanceKm": 38.39,
         "timeS": 1456.754,
-        "coldRouteMs": 614.4,
-        "coldNativeMs": 611.6,
+        "coldRouteMs": 522,
+        "coldNativeMs": 521.1,
         "coldTileDownloads": 5,
         "coldRequests": 5,
         "coldBytes": 7382872,
-        "warmMedianMs": 39.4,
-        "warmMinMs": 36,
-        "warmMaxMs": 55,
+        "warmMedianMs": 36.8,
+        "warmMinMs": 34.3,
+        "warmMaxMs": 47.2,
         "warmRepeatIdentical": true,
         "wasmHeapCapacityHighWaterMiB": 128,
         "decodedCacheMiB": 7,
@@ -111,14 +111,14 @@
         "costing": "truck",
         "distanceKm": 10.419,
         "timeS": 798.551,
-        "coldRouteMs": 567.1,
-        "coldNativeMs": 566.1,
+        "coldRouteMs": 560.9,
+        "coldNativeMs": 560.1,
         "coldTileDownloads": 8,
         "coldRequests": 8,
         "coldBytes": 9719544,
-        "warmMedianMs": 61.9,
-        "warmMinMs": 56.9,
-        "warmMaxMs": 65.9,
+        "warmMedianMs": 74.1,
+        "warmMinMs": 63,
+        "warmMaxMs": 79.3,
         "warmRepeatIdentical": true,
         "wasmHeapCapacityHighWaterMiB": 128,
         "decodedCacheMiB": 9.3,
@@ -136,14 +136,14 @@
         "costing": "truck",
         "distanceKm": 2.898,
         "timeS": 214.511,
-        "coldRouteMs": 451.9,
-        "coldNativeMs": 451.1,
+        "coldRouteMs": 689.7,
+        "coldNativeMs": 688.6,
         "coldTileDownloads": 3,
         "coldRequests": 3,
         "coldBytes": 4396304,
-        "warmMedianMs": 11.9,
-        "warmMinMs": 10.3,
-        "warmMaxMs": 15.7,
+        "warmMedianMs": 26.8,
+        "warmMinMs": 25,
+        "warmMaxMs": 32.7,
         "warmRepeatIdentical": true,
         "wasmHeapCapacityHighWaterMiB": 128,
         "decodedCacheMiB": 4.2,
@@ -186,33 +186,33 @@
       "concurrent5": [
         {
           "i": 0,
-          "doneAtMs": 57.8,
-          "routeMs": 57.2,
-          "hostRouteMs": 57.8
+          "doneAtMs": 86.7,
+          "routeMs": 81.7,
+          "hostRouteMs": 86.5
         },
         {
           "i": 1,
-          "doneAtMs": 137.3,
-          "routeMs": 79.4,
-          "hostRouteMs": 137.3
+          "doneAtMs": 218.7,
+          "routeMs": 136.3,
+          "hostRouteMs": 218.6
         },
         {
           "i": 2,
-          "doneAtMs": 146.7,
-          "routeMs": 9.2,
-          "hostRouteMs": 146.6
+          "doneAtMs": 233.4,
+          "routeMs": 11.6,
+          "hostRouteMs": 233.3
         },
         {
           "i": 3,
-          "doneAtMs": 182,
-          "routeMs": 35,
-          "hostRouteMs": 182
+          "doneAtMs": 281.4,
+          "routeMs": 50.7,
+          "hostRouteMs": 281.3
         },
         {
           "i": 4,
-          "doneAtMs": 241.3,
-          "routeMs": 59.2,
-          "hostRouteMs": 241.2
+          "doneAtMs": 348.6,
+          "routeMs": 66.8,
+          "hostRouteMs": 348.5
         }
       ],
       "cancel": {
@@ -233,7 +233,7 @@
         "routeAfterCancel": {
           "ok": true,
           "distanceKm": 38.39,
-          "ms": 482.6
+          "ms": 648.1
         }
       },
       "abortImmediately": {
@@ -278,10 +278,10 @@
       }
     },
     "startup": {
-      "wallMs": 257.3,
-      "workerReadyMs": 256.9,
-      "moduleStartupMs": 148.8,
-      "graphStartupMs": 72.3,
+      "wallMs": 246,
+      "workerReadyMs": 245.6,
+      "moduleStartupMs": 147.6,
+      "graphStartupMs": 69.6,
       "graphStartupRequests": 6,
       "graphStartupBytes": 23515,
       "supportedCostings": [
@@ -303,7 +303,7 @@
         "tileDownloads": 17,
         "bytes": 11977016,
         "metadataBytes": 2656,
-        "sequentialWaitMs": 124.00000017881393,
+        "sequentialWaitMs": 250.60000014305115,
         "deduplicated": 0,
         "retries": 0
       },
@@ -319,8 +319,8 @@
       "resourceTimingEntries": 24
     },
     "process": {
-      "chromiumTreePeakRssMiB": 770.8,
-      "chromiumTreeRssAtEndMiB": 584.9,
+      "chromiumTreePeakRssMiB": 764.1,
+      "chromiumTreeRssAtEndMiB": 469,
       "mainThreadJSHeapUsedMiB": 2.4
     },
     "consoleErrors": []
@@ -369,7 +369,7 @@
       "consoleMessages": []
     },
     "same + wasm-unsafe-eval, tiles on another origin, connect-src {B}": {
-      "policy": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:38553",
+      "policy": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:45505",
       "result": {
         "ok": true,
         "distanceKm": 38.39
@@ -385,7 +385,7 @@
       "consoleMessages": []
     },
     "worker+wasm on CDN origin B, worker-src 'self' only (no blob:)": {
-      "policy": "default-src 'none'; script-src 'self' http://localhost:36301 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:36301",
+      "policy": "default-src 'none'; script-src 'self' http://localhost:35979 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:35979",
       "result": {
         "ok": false,
         "error": {
@@ -396,12 +396,12 @@
         }
       },
       "consoleMessages": [
-        "Creating a worker from 'blob:http://127.0.0.1:34081/2f89cf68-8d0f-41e0-9992-5246cc21e7ab' violates the following Content Security Policy directive: \"worker-src 'self'\". The action has been blocked.",
-        "Creating a worker from 'blob:http://127.0.0.1:34081/5eb54784-6878-4227-9ae7-b77d4c767105' violates the following Content Security Policy directive: \"worker-src 'self'\". The action has been blocked."
+        "Creating a worker from 'blob:http://127.0.0.1:32991/17861841-98d5-4b67-8068-04b23121e63f' violates the following Content Security Policy directive: \"worker-src 'self'\". The action has been blocked.",
+        "Creating a worker from 'blob:http://127.0.0.1:32991/8dca1595-b0cb-4f87-89a4-a31e14d24780' violates the following Content Security Policy directive: \"worker-src 'self'\". The action has been blocked."
       ]
     },
     "worker+wasm on CDN origin B, worker-src 'self' blob: (B not listed)": {
-      "policy": "default-src 'none'; script-src 'self' http://localhost:44219 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' http://localhost:44219",
+      "policy": "default-src 'none'; script-src 'self' http://localhost:37927 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' http://localhost:37927",
       "result": {
         "ok": false,
         "error": {
@@ -414,7 +414,7 @@
       "consoleMessages": []
     },
     "worker+wasm on CDN origin B, worker-src 'self' blob: {B}": {
-      "policy": "default-src 'none'; script-src 'self' http://localhost:36157 'wasm-unsafe-eval'; worker-src 'self' blob: http://localhost:36157; connect-src 'self' http://localhost:36157",
+      "policy": "default-src 'none'; script-src 'self' http://localhost:41435 'wasm-unsafe-eval'; worker-src 'self' blob: http://localhost:41435; connect-src 'self' http://localhost:41435",
       "result": {
         "ok": true,
         "distanceKm": 38.39

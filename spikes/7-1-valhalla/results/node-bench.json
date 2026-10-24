@@ -1,33 +1,165 @@
 {
   "runtime": "node v24.22.1",
-  "manifestUrl": "http://127.0.0.1:8090/datasets/eswatini-2026-10-23-9417c9f2fb08c5d6/manifest.json",
-  "at": "2026-10-24T15:24:04.735Z",
+  "manifestUrl": "http://127.0.0.1:8090/datasets/eswatini-2026-10-23-ee64eeb3ddec4d64/manifest.json",
+  "at": "2026-10-24T15:53:15.763Z",
   "routes": [
     {
       "pair": "Mbabane -> Manzini",
       "costing": "auto",
       "distanceKm": 38.39,
       "timeS": 1456.754,
-      "coldRouteMs": 445.6,
-      "coldNativeMs": 444.2,
+      "coldRouteMs": 434,
+      "coldNativeMs": 432.7,
       "coldTileDownloads": 5,
       "coldRequests": 5,
       "coldBytes": 7382872,
-      "warmMedianMs": 40.7,
-      "warmMinMs": 33.4,
-      "warmMaxMs": 43.1,
+      "warmMedianMs": 37.4,
+      "warmMinMs": 35.5,
+      "warmMaxMs": 41.8,
       "warmRepeatIdentical": true,
       "wasmHeapCapacityHighWaterMiB": 256,
       "decodedCacheMiB": 7,
       "totalTileDownloads": 5,
       "totalBytes": 7385528,
       "rssBefore": {
-        "rssMiB": 198.2,
-        "heapUsedMiB": 5.3,
+        "rssMiB": 228.9,
+        "heapUsedMiB": 5.2,
         "externalMiB": 2.1
       },
       "rssAfter": {
-        "rssMiB": 378.1,
+        "rssMiB": 356.8,
+        "heapUsedMiB": 5.5,
+        "externalMiB": 2.1
+      },
+      "shape": {
+        "points": 558,
+        "geomKm": 38.352,
+        "reportedKm": 38.39,
+        "ratio": 0.999,
+        "start": [
+          -26.305399,
+          31.136737
+        ],
+        "end": [
+          -26.483391,
+          31.366697
+        ]
+      },
+      "dataset": "eswatini-2026-10-23-ee64eeb3ddec4d64"
+    },
+    {
+      "pair": "Manzini -> Matsapha",
+      "costing": "auto",
+      "distanceKm": 10.419,
+      "timeS": 798.551,
+      "coldRouteMs": 591.2,
+      "coldNativeMs": 590.1,
+      "coldTileDownloads": 8,
+      "coldRequests": 8,
+      "coldBytes": 9719544,
+      "warmMedianMs": 58.7,
+      "warmMinMs": 53.7,
+      "warmMaxMs": 68.3,
+      "warmRepeatIdentical": true,
+      "wasmHeapCapacityHighWaterMiB": 256,
+      "decodedCacheMiB": 9.3,
+      "totalTileDownloads": 8,
+      "totalBytes": 9722200,
+      "rssBefore": {
+        "rssMiB": 414.3,
+        "heapUsedMiB": 5.6,
+        "externalMiB": 2.1
+      },
+      "rssAfter": {
+        "rssMiB": 350.9,
+        "heapUsedMiB": 5.7,
+        "externalMiB": 2.1
+      },
+      "shape": {
+        "points": 221,
+        "geomKm": 10.406,
+        "reportedKm": 10.419,
+        "ratio": 0.9987,
+        "start": [
+          -26.483391,
+          31.366697
+        ],
+        "end": [
+          -26.516695,
+          31.30006
+        ]
+      },
+      "dataset": "eswatini-2026-10-23-ee64eeb3ddec4d64"
+    },
+    {
+      "pair": "Mbabane short urban hop",
+      "costing": "auto",
+      "distanceKm": 2.898,
+      "timeS": 214.511,
+      "coldRouteMs": 466.7,
+      "coldNativeMs": 465.8,
+      "coldTileDownloads": 3,
+      "coldRequests": 3,
+      "coldBytes": 4396304,
+      "warmMedianMs": 12.3,
+      "warmMinMs": 10.9,
+      "warmMaxMs": 14.9,
+      "warmRepeatIdentical": true,
+      "wasmHeapCapacityHighWaterMiB": 256,
+      "decodedCacheMiB": 4.2,
+      "totalTileDownloads": 3,
+      "totalBytes": 4398960,
+      "rssBefore": {
+        "rssMiB": 385.7,
+        "heapUsedMiB": 5.9,
+        "externalMiB": 2.1
+      },
+      "rssAfter": {
+        "rssMiB": 415.5,
+        "heapUsedMiB": 6,
+        "externalMiB": 2.1
+      },
+      "shape": {
+        "points": 117,
+        "geomKm": 2.894,
+        "reportedKm": 2.898,
+        "ratio": 0.9988,
+        "start": [
+          -26.318961,
+          31.133935
+        ],
+        "end": [
+          -26.311348,
+          31.144775
+        ]
+      },
+      "dataset": "eswatini-2026-10-23-ee64eeb3ddec4d64"
+    },
+    {
+      "pair": "Mbabane -> Manzini",
+      "costing": "truck",
+      "distanceKm": 38.39,
+      "timeS": 1456.754,
+      "coldRouteMs": 535.3,
+      "coldNativeMs": 534,
+      "coldTileDownloads": 5,
+      "coldRequests": 5,
+      "coldBytes": 7382872,
+      "warmMedianMs": 36.6,
+      "warmMinMs": 32.5,
+      "warmMaxMs": 41,
+      "warmRepeatIdentical": true,
+      "wasmHeapCapacityHighWaterMiB": 256,
+      "decodedCacheMiB": 7,
+      "totalTileDownloads": 5,
+      "totalBytes": 7385528,
+      "rssBefore": {
+        "rssMiB": 433,
+        "heapUsedMiB": 5.4,
+        "externalMiB": 2.1
+      },
+      "rssAfter": {
+        "rssMiB": 518.1,
         "heapUsedMiB": 5.6,
         "externalMiB": 2.1
       },
@@ -45,33 +177,33 @@
           31.366697
         ]
       },
-      "dataset": "eswatini-2026-10-23-9417c9f2fb08c5d6"
+      "dataset": "eswatini-2026-10-23-ee64eeb3ddec4d64"
     },
     {
       "pair": "Manzini -> Matsapha",
-      "costing": "auto",
+      "costing": "truck",
       "distanceKm": 10.419,
       "timeS": 798.551,
-      "coldRouteMs": 467.9,
-      "coldNativeMs": 466.9,
+      "coldRouteMs": 548.9,
+      "coldNativeMs": 547.8,
       "coldTileDownloads": 8,
       "coldRequests": 8,
       "coldBytes": 9719544,
-      "warmMedianMs": 51.6,
-      "warmMinMs": 50.5,
-      "warmMaxMs": 56,
+      "warmMedianMs": 61.1,
+      "warmMinMs": 59.7,
+      "warmMaxMs": 64.2,
       "warmRepeatIdentical": true,
       "wasmHeapCapacityHighWaterMiB": 256,
       "decodedCacheMiB": 9.3,
       "totalTileDownloads": 8,
       "totalBytes": 9722200,
       "rssBefore": {
-        "rssMiB": 391.2,
-        "heapUsedMiB": 5.7,
+        "rssMiB": 460.2,
+        "heapUsedMiB": 5.8,
         "externalMiB": 2.1
       },
       "rssAfter": {
-        "rssMiB": 353.3,
+        "rssMiB": 462,
         "heapUsedMiB": 5.9,
         "externalMiB": 2.1
       },
@@ -89,34 +221,34 @@
           31.30006
         ]
       },
-      "dataset": "eswatini-2026-10-23-9417c9f2fb08c5d6"
+      "dataset": "eswatini-2026-10-23-ee64eeb3ddec4d64"
     },
     {
       "pair": "Mbabane short urban hop",
-      "costing": "auto",
+      "costing": "truck",
       "distanceKm": 2.898,
       "timeS": 214.511,
-      "coldRouteMs": 403,
-      "coldNativeMs": 402.2,
+      "coldRouteMs": 438.8,
+      "coldNativeMs": 437.9,
       "coldTileDownloads": 3,
       "coldRequests": 3,
       "coldBytes": 4396304,
-      "warmMedianMs": 11.3,
-      "warmMinMs": 10.9,
-      "warmMaxMs": 12.6,
+      "warmMedianMs": 13.6,
+      "warmMinMs": 12.1,
+      "warmMaxMs": 18.3,
       "warmRepeatIdentical": true,
       "wasmHeapCapacityHighWaterMiB": 256,
       "decodedCacheMiB": 4.2,
       "totalTileDownloads": 3,
       "totalBytes": 4398960,
       "rssBefore": {
-        "rssMiB": 402.6,
+        "rssMiB": 480.3,
         "heapUsedMiB": 6,
         "externalMiB": 2.1
       },
       "rssAfter": {
-        "rssMiB": 416.4,
-        "heapUsedMiB": 6.1,
+        "rssMiB": 506.9,
+        "heapUsedMiB": 5.4,
         "externalMiB": 2.1
       },
       "shape": {
@@ -133,139 +265,7 @@
           31.144775
         ]
       },
-      "dataset": "eswatini-2026-10-23-9417c9f2fb08c5d6"
-    },
-    {
-      "pair": "Mbabane -> Manzini",
-      "costing": "truck",
-      "distanceKm": 38.39,
-      "timeS": 1456.754,
-      "coldRouteMs": 482.3,
-      "coldNativeMs": 481.3,
-      "coldTileDownloads": 5,
-      "coldRequests": 5,
-      "coldBytes": 7382872,
-      "warmMedianMs": 32.4,
-      "warmMinMs": 31.3,
-      "warmMaxMs": 34.9,
-      "warmRepeatIdentical": true,
-      "wasmHeapCapacityHighWaterMiB": 256,
-      "decodedCacheMiB": 7,
-      "totalTileDownloads": 5,
-      "totalBytes": 7385528,
-      "rssBefore": {
-        "rssMiB": 437.8,
-        "heapUsedMiB": 5.5,
-        "externalMiB": 2.1
-      },
-      "rssAfter": {
-        "rssMiB": 471.2,
-        "heapUsedMiB": 5.7,
-        "externalMiB": 2.1
-      },
-      "shape": {
-        "points": 558,
-        "geomKm": 38.352,
-        "reportedKm": 38.39,
-        "ratio": 0.999,
-        "start": [
-          -26.305399,
-          31.136737
-        ],
-        "end": [
-          -26.483391,
-          31.366697
-        ]
-      },
-      "dataset": "eswatini-2026-10-23-9417c9f2fb08c5d6"
-    },
-    {
-      "pair": "Manzini -> Matsapha",
-      "costing": "truck",
-      "distanceKm": 10.419,
-      "timeS": 798.551,
-      "coldRouteMs": 550.6,
-      "coldNativeMs": 549.6,
-      "coldTileDownloads": 8,
-      "coldRequests": 8,
-      "coldBytes": 9719544,
-      "warmMedianMs": 59.5,
-      "warmMinMs": 59,
-      "warmMaxMs": 60.4,
-      "warmRepeatIdentical": true,
-      "wasmHeapCapacityHighWaterMiB": 256,
-      "decodedCacheMiB": 9.3,
-      "totalTileDownloads": 8,
-      "totalBytes": 9722200,
-      "rssBefore": {
-        "rssMiB": 415.2,
-        "heapUsedMiB": 5.9,
-        "externalMiB": 2.1
-      },
-      "rssAfter": {
-        "rssMiB": 567.3,
-        "heapUsedMiB": 6,
-        "externalMiB": 2.1
-      },
-      "shape": {
-        "points": 221,
-        "geomKm": 10.406,
-        "reportedKm": 10.419,
-        "ratio": 0.9987,
-        "start": [
-          -26.483391,
-          31.366697
-        ],
-        "end": [
-          -26.516695,
-          31.30006
-        ]
-      },
-      "dataset": "eswatini-2026-10-23-9417c9f2fb08c5d6"
-    },
-    {
-      "pair": "Mbabane short urban hop",
-      "costing": "truck",
-      "distanceKm": 2.898,
-      "timeS": 214.511,
-      "coldRouteMs": 389.5,
-      "coldNativeMs": 388.6,
-      "coldTileDownloads": 3,
-      "coldRequests": 3,
-      "coldBytes": 4396304,
-      "warmMedianMs": 12,
-      "warmMinMs": 11,
-      "warmMaxMs": 13.9,
-      "warmRepeatIdentical": true,
-      "wasmHeapCapacityHighWaterMiB": 256,
-      "decodedCacheMiB": 4.2,
-      "totalTileDownloads": 3,
-      "totalBytes": 4398960,
-      "rssBefore": {
-        "rssMiB": 508.2,
-        "heapUsedMiB": 6.1,
-        "externalMiB": 2.1
-      },
-      "rssAfter": {
-        "rssMiB": 499.5,
-        "heapUsedMiB": 5.5,
-        "externalMiB": 2.1
-      },
-      "shape": {
-        "points": 117,
-        "geomKm": 2.894,
-        "reportedKm": 2.898,
-        "ratio": 0.9988,
-        "start": [
-          -26.318961,
-          31.133935
-        ],
-        "end": [
-          -26.311348,
-          31.144775
-        ]
-      },
-      "dataset": "eswatini-2026-10-23-9417c9f2fb08c5d6"
+      "dataset": "eswatini-2026-10-23-ee64eeb3ddec4d64"
     }
   ],
   "behaviour": {
@@ -293,31 +293,31 @@
       "message": "A location is outside this dataset’s coverage.",
       "retryable": false
     },
-    "insideBboxNoRoad": "NO ERROR",
+    "pointInSouthAfricaPartOfBbox": "NO ERROR",
     "concurrent5": [
       {
         "i": 0,
-        "doneAtMs": 49.1,
-        "queueWaitMs": 0.21825900000021647,
-        "routeMs": 48.07337400000051
+        "doneAtMs": 54.5,
+        "queueWaitMs": 0.2833989999999176,
+        "routeMs": 53.249643000000106
       },
       {
         "i": 1,
-        "doneAtMs": 118,
-        "queueWaitMs": 48.88644299999942,
-        "routeMs": 68.44428300000072
+        "doneAtMs": 128.6,
+        "queueWaitMs": 54.24566099999993,
+        "routeMs": 73.76210600000013
       },
       {
         "i": 2,
-        "doneAtMs": 127.9,
-        "queueWaitMs": 117.71961900000042,
-        "routeMs": 9.505364999999983
+        "doneAtMs": 139.3,
+        "queueWaitMs": 128.28722900000048,
+        "routeMs": 10.229107000000113
       },
       {
         "i": 3,
-        "doneAtMs": 163.7,
-        "queueWaitMs": 127.64894299999924,
-        "routeMs": 35.39076599999953
+        "doneAtMs": 179,
+        "queueWaitMs": 138.97377899999992,
+        "routeMs": 39.215986999999586
       },
       {
         "i": 4,
@@ -336,11 +336,11 @@
         "message": "Route cancelled.",
         "retryable": false
       },
-      "cancelAwaitMs": 2.9,
+      "cancelAwaitMs": 2.8,
       "routeAfterCancel": {
         "ok": true,
         "distanceKm": 38.39,
-        "ms": 479.4
+        "ms": 525.1
       },
       "note": "cancel terminates the worker thread; the decoded-tile cache is lost"
     },
@@ -356,16 +356,16 @@
     }
   },
   "startup": {
-    "wallMs": 223.4,
+    "wallMs": 242.3,
     "supportedCostings": [
       "auto",
       "bicycle",
       "pedestrian",
       "truck"
     ],
-    "release": "eswatini-2026-10-23-9417c9f2fb08c5d6",
-    "moduleStartupMs": 102.13762200000001,
-    "graphStartupMs": 79.48049499999999,
+    "release": "eswatini-2026-10-23-ee64eeb3ddec4d64",
+    "moduleStartupMs": 101.478005,
+    "graphStartupMs": 96.66653,
     "graphStartupRequests": 6,
     "graphStartupBytes": 23515,
     "wasmMemory": {
@@ -375,8 +375,8 @@
     "memoryBudgetBytes": 33554432,
     "valhalla": "3.8.3",
     "rssAfterStart": {
-      "rssMiB": 192.9,
-      "heapUsedMiB": 5.2,
+      "rssMiB": 187.9,
+      "heapUsedMiB": 5.1,
       "externalMiB": 2.1
     }
   },
@@ -386,7 +386,7 @@
       "tileDownloads": 17,
       "bytes": 11977016,
       "metadataBytes": 2656,
-      "sequentialWaitMs": 72.21536100000048,
+      "sequentialWaitMs": 74.89037800000096,
       "deduplicated": 0,
       "retries": 0
     },
@@ -399,8 +399,8 @@
       "abi": 3
     },
     "rss": {
-      "rssMiB": 475.7,
-      "heapUsedMiB": 6.2,
+      "rssMiB": 457.1,
+      "heapUsedMiB": 6,
       "externalMiB": 2.1
     }
   }
