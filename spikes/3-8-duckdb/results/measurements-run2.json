@@ -2,8 +2,8 @@
   "n": 2,
   "alias": "duckdb-1.32.0",
   "engine": "v1.4.3",
-  "coldStartMs": 970,
-  "instantiateMs": 707,
+  "coldStartMs": 822,
+  "instantiateMs": 612,
   "bundle": "eh",
   "crossOriginIsolated": false,
   "sizes": {
@@ -39,25 +39,25 @@
       "raw": 39362651,
       "gzip": 8730849
     },
-    "app/index-Dcog_G7U.js": {
-      "raw": 223519,
-      "gzip": 53283
+    "app/index-BJ8HSApw.js": {
+      "raw": 223531,
+      "gzip": 53285
     },
     "index.html": {
       "raw": 313,
-      "gzip": 228
+      "gzip": 229
     }
   },
   "load10k": {
     "json": {
-      "totalMs": 128,
+      "totalMs": 126,
       "perTableMs": {
-        "members": 49,
-        "orders": 36,
-        "pledges": 17,
-        "deliveries": 26
+        "members": 38,
+        "orders": 40,
+        "pledges": 16,
+        "deliveries": 32
       },
-      "genMs": 8,
+      "genMs": 7,
       "counts": {
         "members": 500,
         "orders": 4000,
@@ -66,12 +66,12 @@
       }
     },
     "arrow": {
-      "totalMs": 60,
+      "totalMs": 43,
       "perTableMs": {
-        "members": 24,
-        "orders": 17,
-        "pledges": 13,
-        "deliveries": 6
+        "members": 15,
+        "orders": 14,
+        "pledges": 9,
+        "deliveries": 5
       },
       "genMs": 7,
       "counts": {
@@ -84,14 +84,14 @@
   },
   "load200k": {
     "arrow": {
-      "totalMs": 330,
+      "totalMs": 200,
       "perTableMs": {
-        "members": 55,
-        "orders": 100,
-        "pledges": 125,
-        "deliveries": 50
+        "members": 32,
+        "orders": 74,
+        "pledges": 66,
+        "deliveries": 28
       },
-      "genMs": 81,
+      "genMs": 61,
       "counts": {
         "members": 10000,
         "orders": 80000,
@@ -102,55 +102,55 @@
   },
   "latency10k": {
     "spend_per_item": {
-      "medianMs": 3.7,
-      "minMs": 2.9,
+      "medianMs": 2.1,
+      "minMs": 1.8,
       "rows": 6
     },
     "who_has_not_paid": {
-      "medianMs": 4.2,
-      "minMs": 4,
+      "medianMs": 2.6,
+      "minMs": 2.5,
       "rows": 20
     },
     "delivery_hours_per_point": {
-      "medianMs": 3.5,
-      "minMs": 3.1,
+      "medianMs": 1.9,
+      "minMs": 1.8,
       "rows": 4
     },
     "price_history_by_month": {
-      "medianMs": 7.7,
-      "minMs": 5.1,
+      "medianMs": 3.7,
+      "minMs": 3,
       "rows": 72
     },
     "three_way_join": {
-      "medianMs": 9.3,
-      "minMs": 7.5,
+      "medianMs": 5,
+      "minMs": 4.1,
       "rows": 4
     }
   },
   "latency200k": {
     "spend_per_item": {
-      "medianMs": 14.2,
-      "minMs": 11.3,
+      "medianMs": 6.9,
+      "minMs": 6.4,
       "rows": 6
     },
     "who_has_not_paid": {
-      "medianMs": 15.8,
-      "minMs": 12.2,
+      "medianMs": 4.5,
+      "minMs": 3.7,
       "rows": 20
     },
     "delivery_hours_per_point": {
-      "medianMs": 11.8,
-      "minMs": 8.9,
+      "medianMs": 4.9,
+      "minMs": 3.7,
       "rows": 4
     },
     "price_history_by_month": {
-      "medianMs": 24.8,
-      "minMs": 13.9,
+      "medianMs": 10.3,
+      "minMs": 9.9,
       "rows": 72
     },
     "three_way_join": {
-      "medianMs": 25.5,
-      "minMs": 20.5,
+      "medianMs": 13.4,
+      "minMs": 12.8,
       "rows": 4
     }
   },
@@ -226,12 +226,9 @@
         "enc": "br"
       }
     },
-    "extensionsLoaded": [
-      "core_functions",
-      "spatial"
-    ]
+    "extensionsLoaded": ["core_functions", "spatial"]
   },
-  "peakJSHeapMb": 51,
+  "peakJSHeapMb": 61,
   "heapStartMb": 1,
   "stepErrors": []
 }

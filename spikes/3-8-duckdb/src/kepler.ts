@@ -1,15 +1,23 @@
 import type * as arrow from "apache-arrow";
 
 /** Kepler.gl field types (see kepler.gl `ALL_FIELD_TYPES`). */
-type KeplerType = "boolean" | "date" | "geojson" | "integer" | "real" | "string" | "timestamp" | "point";
+type KeplerType =
+  | "boolean"
+  | "date"
+  | "geojson"
+  | "integer"
+  | "real"
+  | "string"
+  | "timestamp"
+  | "point";
 
 function keplerType(f: arrow.Field): KeplerType {
   const s = String(f.type);
-  if (/^Bool/.test(s)) return "boolean";
+  if (s.startsWith("Bool")) return "boolean";
   if (/^(Int|Uint)/.test(s)) return "integer";
   if (/^(Float|Decimal)/.test(s)) return "real";
-  if (/^Timestamp/.test(s)) return "timestamp";
-  if (/^Date/.test(s)) return "date";
+  if (s.startsWith("Timestamp")) return "timestamp";
+  if (s.startsWith("Date")) return "date";
   return "string";
 }
 

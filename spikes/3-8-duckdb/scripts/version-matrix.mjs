@@ -2,18 +2,29 @@
 import { startServer } from "./server.mjs";
 import { launch, trackRequests, save } from "./lib.mjs";
 
-const aliases = (process.argv[2] ?? "duckdb-1.32.0,duckdb-dev57,duckdb-dev65,duckdb-dev110").split(",");
+const aliases = (process.argv[2] ?? "duckdb-1.32.0,duckdb-dev57,duckdb-dev65,duckdb-dev110").split(
+  ",",
+);
 const results = {};
 for (const alias of aliases) {
   const r = (results[alias] = { steps: {}, console: [] });
   const srv = await startServer({ dir: `.tmp/dist-${alias}`, csp: "none" });
   const browser = await launch();
   const page = await browser.newPage();
-  page.on("console", (m) => ["error", "warning"].includes(m.type()) && r.console.push(`${m.type()}: ${m.text().slice(0, 300)}`));
+  page.on(
+    "console",
+    (m) =>
+      ["error", "warning"].includes(m.type()) &&
+      r.console.push(`${m.type()}: ${m.text().slice(0, 300)}`),
+  );
   page.on("pageerror", (e) => r.console.push("pageerror: " + e.message.slice(0, 300)));
   const reqs = trackRequests(page, srv.url);
   const step = async (name, f) => {
-    try { r.steps[name] = await f(); } catch (e) { r.steps[name] = { error: String(e.message).slice(0, 500) }; }
+    try {
+      r.steps[name] = await f();
+    } catch (e) {
+      r.steps[name] = { error: String(e.message).slice(0, 500) };
+    }
   };
   try {
     await page.goto(srv.url);
@@ -31,6 +42,17 @@ for (const alias of aliases) {
     await srv.close();
   }
   const ok = (s) => (r.steps[s] && !r.steps[s].error ? "ok" : "FAIL");
-  console.log(alias, r.steps.init?.version?.v ?? r.steps.init?.error, r.steps.init?.platform?.[0]?.platform, "load:", ok("load10kJson"), ok("load10kArrow"), "spatial:", r.steps.spatial?.load?.value ?? "-", "parquet:", ok("parquet"));
+  console.log(
+    alias,
+    r.steps.init?.version?.v ?? r.steps.init?.error,
+    r.steps.init?.platform?.[0]?.platform,
+    "load:",
+    ok("load10kJson"),
+    ok("load10kArrow"),
+    "spatial:",
+    r.steps.spatial?.load?.value ?? "-",
+    "parquet:",
+    ok("parquet"),
+  );
 }
 save("version-matrix.json", results);

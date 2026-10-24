@@ -2,8 +2,8 @@
   "n": 1,
   "alias": "duckdb-1.32.0",
   "engine": "v1.4.3",
-  "coldStartMs": 1670,
-  "instantiateMs": 1359,
+  "coldStartMs": 1555,
+  "instantiateMs": 1321,
   "bundle": "eh",
   "crossOriginIsolated": false,
   "sizes": {
@@ -39,23 +39,23 @@
       "raw": 39362651,
       "gzip": 8730849
     },
-    "app/index-Dcog_G7U.js": {
-      "raw": 223519,
-      "gzip": 53283
+    "app/index-BJ8HSApw.js": {
+      "raw": 223531,
+      "gzip": 53285
     },
     "index.html": {
       "raw": 313,
-      "gzip": 228
+      "gzip": 229
     }
   },
   "load10k": {
     "json": {
-      "totalMs": 115,
+      "totalMs": 108,
       "perTableMs": {
-        "members": 38,
-        "orders": 35,
-        "pledges": 16,
-        "deliveries": 26
+        "members": 37,
+        "orders": 31,
+        "pledges": 15,
+        "deliveries": 25
       },
       "genMs": 6,
       "counts": {
@@ -66,11 +66,11 @@
       }
     },
     "arrow": {
-      "totalMs": 35,
+      "totalMs": 39,
       "perTableMs": {
         "members": 13,
-        "orders": 10,
-        "pledges": 8,
+        "orders": 13,
+        "pledges": 9,
         "deliveries": 4
       },
       "genMs": 5,
@@ -84,12 +84,12 @@
   },
   "load200k": {
     "arrow": {
-      "totalMs": 200,
+      "totalMs": 198,
       "perTableMs": {
-        "members": 31,
-        "orders": 85,
+        "members": 30,
+        "orders": 83,
         "pledges": 57,
-        "deliveries": 27
+        "deliveries": 28
       },
       "genMs": 66,
       "counts": {
@@ -102,55 +102,55 @@
   },
   "latency10k": {
     "spend_per_item": {
-      "medianMs": 2.3,
+      "medianMs": 2.5,
       "minMs": 2,
       "rows": 6
     },
     "who_has_not_paid": {
-      "medianMs": 2.9,
-      "minMs": 2.5,
+      "medianMs": 2.6,
+      "minMs": 2.2,
       "rows": 20
     },
     "delivery_hours_per_point": {
-      "medianMs": 2.1,
-      "minMs": 2.1,
+      "medianMs": 1.8,
+      "minMs": 1.7,
       "rows": 4
     },
     "price_history_by_month": {
-      "medianMs": 3.5,
-      "minMs": 3.3,
+      "medianMs": 3.3,
+      "minMs": 3,
       "rows": 72
     },
     "three_way_join": {
-      "medianMs": 4.5,
-      "minMs": 4.1,
+      "medianMs": 4.7,
+      "minMs": 4.2,
       "rows": 4
     }
   },
   "latency200k": {
     "spend_per_item": {
-      "medianMs": 7.4,
+      "medianMs": 7.1,
       "minMs": 6.9,
       "rows": 6
     },
     "who_has_not_paid": {
-      "medianMs": 6.4,
-      "minMs": 4.3,
+      "medianMs": 3.9,
+      "minMs": 3.7,
       "rows": 20
     },
     "delivery_hours_per_point": {
-      "medianMs": 4.3,
-      "minMs": 3.9,
+      "medianMs": 4.7,
+      "minMs": 4,
       "rows": 4
     },
     "price_history_by_month": {
-      "medianMs": 11.9,
-      "minMs": 10.7,
+      "medianMs": 11.2,
+      "minMs": 10.2,
       "rows": 72
     },
     "three_way_join": {
       "medianMs": 14.9,
-      "minMs": 13.2,
+      "minMs": 14.2,
       "rows": 4
     }
   },
@@ -226,12 +226,9 @@
         "enc": "br"
       }
     },
-    "extensionsLoaded": [
-      "core_functions",
-      "spatial"
-    ]
+    "extensionsLoaded": ["core_functions", "spatial"]
   },
-  "peakJSHeapMb": 67,
+  "peakJSHeapMb": 71,
   "heapStartMb": 1,
   "stepErrors": []
 }

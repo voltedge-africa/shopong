@@ -314,9 +314,7 @@
         }
       ],
       "blockedByTest": [],
-      "console": [
-        "warning: Buffering missing file: a.parquet"
-      ]
+      "console": ["warning: Buffering missing file: a.parquet"]
     },
     "C_self_hosted_autoload_on": {
       "steps": {
@@ -381,9 +379,7 @@
         }
       ],
       "blockedByTest": [],
-      "console": [
-        "warning: Buffering missing file: a.parquet"
-      ]
+      "console": ["warning: Buffering missing file: a.parquet"]
     },
     "D_default_repo_blocked": {
       "steps": {
@@ -423,16 +419,8 @@
       "console": []
     },
     "F_offline_after_cache_self_hosted_immutable": {
-      "online": [
-        "ok",
-        "ok",
-        "ok"
-      ],
-      "offline": [
-        "ok",
-        "ok",
-        "ok"
-      ]
+      "online": ["ok", "ok", "ok"],
+      "offline": ["ok", "ok", "ok"]
     },
     "F_offline_after_cache_default_repo": {
       "online": [

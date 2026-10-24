@@ -2,8 +2,8 @@
   "n": 3,
   "alias": "duckdb-1.32.0",
   "engine": "v1.4.3",
-  "coldStartMs": 1113,
-  "instantiateMs": 814,
+  "coldStartMs": 828,
+  "instantiateMs": 615,
   "bundle": "eh",
   "crossOriginIsolated": false,
   "sizes": {
@@ -39,25 +39,25 @@
       "raw": 39362651,
       "gzip": 8730849
     },
-    "app/index-Dcog_G7U.js": {
-      "raw": 223519,
-      "gzip": 53283
+    "app/index-BJ8HSApw.js": {
+      "raw": 223531,
+      "gzip": 53285
     },
     "index.html": {
       "raw": 313,
-      "gzip": 228
+      "gzip": 229
     }
   },
   "load10k": {
     "json": {
-      "totalMs": 148,
+      "totalMs": 109,
       "perTableMs": {
-        "members": 57,
-        "orders": 37,
-        "pledges": 19,
-        "deliveries": 35
+        "members": 37,
+        "orders": 33,
+        "pledges": 15,
+        "deliveries": 24
       },
-      "genMs": 9,
+      "genMs": 6,
       "counts": {
         "members": 500,
         "orders": 4000,
@@ -66,14 +66,14 @@
       }
     },
     "arrow": {
-      "totalMs": 42,
+      "totalMs": 34,
       "perTableMs": {
-        "members": 15,
-        "orders": 14,
+        "members": 12,
+        "orders": 11,
         "pledges": 7,
-        "deliveries": 6
+        "deliveries": 4
       },
-      "genMs": 7,
+      "genMs": 5,
       "counts": {
         "members": 500,
         "orders": 4000,
@@ -84,14 +84,14 @@
   },
   "load200k": {
     "arrow": {
-      "totalMs": 265,
+      "totalMs": 202,
       "perTableMs": {
-        "members": 45,
-        "orders": 99,
-        "pledges": 87,
-        "deliveries": 34
+        "members": 34,
+        "orders": 85,
+        "pledges": 59,
+        "deliveries": 24
       },
-      "genMs": 87,
+      "genMs": 63,
       "counts": {
         "members": 10000,
         "orders": 80000,
@@ -102,55 +102,55 @@
   },
   "latency10k": {
     "spend_per_item": {
-      "medianMs": 3.3,
-      "minMs": 2.3,
+      "medianMs": 2.3,
+      "minMs": 2.1,
       "rows": 6
     },
     "who_has_not_paid": {
-      "medianMs": 3.4,
-      "minMs": 3.1,
+      "medianMs": 2.8,
+      "minMs": 2.3,
       "rows": 20
     },
     "delivery_hours_per_point": {
-      "medianMs": 2.7,
-      "minMs": 2.6,
+      "medianMs": 2.4,
+      "minMs": 1.9,
       "rows": 4
     },
     "price_history_by_month": {
-      "medianMs": 5.4,
-      "minMs": 4.6,
+      "medianMs": 4.1,
+      "minMs": 3.1,
       "rows": 72
     },
     "three_way_join": {
       "medianMs": 5.1,
-      "minMs": 5,
+      "minMs": 4.5,
       "rows": 4
     }
   },
   "latency200k": {
     "spend_per_item": {
       "medianMs": 7.4,
-      "minMs": 7.2,
+      "minMs": 6.7,
       "rows": 6
     },
     "who_has_not_paid": {
-      "medianMs": 5.8,
-      "minMs": 5.4,
+      "medianMs": 5.4,
+      "minMs": 3.7,
       "rows": 20
     },
     "delivery_hours_per_point": {
-      "medianMs": 5.5,
-      "minMs": 4.3,
+      "medianMs": 5,
+      "minMs": 4.1,
       "rows": 4
     },
     "price_history_by_month": {
-      "medianMs": 12.5,
-      "minMs": 11.3,
+      "medianMs": 11,
+      "minMs": 9.8,
       "rows": 72
     },
     "three_way_join": {
-      "medianMs": 14.4,
-      "minMs": 13.3,
+      "medianMs": 15.6,
+      "minMs": 13.4,
       "rows": 4
     }
   },
@@ -226,10 +226,7 @@
         "enc": "br"
       }
     },
-    "extensionsLoaded": [
-      "core_functions",
-      "spatial"
-    ]
+    "extensionsLoaded": ["core_functions", "spatial"]
   },
   "peakJSHeapMb": 67,
   "heapStartMb": 1,

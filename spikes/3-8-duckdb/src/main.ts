@@ -3,7 +3,11 @@ import * as arrow from "apache-arrow";
 import { COLLECTION_POINTS, generate, suburbGeoJSON, type Dataset } from "./data";
 import { tableToKepler } from "./kepler";
 
-type BundleInfo = { alias: string; version: string; bundles: Record<string, duckdb.DuckDBBundle & { mainModule: string }> };
+type BundleInfo = {
+  alias: string;
+  version: string;
+  bundles: Record<string, duckdb.DuckDBBundle & { mainModule: string }>;
+};
 
 let db: duckdb.AsyncDuckDB | undefined;
 let conn: duckdb.AsyncDuckDBConnection | undefined;
@@ -19,14 +23,23 @@ const t = async <T>(f: () => Promise<T>): Promise<{ ms: number; value: T }> => {
 };
 
 const rows = (tbl: arrow.Table) =>
-  tbl.toArray().map((r) =>
-    JSON.parse(JSON.stringify(r.toJSON(), (_k, v) => (typeof v === "bigint" ? Number(v) : v))),
-  );
+  tbl
+    .toArray()
+    .map((r) =>
+      JSON.parse(JSON.stringify(r.toJSON(), (_k, v) => (typeof v === "bigint" ? Number(v) : v))),
+    );
 const q = async (sql: string) => rows(await conn!.query(sql));
 
 const api = {
   /** Instantiate AsyncDuckDB in a worker from self-hosted bundles. */
-  async init(opts: { bundle?: string; path?: string; accessMode?: "read_write"; config?: Record<string, unknown> } = {}) {
+  async init(
+    opts: {
+      bundle?: string;
+      path?: string;
+      accessMode?: "read_write";
+      config?: Record<string, unknown>;
+    } = {},
+  ) {
     log("init");
     info = await (await fetch("/duckdb/bundles.json")).json();
     const bundles = info!.bundles;
@@ -44,13 +57,15 @@ const api = {
       await db.open({
         path: opts.path,
         accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
-        ...(opts.config ?? {}),
+        ...opts.config,
       });
     } else if (opts.config) {
       await db.open(opts.config as duckdb.DuckDBConfig);
     }
     conn = await db.connect();
-    const v = await q("select version() as v, (select value from duckdb_settings() where name='duckdb_api') api, (select value from duckdb_settings() where name='custom_extension_repository') cer, (select value from duckdb_settings() where name='default_extension_repository') der, (select value from duckdb_settings() where name='threads') threads");
+    const v = await q(
+      "select version() as v, (select value from duckdb_settings() where name='duckdb_api') api, (select value from duckdb_settings() where name='custom_extension_repository') cer, (select value from duckdb_settings() where name='default_extension_repository') der, (select value from duckdb_settings() where name='threads') threads",
+    );
     const platform = await q("pragma platform").catch((e) => String(e));
     const extHash = await q("select source_id from pragma_version()").catch(() => []);
     log("ready");
@@ -79,7 +94,11 @@ const api = {
         const r = await q(sql);
         res.push({ sql, ms: Math.round(performance.now() - s), rows: r.slice(0, 5) });
       } catch (e) {
-        res.push({ sql, ms: Math.round(performance.now() - s), error: String((e as Error).message ?? e).slice(0, 400) });
+        res.push({
+          sql,
+          ms: Math.round(performance.now() - s),
+          error: String((e as Error).message ?? e).slice(0, 400),
+        });
       }
     }
     return res;
@@ -90,7 +109,9 @@ const api = {
     const s0 = performance.now();
     const ds: Dataset = generate(total);
     const genMs = performance.now() - s0;
-    await conn!.query("drop table if exists members; drop table if exists orders; drop table if exists pledges; drop table if exists deliveries;");
+    await conn!.query(
+      "drop table if exists members; drop table if exists orders; drop table if exists pledges; drop table if exists deliveries;",
+    );
     const times: Record<string, number> = {};
     for (const name of ["members", "orders", "pledges", "deliveries"] as const) {
       const data = ds[name];
@@ -101,7 +122,7 @@ const api = {
         await conn!.insertJSONFromPath(`${name}.json`, { name, schema: "main" });
         await db!.dropFile(`${name}.json`);
       } else {
-        const tbl = arrow.tableFromJSON(data as never[]);
+        const tbl = arrow.tableFromJSON(data as Record<string, unknown>[]);
         await conn!.insertArrowTable(tbl, { name, schema: "main", create: true });
       }
       times[name] = Math.round(performance.now() - s);
@@ -109,14 +130,25 @@ const api = {
     const counts = await q(
       "select (select count(*) from members) members, (select count(*) from orders) orders, (select count(*) from pledges) pledges, (select count(*) from deliveries) deliveries",
     );
-    const types = await q("select table_name, column_name, data_type from information_schema.columns where table_schema='main' order by 1, ordinal_position");
-    return { format, total, genMs: Math.round(genMs), times, totalMs: Math.round(Object.values(times).reduce((a, b) => a + b, 0)), counts: counts[0], types };
+    const types = await q(
+      "select table_name, column_name, data_type from information_schema.columns where table_schema='main' order by 1, ordinal_position",
+    );
+    return {
+      format,
+      total,
+      genMs: Math.round(genMs),
+      times,
+      totalMs: Math.round(Object.values(times).reduce((a, b) => a + b, 0)),
+      counts: counts[0],
+      types,
+    };
   },
 
   /** Aggregate queries over the loaded tables, each run `reps` times; returns the median ms. */
   async aggregates(reps = 5) {
     const queries: Record<string, string> = {
-      spend_per_item: "select item, count(*) n, sum(qty*price_cents)/100.0 rand from orders group by 1 order by 3 desc",
+      spend_per_item:
+        "select item, count(*) n, sum(qty*price_cents)/100.0 rand from orders group by 1 order by 3 desc",
       who_has_not_paid:
         "select m.member_id, count(*) unpaid from members m join pledges p using(member_id) where p.cycle = 11 and not p.paid group by 1 order by 2 desc, 1 limit 20",
       delivery_hours_per_point:
@@ -130,7 +162,10 @@ const api = {
       window_rank:
         "select member_id, total, rank() over (order by total desc) r from (select member_id, sum(qty*price_cents) total from orders group by 1) order by r limit 10",
     };
-    const result: Record<string, { medianMs: number; minMs: number; rows: number; sample: unknown }> = {};
+    const result: Record<
+      string,
+      { medianMs: number; minMs: number; rows: number; sample: unknown }
+    > = {};
     for (const [name, sql] of Object.entries(queries)) {
       const ms: number[] = [];
       let last: unknown[] = [];
@@ -140,7 +175,12 @@ const api = {
         last = r.value;
       }
       ms.sort((a, b) => a - b);
-      result[name] = { medianMs: ms[Math.floor(ms.length / 2)], minMs: ms[0], rows: last.length, sample: last[0] };
+      result[name] = {
+        medianMs: ms[Math.floor(ms.length / 2)],
+        minMs: ms[0],
+        rows: last.length,
+        sample: last[0],
+      };
     }
     return result;
   },
@@ -174,9 +214,12 @@ const api = {
     );
     const checks: Record<string, string> = {
       st_point: "select ST_AsText(ST_Point(27.91, -26.24)) wkt",
-      st_distance: "select ST_Distance(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) planar_deg",
-      st_distance_sphere: "select ST_Distance_Sphere(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) metres",
-      st_read_geojson: "select name, cp, ST_AsText(geom) wkt from ST_Read('suburbs.geojson') order by cp",
+      st_distance:
+        "select ST_Distance(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) planar_deg",
+      st_distance_sphere:
+        "select ST_Distance_Sphere(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) metres",
+      st_read_geojson:
+        "select name, cp, ST_AsText(geom) wkt from ST_Read('suburbs.geojson') order by cp",
       st_within_count:
         "select count(*) members_in_catchments from members m, ST_Read('suburbs.geojson') s where ST_Within(ST_Point(m.lon, m.lat), s.geom)",
       st_asgeojson: "select ST_AsGeoJSON(ST_Point(27.91, -26.24)) gj",
@@ -187,7 +230,9 @@ const api = {
     };
     res.checks = await api.script(Object.values(checks));
     res.checkNames = Object.keys(checks);
-    const ext = await q("select extension_name, loaded, installed, install_path, extension_version from duckdb_extensions() where loaded or installed order by 1");
+    const ext = await q(
+      "select extension_name, loaded, installed, install_path, extension_version from duckdb_extensions() where loaded or installed order by 1",
+    );
     res.extensions = ext;
     return res;
   },
@@ -220,10 +265,21 @@ const api = {
     });
     const buf = await db!.copyFileToBuffer("orders.parquet");
     await db!.registerFileBuffer("orders_in.parquet", buf);
-    const imp = await t(async () => q("create or replace table orders_rt as select * from 'orders_in.parquet'"));
+    const imp = await t(async () =>
+      q("create or replace table orders_rt as select * from 'orders_in.parquet'"),
+    );
     const after = await q("select count(*) n, sum(qty*price_cents) s from orders_rt");
-    const diff = await q("select count(*) n from (select * from orders except select * from orders_rt)");
-    return { before: before[0], after: after[0], diffRows: diff[0], parquetBytes: exp.value, exportMs: exp.ms, importMs: imp.ms };
+    const diff = await q(
+      "select count(*) n from (select * from orders except select * from orders_rt)",
+    );
+    return {
+      before: before[0],
+      after: after[0],
+      diffRows: diff[0],
+      parquetBytes: exp.value,
+      exportMs: exp.ms,
+      importMs: imp.ms,
+    };
   },
 
   /** Arrow result -> Kepler.gl `{fields, rows}` for addDataToMap. */
@@ -232,7 +288,10 @@ const api = {
       "select m.member_id::INTEGER member_id, m.lat, m.lon, count(o.order_id)::INTEGER orders, max(to_timestamp(o.ts_ms/1000)) last_order from members m left join orders o using(member_id) group by all order by 1 limit 5",
     );
     const shaped = tableToKepler(tbl);
-    return { arrowSchema: tbl.schema.fields.map((f) => `${f.name}: ${String(f.type)}`), kepler: shaped };
+    return {
+      arrowSchema: tbl.schema.fields.map((f: arrow.Field) => `${f.name}: ${String(f.type)}`),
+      kepler: shaped,
+    };
   },
 
   async persistWrite() {

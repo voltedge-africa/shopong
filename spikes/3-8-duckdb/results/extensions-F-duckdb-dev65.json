@@ -3,26 +3,12 @@
   "version": "v1.5.6",
   "scenarios": {
     "F_offline_after_cache_self_hosted_immutable": {
-      "online": [
-        "ok",
-        "ok",
-        "ok"
-      ],
-      "offline": [
-        "ok",
-        "ok",
-        "ok"
-      ]
+      "online": ["ok", "ok", "ok"],
+      "offline": ["ok", "ok", "ok"]
     },
     "F_offline_after_cache_default_repo": {
-      "online": [
-        "ok",
-        "ok"
-      ],
-      "offline": [
-        "ok",
-        "ok"
-      ]
+      "online": ["ok", "ok"],
+      "offline": ["ok", "ok"]
     },
     "E_tampered_extension": [
       {

@@ -16,7 +16,8 @@ const dir = `.tmp/dist-${alias}${shim ? "-shim" : ""}`;
 // The five timed queries (the `month`-alias bug from the earlier run is worked around with `mon`,
 // and asserted below: date_trunc month grouping must return rows).
 const QUERIES = {
-  spend_per_item: "select item, count(*) n, sum(qty*price_cents)/100.0 rand from orders group by 1 order by 3 desc",
+  spend_per_item:
+    "select item, count(*) n, sum(qty*price_cents)/100.0 rand from orders group by 1 order by 3 desc",
   who_has_not_paid:
     "select m.member_id, count(*) unpaid from members m join pledges p using(member_id) where p.cycle = 11 and not p.paid group by 1 order by 2 desc, 1 limit 20",
   delivery_hours_per_point:
@@ -29,11 +30,6 @@ const QUERIES = {
     "select d.collection_point, count(distinct m.member_id) members, sum(o.qty*o.price_cents)/100.0 total_value from deliveries d join orders o using(order_id) join members m using(member_id) group by 1 order by 1",
 };
 const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
-const p50 = (x) => median(Object.values(x));
-const spread = (xs, key) => {
-  const vals = xs.map((x) => Number(x?.[key] ?? x)).filter((v) => Number.isFinite(v));
-  return { minMs: Math.min(...vals), maxMs: Math.max(...vals) };
-};
 
 function bundleSizes() {
   const out = {};
@@ -61,23 +57,38 @@ async function oneRun(n) {
     try {
       return await f();
     } catch (e) {
-      fatal(`run ${n} step ${name}: ${String(e?.message ?? e).split("\n")[0].slice(0, 500)}`);
+      fatal(
+        `run ${n} step ${name}: ${String(e?.message ?? e)
+          .split("\n")[0]
+          .slice(0, 500)}`,
+      );
       return null;
     }
   };
   const run = { n, alias, engine: null };
 
-  const srv = await startServer({ dir, csp: "strict", extDir: "ext-mirror", cacheControl: "no-store" });
+  const srv = await startServer({
+    dir,
+    csp: "strict",
+    extDir: "ext-mirror",
+    cacheControl: "no-store",
+  });
   const browser = await launch();
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   page.on("pageerror", (e) => fatal(`run ${n} pageerror: ${String(e.message).slice(0, 300)}`));
   page.on("request", (r) => {
-    if (!r.url().startsWith(srv.url) && !r.url().startsWith("data:") && !r.url().startsWith("blob:"))
+    if (
+      !r.url().startsWith(srv.url) &&
+      !r.url().startsWith("data:") &&
+      !r.url().startsWith("blob:")
+    )
       fatal(`run ${n} THIRD-PARTY REQUEST to ${r.url()}`);
   });
   // Block all third parties in the harness too (belt and braces with strict CSP).
-  await page.route("**/*", (r) => (r.request().url().startsWith(srv.url) ? r.continue() : r.abort()));
+  await page.route("**/*", (r) =>
+    r.request().url().startsWith(srv.url) ? r.continue() : r.abort(),
+  );
 
   // Heap sampler (Chromium-only performance.memory) started on every document.
   await ctx.addInitScript(() => {
@@ -91,7 +102,9 @@ async function oneRun(n) {
 
   const t0 = Date.now();
   await step("goto", () => page.goto(srv.url, { timeout: 30000 }));
-  await step("ready", () => page.waitForFunction(() => window.spikeReady, null, { timeout: 30000 }));
+  await step("ready", () =>
+    page.waitForFunction(() => window.spikeReady, null, { timeout: 30000 }),
+  );
   const init = await step("init", () => page.evaluate(() => window.spike.init()));
   if (init) {
     run.coldStartMs = Date.now() - t0; // nav -> spikeReady -> AsyncDuckDB instantiated + connected
@@ -104,13 +117,17 @@ async function oneRun(n) {
   run.sizes = bundleSizes();
 
   const loadAt = async (total, format) => {
-    const r = await step(`load_${total}_${format}`, () => page.evaluate(([t, f]) => window.spike.load(t, f), [total, format]));
+    const r = await step(`load_${total}_${format}`, () =>
+      page.evaluate(([t, f]) => window.spike.load(t, f), [total, format]),
+    );
     if (!r) return null;
     const expect = {
       10000: { members: 500, orders: 4000, pledges: 4000, deliveries: 1500 },
       200000: { members: 10000, orders: 80000, pledges: 80000, deliveries: 30000 },
     }[total];
-    for (const [k, v] of Object.entries(expect)) if (r.counts[k] !== v) fatal(`run ${n} load_${total}_${format}: ${k} count ${r.counts[k]} != ${v}`);
+    for (const [k, v] of Object.entries(expect))
+      if (r.counts[k] !== v)
+        fatal(`run ${n} load_${total}_${format}: ${k} count ${r.counts[k]} != ${v}`);
     return { totalMs: r.totalMs, perTableMs: r.times, genMs: r.genMs, counts: r.counts };
   };
 
@@ -124,7 +141,9 @@ async function oneRun(n) {
       const ms = [];
       let rows;
       for (let i = 0; i < reps; i++) {
-        const r = await step(`q_${label}_${name}_${i}`, () => page.evaluate((s) => window.spike.query(s), sql));
+        const r = await step(`q_${label}_${name}_${i}`, () =>
+          page.evaluate((s) => window.spike.query(s), sql),
+        );
         if (!r) break;
         ms.push(r.ms);
         rows = r.value;
@@ -132,7 +151,10 @@ async function oneRun(n) {
       if (ms.length === reps) {
         const rowsSeen = rows.length;
         if (rowsSeen === 0) fatal(`run ${n} ${label} ${name}: query returned 0 rows`);
-        if (name === "price_history_by_month" && rowsSeen < 12) fatal(`run ${n} ${label} price_history_by_month: month grouping produced ${rowsSeen} rows (<12)`);
+        if (name === "price_history_by_month" && rowsSeen < 12)
+          fatal(
+            `run ${n} ${label} price_history_by_month: month grouping produced ${rowsSeen} rows (<12)`,
+          );
         out[name] = { medianMs: median(ms), minMs: Math.min(...ms), rows: rowsSeen };
       }
     }
@@ -147,25 +169,46 @@ async function oneRun(n) {
   // spatial (on the 200k dataset), from the self-hosted /ext repo, strict CSP
   const repo = `${srv.url}/ext`;
   await step("spatial_setup", () =>
-    page.evaluate((u) => window.spike.script([`SET custom_extension_repository='${u}'`, "SET autoload_known_extensions=false", "SET autoinstall_known_extensions=false"]), repo));
+    page.evaluate(
+      (u) =>
+        window.spike.script([
+          `SET custom_extension_repository='${u}'`,
+          "SET autoload_known_extensions=false",
+          "SET autoinstall_known_extensions=false",
+        ]),
+      repo,
+    ),
+  );
   const startExtLog = srv.log.length;
-  const sp = await step("spatial_checks", () => page.evaluate((u) => window.spike.spatial({ customRepo: u }), repo));
+  const sp = await step("spatial_checks", () =>
+    page.evaluate((u) => window.spike.spatial({ customRepo: u }), repo),
+  );
   const srvExtLog = srv.log.slice(startExtLog).filter((l) => l.ext);
   if (sp) {
     const checks = {};
     const entries = (sp.checks ?? []).map((r, i) => [sp.checkNames?.[i] ?? `check${i}`, r]);
-    for (const [name, r] of entries) checks[name] = { ok: !r.error, error: r.error ?? null, value: r.rows?.[0] ?? null };
+    for (const [name, r] of entries)
+      checks[name] = { ok: !r.error, error: r.error ?? null, value: r.rows?.[0] ?? null };
     run.spatial = {
       install: sp.install?.value,
       load: sp.load?.value,
       checks,
-      extensionTransferBytes: Object.fromEntries(srvExtLog.map((l) => [l.path.split("/").slice(-2).join("/"), { raw: l.bytes, wire: l.transfer, enc: l.enc }])),
+      extensionTransferBytes: Object.fromEntries(
+        srvExtLog.map((l) => [
+          l.path.split("/").slice(-2).join("/"),
+          { raw: l.bytes, wire: l.transfer, enc: l.enc },
+        ]),
+      ),
       extensionsLoaded: (sp.extensions ?? []).map((e) => e.extension_name),
     };
   }
 
-  run.peakJSHeapMb = Math.round(((await page.evaluate(() => window.__heapPeak)) ?? 0) / (1024 * 1024));
-  run.heapStartMb = Math.round(((await page.evaluate(() => window.__heapStart)) ?? 0) / (1024 * 1024));
+  run.peakJSHeapMb = Math.round(
+    ((await page.evaluate(() => window.__heapPeak)) ?? 0) / (1024 * 1024),
+  );
+  run.heapStartMb = Math.round(
+    ((await page.evaluate(() => window.__heapStart)) ?? 0) / (1024 * 1024),
+  );
 
   async function finish() {
     await browser.close();
@@ -198,15 +241,30 @@ if (fail.length === 0) {
     summary.median[label] = {};
     for (const q of Object.keys(QUERIES)) {
       const ms = runs.map((r) => r[label]?.[q]?.medianMs).filter(Number.isFinite);
-      summary.median[label][q] = ms.length === runs.length ? { medianMs: median(ms), minMs: Math.min(...ms), maxMs: Math.max(...ms) } : { error: "missing in some runs" };
+      summary.median[label][q] =
+        ms.length === runs.length
+          ? { medianMs: median(ms), minMs: Math.min(...ms), maxMs: Math.max(...ms) }
+          : { error: "missing in some runs" };
     }
   }
   const loads10k = runs.map((r) => r.load10k?.arrow?.totalMs).filter(Number.isFinite);
   const loads200k = runs.map((r) => r.load200k?.arrow?.totalMs).filter(Number.isFinite);
-  summary.median.load10kArrowTotalMs = { medianMs: median(loads10k), minMs: Math.min(...loads10k), maxMs: Math.max(...loads10k) };
-  summary.median.load200kArrowTotalMs = { medianMs: median(loads200k), minMs: Math.min(...loads200k), maxMs: Math.max(...loads200k) };
+  summary.median.load10kArrowTotalMs = {
+    medianMs: median(loads10k),
+    minMs: Math.min(...loads10k),
+    maxMs: Math.max(...loads10k),
+  };
+  summary.median.load200kArrowTotalMs = {
+    medianMs: median(loads200k),
+    minMs: Math.min(...loads200k),
+    maxMs: Math.max(...loads200k),
+  };
   const heap = runs.map((r) => r.peakJSHeapMb).filter(Number.isFinite);
-  summary.median.peakJSHeapMb = { medianMb: median(heap), minMb: Math.min(...heap), maxMb: Math.max(...heap) };
+  summary.median.peakJSHeapMb = {
+    medianMb: median(heap),
+    minMb: Math.min(...heap),
+    maxMb: Math.max(...heap),
+  };
 }
 writeFileSync("results/measurements.json", JSON.stringify(summary, null, 2) + "\n");
 
@@ -216,7 +274,9 @@ if (fail.length) {
   console.error("Partial results in results/measurements.json / measurements-run*.json");
   process.exit(1);
 }
-console.log("OK median coldStartMs=" + summary.median.coldStartMs,
+console.log(
+  "OK median coldStartMs=" + summary.median.coldStartMs,
   "10k=" + JSON.stringify(summary.median.latency10k),
   "200k=" + JSON.stringify(summary.median.latency200k),
-  "heap=" + JSON.stringify(summary.median.peakJSHeapMb));
+  "heap=" + JSON.stringify(summary.median.peakJSHeapMb),
+);

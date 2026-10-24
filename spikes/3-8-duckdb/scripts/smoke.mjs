@@ -8,10 +8,13 @@ const page = await b.newPage();
 const errs = [];
 page.on("console", (m) => errs.push(m.type() + ": " + m.text()));
 page.on("pageerror", (e) => errs.push("pageerror: " + e.message));
-page.on("request", (r) => { if (!r.url().startsWith(srv.url)) errs.push("EXT REQ " + r.url()); });
+page.on("request", (r) => {
+  if (!r.url().startsWith(srv.url)) errs.push("EXT REQ " + r.url());
+});
 await page.goto(srv.url);
 await page.waitForFunction(() => window.spikeReady);
 console.log(await page.evaluate(() => window.spike.env()));
 console.log(await page.evaluate(() => window.spike.init()));
 console.log(errs);
-await b.close(); await srv.close();
+await b.close();
+await srv.close();
