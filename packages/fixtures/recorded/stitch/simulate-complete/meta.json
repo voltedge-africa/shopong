@@ -1,0 +1,12 @@
+{
+  "service": "stitch",
+  "scenario": "simulate-complete",
+  "description": "Test-client only: force the payment request from create-payment-request to complete so the webhook path can be exercised without a bank.",
+  "direction": "outbound",
+  "source": "synthetic-from-docs",
+  "references": [
+    "https://docs.stitch.money (payment initiation, webhooks, test scenarios), as summarised in _bmad-output/planning-artifacts/technology-register.md"
+  ],
+  "capturedAt": "2026-10-24",
+  "todo": "Replace with a recording from a Stitch test client: run `pnpm exec node scripts/sandbox/record.ts stitch simulate-complete` once STITCH_CLIENT_ID and STITCH_CLIENT_SECRET exist (docs/sandbox-setup.md). Ids and the access token are placeholders. The argument and selection set of the mutation are assumed from its name."
+}

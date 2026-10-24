@@ -1,0 +1,9 @@
+{
+  "status": 422,
+  "body": {
+    "error": {
+      "code": "guarded_account_insufficient_funds",
+      "message": "Account liabilities:member/0001 would go below zero"
+    }
+  }
+}

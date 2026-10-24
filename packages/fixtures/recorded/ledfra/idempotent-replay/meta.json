@@ -1,0 +1,12 @@
+{
+  "service": "ledfra",
+  "scenario": "idempotent-replay",
+  "description": "The same body with the same Idempotency-Key returns the original transaction, not a second posting. The request is identical to post-transaction on purpose; only the stored response is shown here.",
+  "direction": "outbound",
+  "source": "synthetic-from-docs",
+  "references": [
+    "https://ledfra.com (transactions API), as summarised in _bmad-output/planning-artifacts/technology-register.md"
+  ],
+  "capturedAt": "2026-10-24",
+  "todo": "Replace with a recording from a Ledfra sandbox ledger: run `pnpm exec node scripts/sandbox/record.ts ledfra idempotent-replay` once LEDFRA_API_TOKEN exists (docs/sandbox-setup.md). The API host, the error body shape and the amount value format are assumed, not documented. Whether a replay answers 200 or 201 is assumed."
+}

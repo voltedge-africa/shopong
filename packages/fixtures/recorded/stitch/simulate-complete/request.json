@@ -1,0 +1,14 @@
+{
+  "method": "POST",
+  "url": "https://api.stitch.money/graphql",
+  "headers": {
+    "authorization": "Bearer <STITCH_ACCESS_TOKEN>",
+    "content-type": "application/json"
+  },
+  "body": {
+    "query": "mutation SimulateComplete($paymentInitiationRequestId: ID!) { testClientPaymentInitiationRequestSimulateComplete(paymentInitiationRequestId: $paymentInitiationRequestId) { paymentInitiationRequest { id state { __typename } } } }",
+    "variables": {
+      "paymentInitiationRequestId": "cGF5bWVudGluaXRpYXRpb25yZXF1ZXN0LzAwMDAwMDAw"
+    }
+  }
+}

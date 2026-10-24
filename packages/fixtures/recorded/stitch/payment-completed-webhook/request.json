@@ -1,0 +1,20 @@
+{
+  "method": "POST",
+  "url": "https://<ocn-node-host>/webhooks/stitch",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "type": "PaymentInitiationRequestCompleted",
+    "data": {
+      "paymentInitiationRequest": {
+        "id": "cGF5bWVudGluaXRpYXRpb25yZXF1ZXN0LzAwMDAwMDAw",
+        "externalReference": "<event-id: SHA-512 hex of the order event>",
+        "amount": {
+          "quantity": "125.50",
+          "currency": "ZAR"
+        }
+      }
+    }
+  }
+}

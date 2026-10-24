@@ -1,0 +1,27 @@
+{
+  "method": "POST",
+  "url": "https://api.ledfra.example/api/ledgers/ledger_sandbox_001/transactions",
+  "headers": {
+    "authorization": "Bearer <LEDFRA_API_TOKEN>",
+    "content-type": "application/json",
+    "idempotency-key": "<event-id: SHA-512 hex of the order event>"
+  },
+  "body": {
+    "description": "Order 0001 paid by member",
+    "metadata": {
+      "eventId": "<event-id: SHA-512 hex of the order event>"
+    },
+    "entries": [
+      {
+        "account": "assets:stitch-settlement",
+        "direction": "DEBIT",
+        "amount": "ZAR:125.50"
+      },
+      {
+        "account": "liabilities:member/0001",
+        "direction": "CREDIT",
+        "amount": "ZAR:125.50"
+      }
+    ]
+  }
+}

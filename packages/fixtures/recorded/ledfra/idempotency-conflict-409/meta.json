@@ -1,0 +1,12 @@
+{
+  "service": "ledfra",
+  "scenario": "idempotency-conflict-409",
+  "description": "An Idempotency-Key reused with a different body is refused with 409.",
+  "direction": "outbound",
+  "source": "synthetic-from-docs",
+  "references": [
+    "https://ledfra.com (transactions API), as summarised in _bmad-output/planning-artifacts/technology-register.md"
+  ],
+  "capturedAt": "2026-10-24",
+  "todo": "Replace with a recording from a Ledfra sandbox ledger: run `pnpm exec node scripts/sandbox/record.ts ledfra idempotency-conflict-409` once LEDFRA_API_TOKEN exists (docs/sandbox-setup.md). The API host, the error body shape and the amount value format are assumed, not documented."
+}

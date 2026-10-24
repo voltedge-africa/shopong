@@ -1,0 +1,9 @@
+{
+  "status": 400,
+  "body": {
+    "error": {
+      "code": "unbalanced_transaction",
+      "message": "Entries do not balance: debits ZAR:125.50, credits ZAR:100.00"
+    }
+  }
+}

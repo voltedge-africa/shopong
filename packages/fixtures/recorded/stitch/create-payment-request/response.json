@@ -1,0 +1,13 @@
+{
+  "status": 200,
+  "body": {
+    "data": {
+      "clientPaymentInitiationRequestCreate": {
+        "paymentInitiationRequest": {
+          "id": "cGF5bWVudGluaXRpYXRpb25yZXF1ZXN0LzAwMDAwMDAw",
+          "url": "https://secure.stitch.money/connect/payment-request/cGF5bWVudGluaXRpYXRpb25yZXF1ZXN0LzAwMDAwMDAw"
+        }
+      }
+    }
+  }
+}
