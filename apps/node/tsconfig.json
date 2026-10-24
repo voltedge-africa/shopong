@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "lib": ["es2023"],
+    "noEmit": true,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "src",
+    "types": ["node"],
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src"]
+}
