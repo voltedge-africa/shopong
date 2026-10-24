@@ -237,7 +237,7 @@ A single user action produces one **signed event** in the shared record, and the
 |---|---|
 | **What they are (verified)** | **Kepler.gl** (`keplergl/kepler.gl`, MIT): React + Redux component on MapLibre and deck.gl; `@kepler.gl/components`, `@kepler.gl/reducers`, `@kepler.gl/actions`; data via `addDataToMap({datasets:{info,data:{fields,rows}}, options, config})`. The linked `kepler-preview.foursquare.com` returned no readable content, so the open-source package is the working assumption. **DuckDB-WASM** (`@duckdb/duckdb-wasm`, MIT): in-browser SQL on a worker, Arrow results, Parquet range reads, `spatial`/`parquet`/`json` extensions loadable. |
 | **What we use** | DuckDB-WASM as the **analytical and spatial query engine** for a community's data; Kepler.gl as the **map and dashboard** surface. |
-| **How** | The web console exports the Hyperbee view to Arrow/Parquet (in memory, optionally persisted if OPFS works) and queries it with SQL (`LOAD spatial`): members per suburb, demand per collection point, delivery times, price history per item. Results go to Kepler through `addDataToMap`. Member locations are **coarsened** (for example to a grid cell or suburb centroid) before they ever enter a dataset; exact addresses stay on the member's device. Mobile shows maps from precomputed GeoJSON or a web view; Kepler and DuckDB are web-only. |
+| **How** | The web console exports the Hyperbee view to Arrow/Parquet (in memory, optionally persisted if OPFS works) and queries it with SQL (`LOAD spatial`): members per suburb, demand per collection point, delivery times, price history per item. Results go to Kepler through `addDataToMap`. Member locations are **coarsened** (for example to a grid cell or suburb centroid) before they ever enter a dataset; exact addresses stay on the member's device. Mobile shows maps from precomputed GeoJSON or a web view; Kepler and DuckDB are web-only. The `Geo` **port** takes a **structured query**, which is safe for agents and generated UIs; raw SQL is used only inside the web console's own DuckDB-WASM code (accepted by the owner). |
 | **What for** | Choosing collection points, showing demand and deliveries, price comparisons across suppliers. |
 | **Boundaries** | Browser-only; 4 GB WASM ceiling. **Pin the DuckDB-WASM version explicitly**: docs say 1.5.6 stable while npm `latest` is a `1.33.1-dev` build. OPFS and GeoJSON behaviour are **[unverified]**. Kepler format and layer support must be confirmed; Kepler is not React Native. |
 
@@ -441,3 +441,18 @@ Self-host kit (story 12.1): `docker compose` for the OCN Node, tile host, `laya-
 | Trust and accountability | 10 |
 | Intelligence: builder layer | 11 |
 | Operability and sovereignty | 12 |
+
+## 12. Implementation findings (wave 1)
+
+Found by the story agents while building stories 1.1, 1.2, 1.3, 1.5 and 1.6.
+
+- Unlimited-OCR does not document a confidence score, so the real `Ocr` adapter must derive one.
+- The `SharedRecord` port identifies writers by DID, while Autobase uses core keys, so the adapter must map between them.
+- The record drops repeated event ids. The port contract now requires this.
+- Stitch does not document whether `externalReference` is unique, so the Node needs its own idempotency table.
+- Ledfra does not document whether a rejected post consumes its idempotency key. The contract does not test it.
+- `PayOut` currently takes bank details directly. It may move to a Node-side beneficiary registry after spike 4.4.
+- The `Agent` and `GenUi` contracts may need more cases after spike 11.1 and fact F-11.
+- Event vectors still need verification under Hermes with the expo-crypto adapter.
+- The Stitch webhook payload and signature method are undocumented, so build no signature check on the synthetic fixture.
+- The `pnpm-workspace.yaml` `minimumReleaseAgeExclude` list for 17 Expo packages should be removed once those releases age past the cooldown.
