@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-24-2026 13:57
-last_updated: 10-24-2026 17:13
+last_updated: 10-24-2026 22:30
 project: shopong
 project_key: NOKEY
 tracking_system: file-system
@@ -39,13 +39,13 @@ development_status:
   1-1-runnable-shopong-app-shell-and-ci: done
   1-2-capability-ports-and-the-contract-test-suite: done
   1-3-shared-event-envelope-and-canonical-hashing: done
-  1-4-scripted-stokvel-order-on-in-memory-adapters-tracer: backlog
+  1-4-scripted-stokvel-order-on-in-memory-adapters-tracer: done
   1-5-ocn-node-configuration-secrets-and-health: done
   1-6-sandbox-accounts-and-fixtures: in-progress
   epic-1-retrospective: optional
 
-  epic-2: backlog
-  2-1-spike-ucan-library-on-expo-ts-ucan-vs-iso-ucan: backlog
+  epic-2: in-progress
+  2-1-spike-ucan-library-on-expo-ts-ucan-vs-iso-ucan: in-progress
   2-2-create-my-identity-on-this-device: backlog
   2-3-create-a-community-and-join-by-invitation: backlog
   2-4-roles-with-limits-as-delegated-capabilities: backlog
@@ -54,15 +54,15 @@ development_status:
   2-7-sha-512-content-hashes-and-keyed-commitments-for-personal-da: backlog
   epic-2-retrospective: optional
 
-  epic-3: backlog
-  3-1-spike-hypercore-stack-in-a-bare-worklet-inside-expo: backlog
+  epic-3: in-progress
+  3-1-spike-hypercore-stack-in-a-bare-worklet-inside-expo: in-progress
   3-2-create-a-community-space-with-a-deterministic-view: backlog
   3-3-admit-and-remove-writers-by-capability: backlog
   3-4-offline-writes-that-converge: backlog
   3-5-always-on-seeder-indexer-relay-and-bootstrap-on-the-ocn-node: backlog
   3-6-deterministic-capability-checks-in-apply-using-log-time: backlog
   3-7-files-and-photos-in-hyperdrive-with-hash-references: backlog
-  3-8-spike-and-first-view-query-community-data-with-sql-in-the-we: backlog
+  3-8-spike-and-first-view-query-community-data-with-sql-in-the-we: in-progress
   3-9-spike-optional-nearby-sync-over-bluetooth: backlog
   epic-3-retrospective: optional
 
@@ -93,8 +93,8 @@ development_status:
   6-6-flag-odd-payments-and-mismatched-delivery-notes: backlog
   epic-6-retrospective: optional
 
-  epic-7: backlog
-  7-1-spike-valhalla-tiles-routing-and-mobile-viability: backlog
+  epic-7: in-progress
+  7-1-spike-valhalla-tiles-routing-and-mobile-viability: in-progress
   7-2-tile-build-pipeline-and-hosting: backlog
   7-3-map-of-members-collection-points-and-demand: backlog
   7-4-plan-a-route-to-the-collection-point: backlog
