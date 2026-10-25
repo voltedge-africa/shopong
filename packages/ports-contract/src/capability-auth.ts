@@ -327,7 +327,8 @@ export const capabilityAuthContract: readonly ContractCase<CapabilityAuth>[] = [
         audience: w.agent,
         capabilities: [w.approve],
         notBefore: T0,
-        expiresAt: T0 + HOUR,
+        // Must outlive the default log time (T0 + HOUR), or `expired` is also a correct answer.
+        expiresAt: T0 + 2 * HOUR,
         proofs: [parent],
       });
       if (!issued.ok) {
