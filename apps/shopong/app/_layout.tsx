@@ -7,6 +7,7 @@ import { View } from "react-native";
 import { useCSSVariable } from "uniwind";
 
 import { AuthProvider, useAuth } from "../lib/auth";
+import { IdentityProvider } from "../lib/IdentityProvider";
 
 function AppStack() {
   const { status } = useAuth();
@@ -44,7 +45,9 @@ export default function RootLayout() {
     <PanelUIProvider>
       <StatusBar style="auto" />
       <AuthProvider>
-        <AppStack />
+        <IdentityProvider>
+          <AppStack />
+        </IdentityProvider>
       </AuthProvider>
     </PanelUIProvider>
   );
