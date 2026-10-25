@@ -1,7 +1,7 @@
 # @shopong/miniapp-delivery
 
 The Delivery mini app, a vendored one: Kepler.gl as **one self-contained HTML file**, shipped inside
-the Shopong/Kitchen app and shown in a WebView. `src/index.ts` is its manifest; the rest of `src/` is
+the Shopong app and shown in a WebView. `src/index.ts` is its manifest; the rest of `src/` is
 the page. See AD-20 in the architecture: it supersedes the Kepler part of
 AD-5 and AGENTS.md rule 7.
 
@@ -15,7 +15,7 @@ pnpm --filter @shopong/miniapp-delivery build   # vp build, then scripts/inline.
 ```
 
 `dist/index.html` (about 22 MB, 5.9 MB gzipped) has its scripts and styles inlined. It is git-ignored;
-`apps/kitchen`'s `dev`, `android`, `ios`, `web` and `build` scripts build it first. It uses React 18
+`apps/shopong`'s `dev`, `android`, `ios`, `web` and `build` scripts build it first. It uses React 18
 (Kepler's requirement) while the app uses React 19; the two never meet, because the page is a file.
 
 ## How the page talks to the app
@@ -40,7 +40,7 @@ The map shows "© OpenStreetMap contributors (ODbL)" in its corner; keep that if
 node scripts/fetch-osm.mjs   # about 5 minutes: it asks the public Overpass server politely
 ```
 
-The box is in the script; the test in `apps/kitchen/miniapps/delivery` keeps the demo stops inside it.
+The box is in the script; the test in `apps/shopong/miniapps/delivery` keeps the demo stops inside it.
 A different area needs its own extract (or a tile source and a looser policy). OpenStreetMap has
 almost no named places in Clermont, so the demo stops are unnamed points on residential streets.
 The legs between stops are straight lines, not routes along the roads.

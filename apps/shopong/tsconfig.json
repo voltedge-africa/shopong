@@ -10,5 +10,5 @@
     "allowJs": false,
     "types": []
   },
-  "include": ["app", "src", "metro.config.js", "expo-env.d.ts", ".expo/types/**/*.ts"]
+  "include": ["app", "components", "lib", "metro.config.js", "uniwind-types.d.ts"]
 }

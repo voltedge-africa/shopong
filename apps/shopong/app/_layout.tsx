@@ -1,20 +1,48 @@
+import "../global.css";
+
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "react-native";
+import { PanelUIProvider } from "panelui-native";
+import { View } from "react-native";
+import { useCSSVariable } from "uniwind";
 
-import { themeFor } from "../src/theme";
+import { AuthProvider, useAuth } from "../lib/auth";
+
+function AppStack() {
+  const { status } = useAuth();
+  const [background, foreground] = useCSSVariable(["--color-background", "--color-foreground"]);
+
+  if (status === "loading") return <View className="flex-1 bg-background" />;
+
+  const unlocked = status === "unlocked";
+
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: background as string },
+        headerTintColor: foreground as string,
+        headerShadowVisible: false,
+      }}
+    >
+      <Stack.Protected guard={unlocked}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="miniapp/[id]" />
+        <Stack.Screen name="thinking" />
+      </Stack.Protected>
+      <Stack.Protected guard={!unlocked}>
+        <Stack.Screen name="auth" options={{ headerShown: false, gestureEnabled: false }} />
+      </Stack.Protected>
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
-  const theme = themeFor(useColorScheme());
   return (
-    <>
+    <PanelUIProvider>
       <StatusBar style="auto" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: theme.background },
-        }}
-      />
-    </>
+      <AuthProvider>
+        <AppStack />
+      </AuthProvider>
+    </PanelUIProvider>
   );
 }

@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 
 import type { PinStore } from "./pin";
 
-const KEY = "kitchen.pin";
+const KEY = "shopong.pin";
 
 const secureStore: PinStore = {
   read: () => SecureStore.getItemAsync(KEY),

@@ -9,7 +9,7 @@ import { writeFileSync } from "node:fs";
 const BBOX = { south: -29.808, west: 30.889, north: -29.778, east: 30.921 };
 
 const ENDPOINT = "https://overpass-api.de/api/interpreter";
-const USER_AGENT = "shopong-kitchen-dev (phahlamoja08@gmail.com)";
+const USER_AGENT = "shopong-dev (phahlamoja08@gmail.com)";
 const box = `(${BBOX.south},${BBOX.west},${BBOX.north},${BBOX.east})`;
 
 async function overpass(query) {

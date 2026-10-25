@@ -37,12 +37,12 @@ export default function Auth() {
   }, [unavailable]);
 
   const [title, hint] = unavailable
-    ? ["PIN unavailable", "Kitchen can't read the PIN stored on this device."]
+    ? ["PIN unavailable", "Shopong can't read the PIN stored on this device."]
     : setup
       ? firstEntry === null
-        ? ["Create a PIN", `Choose ${PIN_LENGTH} digits to protect Kitchen.`]
+        ? ["Create a PIN", `Choose ${PIN_LENGTH} digits to protect Shopong.`]
         : ["Confirm your PIN", "Enter the same PIN again."]
-      : ["Enter your PIN", `Enter your ${PIN_LENGTH}-digit PIN to open Kitchen.`];
+      : ["Enter your PIN", `Enter your ${PIN_LENGTH}-digit PIN to open Shopong.`];
 
   const onComplete = async (pin: string) => {
     if (busy || unavailable) return;
