@@ -6,6 +6,9 @@ packages:
 # Kepler.gl pulls in deck.gl typings whose install script only repackages type definitions.
 allowBuilds:
   "@danmarshall/deckgl-typings": false
+  # OpenUI's core package sends install telemetry to PostHog from this script. It must never run:
+  # the project promises that nothing phones home. See "Offline by design" in apps/shopong/README.md.
+  "@openuidev/lang-core": false
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vite-plus: 0.3.0
@@ -32,6 +35,8 @@ overrides:
   # One version of the React types for the whole workspace. Kepler.gl asks for the React 18 types,
   # and with two majors installed every package without its own copy picks the wrong one.
   "@types/react": "19.3.0"
+patchedDependencies:
+  "@openuidev/lang-core@1.0.1": patches/@openuidev__lang-core@1.0.1.patch
 peerDependencyRules:
   allowAny:
     - vite

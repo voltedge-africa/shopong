@@ -17,6 +17,9 @@ overrides:
   vite@*: npm:@voidzero-dev/vite-plus-core@0.3.0
   '@types/react': 19.3.0
 
+patchedDependencies:
+  '@openuidev/lang-core@1.0.1': 7e5585274f2e6980b903c7b5d17f87e12680234562b5ae955a370d8be0381ef2
+
 importers:
 
   .:
@@ -64,9 +67,18 @@ importers:
       '@expo/vector-icons':
         specifier: 15.1.1
         version: 15.1.1(expo-font@58.0.10)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+      '@openuidev/react-lang':
+        specifier: 1.0.1
+        version: 1.0.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.7)
       '@react-native-masked-view/masked-view':
         specifier: 0.3.2
         version: 0.3.2(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+      '@shopong/adapters-memory':
+        specifier: workspace:*
+        version: link:../../packages/adapters-memory
+      '@shopong/adapters-openui':
+        specifier: workspace:*
+        version: link:../../packages/adapters-openui
       '@shopong/miniapp':
         specifier: workspace:*
         version: link:../../packages/miniapp
@@ -85,6 +97,9 @@ importers:
       '@shopong/miniapp-wallet':
         specifier: workspace:*
         version: link:../../miniapps/vendor/wallet
+      '@shopong/ports':
+        specifier: workspace:*
+        version: link:../../packages/ports
       effect:
         specifier: 4.0.6
         version: 4.0.6
@@ -157,6 +172,9 @@ importers:
       uniwind:
         specifier: 1.13.0
         version: 1.13.0(@expo/metro-config@58.0.17(expo@58.0.19)(supports-color@8.1.1)(typescript@7.0.2))(metro-cache@0.87.1(supports-color@8.1.1))(metro-transform-worker@0.87.1(supports-color@8.1.1))(metro@0.87.1(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(tailwindcss@4.3.3)
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@types/react':
         specifier: 19.3.0
@@ -388,6 +406,28 @@ importers:
       '@shopong/ports':
         specifier: workspace:*
         version: link:../ports
+    devDependencies:
+      '@shopong/ports-contract':
+        specifier: workspace:*
+        version: link:../ports-contract
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.0(@types/node@24.19.2)(@voidzero-dev/vite-plus-core@0.3.0(@types/node@24.19.2)(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2))(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2)
+
+  packages/adapters-openui:
+    dependencies:
+      '@openuidev/lang-core':
+        specifier: 1.0.1
+        version: 1.0.1(patch_hash=7e5585274f2e6980b903c7b5d17f87e12680234562b5ae955a370d8be0381ef2)(zod@4.6.7)
+      '@shopong/ports':
+        specifier: workspace:*
+        version: link:../ports
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@shopong/ports-contract':
         specifier: workspace:*
@@ -1767,6 +1807,42 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@openuidev/devtools@0.3.0':
+    resolution: {integrity: sha512-eT6+IUWNBL4k5JANAgKC03tQwutafBdTrAwTfVhhTherllk0R+5W/E4j64j1oBnNSlReRDwETyrGwyhHAwiMfA==}
+    peerDependencies:
+      '@openuidev/observability': '>=0.0.4 <0.1.0'
+      '@openuidev/react-lang': '>=1.0.0 <2.0.0'
+      react: ^18.3.1 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@openuidev/react-lang':
+        optional: true
+
+  '@openuidev/lang-core@1.0.1':
+    resolution: {integrity: sha512-4vBa7FRM6C4v4aCvBAmAtTgFWiEQiNTazG9h4Xy9fC6P/p6+9kZu4RdTyLToBEvdxrYn/gDy/PakEH8PU3lUcw==}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '>=1.0.0'
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
+
+  '@openuidev/observability@0.0.4':
+    resolution: {integrity: sha512-4fjIrWu3TqTlfDE/m7cG10CH1vV7wQk5GPwMOmXeF9vJtkg92dg4Bdk3AjKgud7H7Xypwwjgt52VcLGZCE2CJQ==}
+
+  '@openuidev/react-lang@1.0.1':
+    resolution: {integrity: sha512-jt5AKWyKe73BjD+bRC2kKerHCeAurI/D9KMQvbi736963D2lehpPGAvVGoxAN4MG6sM/7OOlfWvErQBPPPx30A==}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '>=1.0.0'
+      react: '*'
+      react-dom: '*'
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
+      react-dom:
+        optional: true
 
   '@oxc-project/runtime@0.146.0':
     resolution: {integrity: sha512-lbXHIpZ1MmK6zuw5txlMdIZ2waLVUIU5Gnm3sEuwJOiqDfQfbtjeHscatmeBoxbv8+If9LFM6PGh/3DcDWYIYw==}
@@ -3528,6 +3604,10 @@ packages:
     resolution: {integrity: sha512-NIxF55hv4nSqQswkAeiOi1r83xy8JldOFDTWiug55KBu9Jnblncd2U6ViHmYgHf01TPZS77NJBhBMKdWj9HQMQ==}
     engines: {node: '>=8'}
 
+  ci-info@4.4.0:
+    resolution: {integrity: sha512-77PSwercCZU2Fc4sX94eF8k8Pxte6JAwL4/ICZLFjJLqegs7kCuAsqqj/70NQF6TvDpgFjkubQB2FW2ZZddvQg==}
+    engines: {node: '>=8'}
+
   classnames@2.5.1:
     resolution: {integrity: sha512-saHYOzhIQs6wy2sVxTM6bUDsQO4F50V9RQ22qBpEdCW+I+/Wmke2HOl6lS6dTpdxVhb88/I6+Hs+438c3lfUow==}
 
@@ -5207,6 +5287,11 @@ packages:
   lru-cache@6.0.0:
     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
     engines: {node: '>=10'}
+
+  lucide-react@0.575.0:
+    resolution: {integrity: sha512-VuXgKZrk0uiDlWjGGXmKV6MSk9Yy4l10qgVvzGn2AWBx1Ylt0iBexKOAoA6I7JO3m+M9oeovJd3yYENfkUbOeg==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -9744,6 +9829,32 @@ snapshots:
   '@noxcturnal/noxcturnal-win32-x64-msvc@0.1.9':
     optional: true
 
+  '@openuidev/devtools@0.3.0(@openuidev/observability@0.0.4)(@openuidev/react-lang@1.0.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.7))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      '@openuidev/observability': 0.0.4
+      lucide-react: 0.575.0(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+    optionalDependencies:
+      '@openuidev/react-lang': 1.0.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.7)
+
+  '@openuidev/lang-core@1.0.1(patch_hash=7e5585274f2e6980b903c7b5d17f87e12680234562b5ae955a370d8be0381ef2)(zod@4.6.7)':
+    dependencies:
+      ci-info: 4.4.0
+      zod: 4.6.7
+
+  '@openuidev/observability@0.0.4': {}
+
+  '@openuidev/react-lang@1.0.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.7)':
+    dependencies:
+      '@openuidev/devtools': 0.3.0(@openuidev/observability@0.0.4)(@openuidev/react-lang@1.0.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.7))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@openuidev/lang-core': 1.0.1(patch_hash=7e5585274f2e6980b903c7b5d17f87e12680234562b5ae955a370d8be0381ef2)(zod@4.6.7)
+      '@openuidev/observability': 0.0.4
+      react: 19.3.0
+      zod: 4.6.7
+    optionalDependencies:
+      react-dom: 19.3.0(react@19.3.0)
+
   '@oxc-project/runtime@0.146.0': {}
 
   '@oxc-project/types@0.146.0': {}
@@ -11504,6 +11615,8 @@ snapshots:
 
   ci-info@3.9.0: {}
 
+  ci-info@4.4.0: {}
+
   classnames@2.5.1: {}
 
   cli-cursor@2.1.0:
@@ -13217,6 +13330,10 @@ snapshots:
   lru-cache@6.0.0:
     dependencies:
       yallist: 4.0.0
+
+  lucide-react@0.575.0(react@19.3.0):
+    dependencies:
+      react: 19.3.0
 
   lz-string@1.5.0: {}
 

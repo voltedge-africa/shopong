@@ -27,7 +27,8 @@ function AppStack() {
       <Stack.Protected guard={unlocked}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="miniapp/[id]" />
-        <Stack.Screen name="thinking" />
+        <Stack.Screen name="create" options={{ headerShown: false }} />
+        <Stack.Screen name="publish" options={{ title: "Publish" }} />
       </Stack.Protected>
       <Stack.Protected guard={!unlocked}>
         <Stack.Screen name="auth" options={{ headerShown: false, gestureEnabled: false }} />

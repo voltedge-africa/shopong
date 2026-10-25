@@ -1,0 +1,26 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index cf893765c97de17066454a9bb612cbf90d76e144..d0ee925bc192bf7c385c0c614d75b0cf40fe5eaa 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -893,6 +893,8 @@ async function getCIInfo(runtime) {
+ 	}
+ }
+ async function postCapture(event, properties, runtime) {
++	// Shopong patch: the only place OpenUI sends anything over the network is here. Never send.
++	return;
+ 	const postHog = require_shared.getPostHogConfig(runtime.env);
+ 	await globalThis.fetch(postHog.captureUrl, {
+ 		method: "POST",
+diff --git a/dist/index.mjs b/dist/index.mjs
+index deb170d00d60aa453487dafa0d359bc12b322764..b2f7d5a9db693aad527affe11a841b65fae205bc 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -891,6 +891,8 @@ async function getCIInfo(runtime) {
+ 	}
+ }
+ async function postCapture(event, properties, runtime) {
++	// Shopong patch: the only place OpenUI sends anything over the network is here. Never send.
++	return;
+ 	const postHog = getPostHogConfig(runtime.env);
+ 	await globalThis.fetch(postHog.captureUrl, {
+ 		method: "POST",

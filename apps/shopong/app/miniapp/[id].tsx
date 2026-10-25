@@ -5,13 +5,14 @@ import { Text } from "panelui-native";
 import { BundleMiniApp } from "../../components/BundleMiniApp";
 import { MiniAppView } from "../../components/MiniAppView";
 import { NativeMiniApp } from "../../components/NativeMiniApp";
-import { miniApps } from "../../components/miniapps";
+import { useAllMiniApps } from "../../components/publishedMiniApps";
 
 // One generic activity for every mini app: it looks the app up by id and renders its content,
 // a sandboxed web page, a shipped web bundle or a native component.
 export default function MiniAppActivity() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const app = miniApps.find((candidate) => candidate.id === id);
+  const apps = useAllMiniApps();
+  const app = apps.find((candidate) => candidate.id === id);
   const content = app?.content;
 
   return (

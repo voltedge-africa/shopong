@@ -4,10 +4,11 @@ import { Text } from "panelui-native";
 
 import { MiniAppTile } from "../../components/MiniAppTile";
 import { TabScreen } from "../../components/TabScreen";
-import { installedMiniApps } from "../../components/miniapps";
+import { useHomeMiniApps } from "../../components/publishedMiniApps";
 
 export default function Home() {
   const router = useRouter();
+  const apps = useHomeMiniApps();
 
   return (
     <TabScreen>
@@ -16,7 +17,7 @@ export default function Home() {
           Home
         </Text>
         <View className="flex-row flex-wrap">
-          {installedMiniApps.map((app) => (
+          {apps.map((app) => (
             <MiniAppTile
               key={app.id}
               app={app}
