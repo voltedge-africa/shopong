@@ -1,2 +1,0 @@
-# Marks this directory as its own (tiny) workspace root so pnpm never walks up to the repo root.
-packages: []

@@ -1,7 +1,12 @@
 # Decision 2.1: which UCAN library backs `CapabilityAuth`
 
-**Status:** proposed; conditional on the device smoke test in
-`spikes/2-1-ucan/results/hermes-runtime.md`.
+> **The spike folder has been removed.** The paths to `spikes/2-1-ucan/` below no longer exist. The
+> findings are summarised in [`docs/spike-findings.md`](../spike-findings.md), and the original files are in
+> git history: `git show 9bc22c4:spikes/2-1-ucan/results/README.md`, or
+> `git restore --source=9bc22c4 --worktree -- spikes/2-1-ucan` to bring them back.
+
+**Status:** proposed; conditional on the device smoke test described in `spikes/2-1-ucan/results/hermes-runtime.md`
+(summarised in `docs/spike-findings.md`).
 **Date:** 2026-10-24
 **Story:** 2.1 (spike: UCAN library on Expo)
 **Evidence:** `spikes/2-1-ucan/results/` (`contract.json`, `owned-logic.md`,

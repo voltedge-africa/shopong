@@ -1,3 +1,0 @@
-{"runtime":"Bare v1.33.4","runs":3,"n":10000}
-{"run":0,"startupMs":172,"rssIdle":0,"rssAfter":0,"appendMs":56092,"diskA":66422561,"diskB":27593704,"bytesReplicated":20006000}
-{"run":1,"startupMs":115,"rssIdle":0,"rssAfter":0,"appendMs":60147,"diskA":68702573,"diskB":30515691,"bytesReplicated":20006000}
