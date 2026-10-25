@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Button, Chip, SearchBar, Text } from "panelui-native";
+import { Chip, Fab, SearchBar, Text } from "panelui-native";
 import { useCSSVariable } from "uniwind";
 
 import { MiniAppTile } from "../../components/MiniAppTile";
@@ -27,22 +27,12 @@ export default function Discover() {
 
   return (
     <TabScreen>
-      <ScrollView contentContainerClassName="gap-4 p-6" keyboardShouldPersistTaps="handled">
+      {/* pb-28: room at the bottom so the last row can scroll clear of the button. */}
+      <ScrollView contentContainerClassName="gap-4 p-6 pb-28" keyboardShouldPersistTaps="handled">
         <Text accessibilityRole="header" size="3xl" weight="bold">
           Discover
         </Text>
-        <View className="flex-row items-center gap-2">
-          <View className="flex-1">
-            <SearchBar placeholder="Search mini apps" value={query} onChangeText={setQuery} />
-          </View>
-          <Button
-            size="icon"
-            accessibilityLabel="Create a mini app"
-            onPress={() => router.push("/create")}
-          >
-            <Ionicons name="add" size={26} color={iconColor} />
-          </Button>
-        </View>
+        <SearchBar placeholder="Search mini apps" value={query} onChangeText={setQuery} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -85,6 +75,12 @@ export default function Discover() {
           ))
         )}
       </ScrollView>
+      <Fab
+        placement="bottom-right"
+        accessibilityLabel="Create a mini app"
+        icon={<Ionicons name="add" size={26} color={iconColor} />}
+        onPress={() => router.push("/create")}
+      />
     </TabScreen>
   );
 }

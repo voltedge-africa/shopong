@@ -19,9 +19,8 @@ export default function Notifications() {
   const [now] = useState(() => Date.now());
   const [items, setItems] = useState(() => demoNotifications(now));
   const [showUnread, setShowUnread] = useState(true);
-  const [showRead, setShowRead] = useState(true);
   const unread = unreadCount(items);
-  const visible = filterNotifications(items, { showRead, showUnread });
+  const visible = filterNotifications(items, { showRead: true, showUnread });
 
   return (
     <TabScreen>
@@ -36,22 +35,14 @@ export default function Notifications() {
             </Button>
           ) : null}
         </View>
-        <Text size="sm" muted>
-          Demo notifications: nothing sends real ones yet.
-        </Text>
         <View className="flex-row gap-2">
           <Chip selected={showUnread} onPress={() => setShowUnread((on) => !on)}>
             {`Unread (${unread})`}
           </Chip>
-          <Chip selected={showRead} onPress={() => setShowRead((on) => !on)}>
-            {`Read (${items.length - unread})`}
-          </Chip>
         </View>
         {visible.length === 0 ? (
           <Text muted className="py-8 text-center">
-            {showRead || showUnread
-              ? "Nothing here."
-              : "Turn on Unread or Read to see notifications."}
+            Nothing here.
           </Text>
         ) : null}
         <View>
