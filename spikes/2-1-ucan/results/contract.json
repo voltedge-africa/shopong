@@ -1,0 +1,114 @@
+{
+  "runAt": "2026-10-24T16:05:05.564Z",
+  "generatedBy": "scripts/results.mjs (vitest JSON reporter + vite library build + gzip)",
+  "command": "pnpm run results",
+  "node": "v24.22.1",
+  "candidates": {
+    "ts-ucan": {
+      "name": "@ucans/ucans",
+      "version": "0.12.0",
+      "spec": "UCAN 0.8.1",
+      "adapter": "src/ts-ucan/adapter.ts",
+      "bundle": {
+        "rawBytes": 142324,
+        "gzipBytes": 38421
+      },
+      "variants": [
+        {
+          "name": "normal",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "clock_and_network_trapped_in_verify",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "verify_only",
+          "total": 17,
+          "passed": 16,
+          "failed": 0,
+          "expectedFailed": 1
+        }
+      ]
+    },
+    "iso-ucan": {
+      "name": "iso-ucan",
+      "version": "2.0.0",
+      "spec": "UCAN 1.0",
+      "adapter": "src/iso-ucan/adapter.ts",
+      "bundle": {
+        "rawBytes": 240599,
+        "gzipBytes": 61743
+      },
+      "variants": [
+        {
+          "name": "normal",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "clock_and_network_trapped_in_verify",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "verify_only",
+          "total": 17,
+          "passed": 16,
+          "failed": 0,
+          "expectedFailed": 1
+        }
+      ]
+    },
+    "inhouse": {
+      "name": "in-house minimal chain",
+      "version": "prototype",
+      "spec": "signed canonical JSON (not UCAN)",
+      "adapter": "src/inhouse/adapter.ts",
+      "bundle": {
+        "rawBytes": 38934,
+        "gzipBytes": 13871
+      },
+      "variants": [
+        {
+          "name": "normal",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "clock_and_network_trapped_in_verify",
+          "total": 17,
+          "passed": 17,
+          "failed": 0
+        },
+        {
+          "name": "verify_only",
+          "total": 17,
+          "passed": 16,
+          "failed": 0,
+          "expectedFailed": 1
+        }
+      ]
+    }
+  },
+  "summary": {
+    "contractTestsPerVariant": 17,
+    "variantsPerCandidate": 3,
+    "candidates": 3,
+    "contractAssertions": 153,
+    "contractPassed": 150,
+    "contractExpectedFailed": 3,
+    "suiteTests": 191,
+    "suitePassed": 188,
+    "suiteExpectedFailed": 3,
+    "suiteFailed": 0,
+    "knownContractIssue": "a delegation from someone the proof was not issued to is refused"
+  }
+}

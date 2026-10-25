@@ -1,0 +1,33 @@
+{
+  "name": "spike-2-1-ucan",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 2.1: UCAN library on Expo. Outside the root pnpm workspace; see README.md.",
+  "scripts": {
+    "test": "vp test",
+    "results": "node scripts/results.mjs"
+  },
+  "dependencies": {
+    "@ipld/dag-cbor": "10.0.2",
+    "@noble/ed25519": "3.2.0",
+    "@noble/hashes": "2.4.0",
+    "@scure/base": "2.0.0",
+    "@stablelib/ed25519": "1.0.3",
+    "@ucans/ucans": "0.12.0",
+    "iso-base": "4.4.0",
+    "iso-did": "3.0.0",
+    "iso-signatures": "0.6.0",
+    "iso-ucan": "2.0.0"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.3.0",
+    "vite-plus": "0.3.0"
+  }
+}

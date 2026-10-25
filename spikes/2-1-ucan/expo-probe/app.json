@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "UCAN probe",
+    "slug": "spike-2-1-ucan-probe",
+    "version": "0.0.0",
+    "jsEngine": "hermes",
+    "ios": { "bundleIdentifier": "africa.voltedge.spike.ucanprobe" },
+    "android": { "package": "africa.voltedge.spike.ucanprobe" },
+    "web": { "bundler": "metro", "output": "single" }
+  }
+}

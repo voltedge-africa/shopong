@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@shopong/ports": ["../../packages/ports/src/index.ts"],
+      "@shopong/ports-contract": ["../../packages/ports-contract/src/index.ts"]
+    }
+  },
+  "include": ["src", "test", "vite.config.ts"]
+}
