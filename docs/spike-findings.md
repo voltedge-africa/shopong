@@ -15,12 +15,12 @@ document is what was worth keeping.
 
 ## At a glance
 
-| Spike                          | Question                                                        | Answer                                                                                                | Confidence                                    |
-| ------------------------------ | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| 2.1 UCAN library               | Which library carries `CapabilityAuth` on Expo?                 | `iso-ucan` 2.0.0, conditional on a device test that has not happened                                  | Contract tests run; Hermes bundles built only |
-| 3.1 Bare worklet and Hypercore | Does the shared-record design hold, and does it fit on a phone? | The design holds in Bare on Linux; fit on a phone is **not established**                              | Run on Linux only, not in Expo                |
-| 3.8 DuckDB-WASM in the console | Which version, and does it work under a strict CSP?             | Pin `@duckdb/duckdb-wasm` **1.32.0** (engine v1.4.3); works under CSP once extensions are self-hosted | Run in headless Chromium only                 |
-| 7.1 Valhalla-WASM              | Can we route from our own tiles, and plan multi-stop runs?      | Yes for single routes. Matrix and optimised routes exist in the engine but not in the SDK             | Run in Node and headless Chromium; no phone   |
+| Spike                          | Question                                                        | Answer                                                                                                | Confidence                                                                           |
+| ------------------------------ | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 2.1 UCAN library               | Which library carries `CapabilityAuth` on Expo?                 | `iso-ucan` 2.0.0, conditional on a real-phone and iPhone test that has not happened                   | Contract tests run; 18/18 on Hermes in an Android emulator; no phone, iOS or web run |
+| 3.1 Bare worklet and Hypercore | Does the shared-record design hold, and does it fit on a phone? | The design holds in Bare on Linux; fit on a phone is **not established**                              | Run on Linux only, not in Expo                                                       |
+| 3.8 DuckDB-WASM in the console | Which version, and does it work under a strict CSP?             | Pin `@duckdb/duckdb-wasm` **1.32.0** (engine v1.4.3); works under CSP once extensions are self-hosted | Run in headless Chromium only                                                        |
+| 7.1 Valhalla-WASM              | Can we route from our own tiles, and plan multi-stop runs?      | Yes for single routes. Matrix and optimised routes exist in the engine but not in the SDK             | Run in Node and headless Chromium; no phone                                          |
 
 ## Spike 2.1: UCAN library
 
@@ -58,12 +58,17 @@ clock and network trapped during `verify`; issue-time attenuation checks off) ag
 - **The contract suite has a bug.** In verify-only mode the case "a delegation from someone the proof was
   not issued to is refused" expects `broken_chain`, but the leaf expires exactly at the log time so
   `expired` is also correct. It fails for the in-memory reference adapter too. It was marked `it.fails`.
-  Fix the case in `@shopong/ports-contract`; do not leave it as an expected failure.
-- **Hermes: bundled, never run.** Metro compiled all three adapters for Android (Hermes bytecode, about
-  3 MB), iOS (about 3 MB) and web (about 1.3 MB). Nothing ran on a device or emulator.
+  Fixed on 2026-10-25 in `@shopong/ports-contract` (the leaf now expires at `T0 + 2 * HOUR`).
+- **Hermes: run in an Android emulator, nowhere else.** Metro compiled all three adapters for Android
+  (Hermes bytecode, about 3 MB), iOS (about 3 MB) and web (about 1.3 MB). On 2026-10-25 the probe ran in
+  Expo Go on an x86 Android 16 emulator, with the engine reporting `hermes`: all three adapters passed 18 of
+  18 (17 contract cases plus the seed check) and derived the same `did:key`. It needed three probe-side
+  fixes (a `crypto` module stand-in for `iso-base`, `crypto.randomUUID` for the contract's own helper, and
+  `packages/events` on the Metro watch list). Nothing ran on a real phone, on iOS or in a browser.
 
-**Polyfills the bundle needs on Hermes.** `crypto.getRandomValues` from `expo-crypto`; `crypto.subtle.digest`
-from `@noble/hashes` (pure JS); `Buffer` and `stream` through Metro `extraNodeModules`; `.js`-to-`.ts`
+**Polyfills the bundle needs on Hermes.** `crypto.getRandomValues` and `crypto.randomUUID` from `expo-crypto`;
+`crypto.subtle.digest` from `@noble/hashes` (pure JS); a `crypto` module stand-in exporting `webcrypto`
+(`iso-base` imports it); `Buffer` and `stream` through Metro `extraNodeModules`; `.js`-to-`.ts`
 resolution and `node:` prefix stripping. `TextEncoder`, `TextDecoder`, `structuredClone`, `atob` and `btoa`
 were checked at startup and reported if missing, not silently shimmed.
 
@@ -75,8 +80,9 @@ check on Hermes, on a low-end Android phone and an iPhone, with no missing polyf
 
 **Still open**
 
-- Run the contract on Hermes on real devices and note cold-start time and memory.
-- Fix the contract-suite case above.
+- Run the contract on Hermes on a real low-end Android phone and an iPhone, and note cold-start time and
+  memory. The Android emulator leg is done (see above); iOS and web are not.
+- Check whether ts-ucan and the in-house chain also need the `crypto` stand-in (only iso-ucan was shown to).
 - No independent security review of any candidate, least of all the in-house prototype.
 - Per-candidate native bundle sizes (the probe bundled all three together).
 
