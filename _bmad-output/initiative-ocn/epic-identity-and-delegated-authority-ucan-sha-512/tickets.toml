@@ -1,0 +1,96 @@
+# Epic 2: Identity and delegated authority (UCAN, SHA-512). Story order is build order.
+
+[[entry]]
+id = 1
+type = "spike"
+title = "UCAN library on Expo (ts-ucan vs iso-ucan)"
+description = "Tests whether ts-ucan or iso-ucan builds, signs and verifies capability chains in an Expo app on iOS, Android and web and what their maintenance risk is, ending in a decision record that names the library and its exit path."
+verify = "Both libraries are exercised on each platform and a decision record states the chosen library, its risks and its exit path via the CapabilityAuth port."
+covers = ["AR3", "AR1"]
+after = ["1.1", "1.2"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#41-identity-who-may-do-what"]
+
+[[entry]]
+id = 2
+type = "story"
+title = "Create my identity on this device"
+description = "A person creates an Ed25519 identity (did:key) that lives only on their phone with its private key in secure storage, and a reinstall without a backup does not pretend to recover the old identity."
+verify = "Choosing Create my identity stores the private key in secure storage and shows a short readable DID, and a reinstall without a backup offers recovery instead of the old identity."
+covers = ["FR1"]
+after = [1, "1.1"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#6-data-and-identifiers"]
+
+[[entry]]
+id = 3
+type = "story"
+title = "Create a community and join by invitation"
+description = "A treasurer creates a community and invites members with a link or single-use code carrying a short-lived invitation UCAN, and newcomers join with offline verification while expired or reused invitations are rejected."
+verify = "A valid invitation joins offline and is recorded as member.joined, while an expired or reused invitation is rejected with a clear reason."
+covers = ["FR2"]
+after = [2, "1.2", "1.3"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#41-identity-who-may-do-what"]
+
+[[entry]]
+id = 4
+type = "story"
+title = "Roles with limits as delegated capabilities"
+description = "Treasurers grant roles such as co-treasurer, driver or supplier with limits, so holders act only within those limits and the role's expiry, and delegations wider or higher than the holder's own are refused."
+verify = "A delegation with a lower ceiling is accepted, one with a higher ceiling or wider resource is rejected, and a delegated role stops working with the reason shown once its expiry passes."
+covers = ["FR3"]
+after = [2, 3]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-6"]
+
+[[entry]]
+id = 5
+type = "story"
+title = "Verify authority on device, in the record and at the Node"
+description = "Checks every action's authority in three places (on the device, in the record's apply and at the Node) so a forged or stale authorisation cannot cause a real-world effect, and verification works offline."
+verify = "A tampered or missing proof is refused and its reason recorded in all three places, and a valid chain verifies with no network call."
+covers = ["FR3"]
+after = [1, 4, "1.2", "1.3"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-6"]
+
+[[entry]]
+id = 6
+type = "story"
+title = "Revocation, key loss and recovery"
+description = "A member recovers their identity and writer keys from a recovery phrase on a new device, and two named trustees can revoke a lost key and re-delegate the role, with revoked keys refused everywhere from the next sync."
+verify = "Restoring from the recovery phrase on a new device recovers the same DID and writer keys, and a role.revoked event makes the old key's actions refused from the next sync."
+covers = ["FR28", "FR3", "AR12"]
+after = [2, 4, 5, "1.3"]
+hitl = true
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-18"]
+
+[[entry]]
+id = 7
+type = "story"
+title = "SHA-512 content hashes and keyed commitments for personal data"
+description = "Ensures phone numbers and ID numbers reach the shared record only as HMAC-SHA512 commitments, and that attached files are hashed with SHA-512 so recipients can verify them."
+verify = "The record holds only HMAC-SHA512 commitments for personal values, and a recipient who re-hashes an attached file sees verified or does not match."
+covers = ["NFR3", "AR10"]
+after = [3, "1.3"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-9"]
+
+[[entry]]
+id = 8
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up only what this epic's plans and review findings deferred, adding no scope."
+verify = "The epic's tests still pass and every deferred cleanup item is closed or moved to a new story."
+covers = []
+after = [1, 2, 3, 4, 5, 6, 7]
+hitl = false
+risk = "low"

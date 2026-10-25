@@ -1,0 +1,67 @@
+# Epic 10: Trust, obligations and transparency. Story order is build order.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Obligation model derived from events"
+description = "Derives who owes whom what, and by when, from events such as pledge.created, funding.accepted and delivery.confirmed, with state open, due, overdue or settled, so the same events always give the same obligations."
+verify = "Rebuilding obligations from the same events twice gives identical obligations, each with its state of open, due, overdue or settled."
+covers = ["FR20"]
+after = ["3.2"]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 2
+type = "story"
+title = "Transparent transaction timeline"
+description = "Joins record events, ledger postings and any on-chain proof for each transaction by event id into one timeline that each participant can read."
+verify = "A payment shows its request, confirmation, ledger posting and any transaction link, in that order and joined by event id."
+covers = ["FR21"]
+after = ["3.2", "4.2", "4.5"]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 3
+type = "story"
+title = "Reconciliation and discrepancy flags"
+description = "A scheduled reconciliation checks that the record, the ledger and the payment processor agree, and opens a discrepancy with both values and the event id when a total or status differs."
+verify = "A total or status mismatch between the three systems creates a discrepancy showing both values and the event id, visible to approvers until resolved with a recorded reason."
+covers = ["FR21", "AR5"]
+after = ["3.2", "4.2", "4.5"]
+hitl = false
+risk = "high"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Audit export for members and funders"
+description = "Lets permitted members and funders export an audit bundle of events with their proofs and hashes, which a stand-alone verifier can check without the app."
+verify = "A permitted export yields a bundle of events with proofs and hashes that a stand-alone verifier accepts without the app."
+covers = ["FR21", "FR22"]
+after = ["3.2"]
+hitl = false
+risk = "high"
+
+[[entry]]
+id = 5
+type = "story"
+title = "Verifiable track record and proof bundle"
+description = "Builds a proof bundle of signed events and counterparty confirmations for closed obligations and confirmed deliveries, with a summary the user chooses to share."
+verify = "The proof bundle contains signed events, counterparty confirmations and the chosen summary, and the verifier marks which parts are verified and which are the user's own claims."
+covers = ["FR22"]
+after = [1, 4, "3.2"]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up only what this epic's plans and review findings deferred, adding no scope."
+verify = "The epic's tests still pass and every deferred cleanup item is closed or moved to a new story."
+covers = []
+after = [1, 2, 3, 4, 5]
+hitl = false
+risk = "low"

@@ -5,7 +5,7 @@
   "direction": "inbound",
   "source": "synthetic-from-docs",
   "references": [
-    "https://docs.stitch.money (payment initiation, webhooks, test scenarios), as summarised in _bmad-output/planning-artifacts/technology-register.md"
+    "https://docs.stitch.money (payment initiation, webhooks, test scenarios), as summarised in _bmad-output/initiative-ocn/spec-ocn/technology-register.md"
   ],
   "capturedAt": "2026-10-24",
   "todo": "Replace with a captured delivery from the registered sandbox webhook endpoint. The payload shape and the signature headers are NOT documented in the pages we read (technology-register F-4): signature verification must not be built against this fixture."

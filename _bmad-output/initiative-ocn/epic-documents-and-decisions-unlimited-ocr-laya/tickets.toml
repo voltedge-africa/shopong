@@ -1,0 +1,84 @@
+# Epic 6: Documents and decisions (Unlimited OCR, Laya). Story order is build order.
+
+[[entry]]
+id = 1
+type = "spike"
+title = "Unlimited-OCR on real documents and GPU sizing"
+description = "Measures Unlimited-OCR accuracy and cost on at least 30 real South African supplier documents, covering VRAM, pages per minute and output format, ending in decision D-4 on where GPU compute runs."
+verify = "Field accuracy, pages per minute, VRAM and cost per page are recorded on at least 30 real documents, and decision D-4 is recorded."
+covers = ["FR7", "AR3"]
+after = []
+hitl = true
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ocr-via-unlimited-ocr", "architecture-ocn/architecture-ocn.md#9-decisions"]
+
+[[entry]]
+id = 2
+type = "story"
+title = "OCR service behind the Ocr port"
+description = "Uploaded price lists in Hyperdrive are queued by the Node, rasterised at 300 DPI and sent to the OCR endpoint, with the raw output stored beside the source and failures retried with backoff and shown in the operator view."
+verify = "An uploaded price list is rasterised at 300 DPI, its raw output with boxes is stored beside the source, and failures retry with backoff and surface in the operator view."
+covers = ["FR7", "AR1", "NFR7"]
+after = [1, "3.7"]
+hitl = false
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#ocr-via-unlimited-ocr"]
+
+[[entry]]
+id = 3
+type = "story"
+title = "Structured quotes with human review"
+description = "Shows each extracted price-list row beside its source region so a treasurer can accept, edit or reject it before it counts, and accepted rows become quote.added events carrying the source hash."
+verify = "Each extracted row (item, unit, pack size, price) can be accepted, edited or rejected beside its source, and accepted rows become quote.added events with the source hash."
+covers = ["FR5", "FR7"]
+after = [2, "3.7"]
+hitl = false
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#ocr-via-unlimited-ocr"]
+
+[[entry]]
+id = 4
+type = "spike"
+title = "Laya calibration and fine-tune on our decisions"
+description = "Tests whether Laya beats the majority-class baseline on our own labelled decisions after calibration and fine-tuning, question by question, so that questions that do not beat the baseline stay human decisions."
+verify = "Accuracy, calibration error and confidence threshold are recorded for each question against the baseline, and any question that does not beat it is not shipped."
+covers = ["FR8", "AR3"]
+after = []
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#system-1-decision-model-via-laya"]
+
+[[entry]]
+id = 5
+type = "story"
+title = "Rank supplier quotes with confidence"
+description = "Ranks three to eight supplier quotes through laya-serve with a stated confidence and criteria, saying no clear recommendation below the threshold, and logs a treasurer's override as a labelled example."
+verify = "A ranking shows rank, confidence and criteria, falls back to 'no clear recommendation' below the threshold, and a logged override is stored as a labelled example."
+covers = ["FR8"]
+after = [3, 4]
+hitl = false
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#system-1-decision-model-via-laya"]
+
+[[entry]]
+id = 6
+type = "story"
+title = "Flag odd payments and mismatched delivery notes"
+description = "Attaches a flag with confidence to unusual payment requests and to delivery notes that do not match their order, and surfaces the flags to approvers without blocking anything automatically."
+verify = "A flag above the confidence threshold is attached to a payment request or delivery note, shown to the approvers, and nothing is blocked automatically."
+covers = ["FR7"]
+after = [2, 4]
+hitl = false
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#system-1-decision-model-via-laya"]
+
+[[entry]]
+id = 7
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up only what this epic's plans and review findings deferred, adding no scope."
+verify = "The epic's tests still pass and every deferred cleanup item is closed or moved to a new story."
+covers = []
+after = [1, 2, 3, 4, 5, 6]
+hitl = false
+risk = "low"

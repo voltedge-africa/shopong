@@ -1,0 +1,89 @@
+# Epic 7: Logistics: map, route, delivery (DuckDB-WASM, Kepler.gl, Valhalla). Story order is build order.
+
+[[entry]]
+id = 1
+type = "spike"
+title = "Valhalla tiles, routing and mobile viability"
+description = "Builds tiles from an OSM extract and tests Valhalla routing, isochrones, matrix and optimised routes in the browser and Node, and whether the engine runs on iOS and Android, ending in a recorded decision."
+verify = "Tile size, build time, route latency and memory are recorded for browser and Node, each Valhalla feature is marked working or not, and a mobile viability decision is on record."
+covers = ["AR7"]
+after = []
+hitl = false
+risk = "high"
+
+[[entry]]
+id = 2
+type = "story"
+title = "Tile build pipeline and hosting"
+description = "A reproducible pipeline builds tiles, graph.tar and a versioned manifest from a pinned OSM extract into static storage, with OSM attribution shown in the app and Node."
+verify = "Running the pipeline on the pinned extract writes tiles, graph.tar and a manifest with a release id to static storage, and the app and Node display the OSM (ODbL) attribution."
+covers = ["AR9", "NFR8"]
+after = [1]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 3
+type = "story"
+title = "Map of members, collection points and demand"
+description = "Shows demand clusters and candidate collection points on the console map from member locations coarsened on the device, so no exact home address enters the shared record."
+verify = "Coarsened member locations load into DuckDB-WASM and Kepler.gl and show demand clusters and candidate collection points, and inspecting the shared record finds no exact address."
+covers = ["FR14", "AR7", "NFR3"]
+after = ["3.8"]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Plan a route to the collection point"
+description = "A driver requests a truck route from a supplier depot to a collection point, sees its distance, time and line on a map, and the polyline and manifest release id are stored in a delivery.planned event."
+verify = "A Valhalla truck route shows distance, time and map line, and its polyline6 and manifest release id are present in the delivery.planned event."
+covers = ["FR15", "AR4", "AR7"]
+after = [1, 2, "3.2"]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 5
+type = "story"
+title = "Multi-stop delivery runs"
+description = "Orders two to eight collection points into one run using the approach decided in spike 7.1, shows the total time, and stores the run with its ordering method named."
+verify = "A run of two to eight stops is ordered, its total time is shown, and the stored run names its ordering method."
+covers = ["FR15"]
+after = [1, 4]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Proof of delivery and proof of collection"
+description = "A driver with delivery/confirm records a signed arrival with time, coarse location and a SHA-512-referenced photo, and each member's collection is recorded as collection.confirmed, both showing progress on the order."
+verify = "A driver's signed delivery event with a photo referenced by SHA-512 is recorded, each member's confirmation is recorded as collection.confirmed, and the order shows progress."
+covers = ["FR16", "AR4"]
+after = [4, "3.7", "4.7"]
+hitl = true
+risk = "high"
+
+[[entry]]
+id = 7
+type = "story"
+title = "Follow a delivery and handle exceptions"
+description = "Members see a delivery's status (planned, started, arrived, collected) and its last confirmed point, and a late, failed or partial delivery creates an exception event visible to all approvers."
+verify = "Delivery status and the last confirmed point are visible to members, and a late, failed or partial delivery creates an exception event visible to all approvers."
+covers = ["FR17"]
+after = [4, 6]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 8
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up only what this epic's plans and review findings deferred, adding no scope."
+verify = "The epic's tests still pass and every deferred cleanup item is closed or moved to a new story."
+covers = []
+after = [1, 2, 3, 4, 5, 6, 7]
+hitl = false
+risk = "low"

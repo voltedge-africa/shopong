@@ -1,0 +1,81 @@
+# Epic 9: Demonstration 2: small retailer stock and funding. Story order is build order.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Retailer profile and verifiable business identity"
+description = "A small retailer creates a business profile signed by their DID that shows only the fields they choose to reveal, and a supplier circle can invite them with a capability."
+verify = "A business profile is signed by the retailer's DID with only the chosen fields shown, and a supplier circle can invite the retailer with a capability."
+covers = ["FR18"]
+after = []
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 2
+type = "story"
+title = "Find suppliers and stock offers"
+description = "A retailer searches a supplier circle's published offers by item and sees each offer with its price history and the supplier's delivery record."
+verify = "Searching by item returns current offers with price history from DuckDB and each supplier's delivery record."
+covers = ["FR18"]
+after = [1, "6.2"]
+hitl = false
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#ad-5"]
+
+[[entry]]
+id = 3
+type = "story"
+title = "Request funding for a stock order"
+description = "A retailer requests funding for a stock order, visible to holders of funding/offer, and can attach their verifiable track record if they choose."
+verify = "A funding.requested event becomes visible to holders of funding/offer, and the retailer's verifiable record can be attached if chosen."
+covers = ["FR19"]
+after = [2, "8.2"]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Receive and accept a funding offer"
+description = "A retailer compares funding offers and accepts one, which creates an obligation with amount, due date and repayment schedule, plus ledger receivable and payable accounts for both parties."
+verify = "Accepting an offer emits funding.accepted, creating the obligation and the matching receivable and payable accounts for both parties."
+covers = ["FR19", "FR20"]
+after = [3, "4.2"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-8"]
+
+[[entry]]
+id = 5
+type = "story"
+title = "Get stock delivered and record sales"
+description = "Confirmed delivery of a funded order adds the stock to the retailer's record, and simple sales events are recorded with totals shown."
+verify = "A confirmed delivery adds stock to the retailer's record, and recorded sales show totals."
+covers = []
+after = [4, "7.6"]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Track and repay obligations"
+description = "A retailer sees what they owe, when and to whom, and repays through a Stitch pay-in, with a settled payment closing the obligation on both sides."
+verify = "Open obligations show amount, due date and counterparty, and a settled Stitch payment closes the obligation on both sides."
+covers = ["FR20"]
+after = [4, "4.3", "4.5"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-3"]
+
+[[entry]]
+id = 7
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up only what this epic's plans and review findings deferred, adding no scope."
+verify = "The epic's tests still pass and every deferred cleanup item is closed or moved to a new story."
+covers = []
+after = [1, 2, 3, 4, 5, 6]
+hitl = false
+risk = "low"

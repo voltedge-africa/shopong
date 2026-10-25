@@ -1,0 +1,118 @@
+# Epic 11: Builder layer: agents and generated interfaces. Story order is build order.
+
+[[entry]]
+id = 1
+type = "spike"
+title = "OpenCode server vs Pi as the agent runtime"
+description = "Compares OpenCode server mode with Pi for running agent sessions on the OCN Node, covering denial of built-in tools, permission requests, custom and MCP tools, and tool calls on a local model, and confirms or reverses AD-10 in decision D-9."
+verify = "Both runtimes are run in a sandbox against a stub capability MCP server and a local endpoint, and AD-10 and D-9 are recorded as confirmed or reversed."
+covers = ["AR3"]
+after = []
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-10"]
+
+[[entry]]
+id = 2
+type = "story"
+title = "OCN Capability MCP server with authority checks"
+description = "Exposes the platform's capabilities once as an MCP server in which every tool has a schema, a required ability and a read, write or money classification, and a money tool returns needs-confirmation and performs nothing until the member approves."
+verify = "A call without the right authority is refused with a reason, and a money-classified tool returns needs-confirmation and performs nothing until the member approves in the UI."
+covers = ["FR26", "AR13"]
+after = ["2.4", "2.5"]
+hitl = true
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-17"]
+
+[[entry]]
+id = 3
+type = "story"
+title = "Sandboxed agent sessions with narrower authority"
+description = "Runs each agent session in a sandbox with deny-by-default permissions, network only to the capability MCP server and a model endpoint, and a short-lived UCAN strictly narrower than the member's, appending session actions as agent.action events."
+verify = "A session runs sandboxed with a UCAN narrower than the member's, and a built-in tool such as bash or edit is refused and the attempt logged."
+covers = ["FR26", "NFR5", "AR13"]
+after = [1, 2, "2.4", "2.5", "3.2"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-10", "architecture-ocn/architecture-ocn.md#ad-17"]
+
+[[entry]]
+id = 4
+type = "story"
+title = "OCN component library for generated interfaces"
+description = "Provides an approved component library (Stack, Metric, Table, Form and others) that the model may use, with each component declaring which capability it may bind to, and generates the spec and system prompt locally with no hosted service."
+verify = "createLibrary, generate --spec and generateSystemPrompt produce the spec and prompt locally, and each component declares the capability read or action it may bind to."
+covers = ["FR24", "UX-DR4"]
+after = [2]
+hitl = false
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#ad-11"]
+
+[[entry]]
+id = 5
+type = "story"
+title = "Describe a workflow and get a screen"
+description = "Streams a working screen with real data from a member's plain-language description, dropping any invalid or out-of-library component with a visible notice."
+verify = "A plain-language request streams a screen with real data progressively, and an invalid or out-of-library component is dropped with a visible notice."
+covers = ["FR23", "FR24", "UX-DR4"]
+after = [2, 3, 4, "8.4"]
+hitl = false
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#ad-11"]
+
+[[entry]]
+id = 6
+type = "story"
+title = "Actions from generated screens with human confirmation"
+description = "Makes buttons in generated screens call capability APIs with the member's UCAN, and makes any money action show a confirmation step that cannot be bypassed."
+verify = "A generated button calls the capability API with the member's UCAN, and a money action cannot run without the confirmation step."
+covers = ["FR26"]
+after = [2, 4, 5, "2.5"]
+hitl = true
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#ad-17"]
+
+[[entry]]
+id = 7
+type = "story"
+title = "Safety rails and red-team tests"
+description = "Runs a test suite of injected instructions in documents, names and messages that checks the agent makes no out-of-authority call, no unconfirmed money action and no access to another space's data, and enforces per-space spend and token limits."
+verify = "Injected-instruction tests cause no out-of-authority call, unconfirmed money action or cross-space data access, and per-space spend and token limits are enforced."
+covers = ["FR26"]
+after = [2, 3, "3.2"]
+hitl = false
+risk = "high"
+
+[[entry]]
+id = 8
+type = "story"
+title = "Save, share and fork a custom solution"
+description = "Stores a working solution's OpenUI source and tool bindings in Hyperdrive with a SHA-512, and shares it under a UCAN so another community can fork it under its own authority."
+verify = "A saved solution is stored with its SHA-512, and a shared copy can be forked by another community under that community's own authority."
+covers = ["FR25"]
+after = [5, 6, "2.5", "3.7"]
+hitl = false
+risk = "medium"
+references = ["architecture-ocn/architecture-ocn.md#ad-2"]
+
+[[entry]]
+id = 9
+type = "story"
+title = "Model routing and local fallback"
+description = "Lets operators choose models per task with a local fallback and cost caps, so the Node falls back to a local model when a hosted provider fails or a cap is hit, with prompts that carry no raw personal data and payloads that are not logged."
+verify = "When a hosted provider fails or the cap is reached, the Node falls back to the local model or refuses with a clear message, and prompts contain no raw personal data."
+covers = ["NFR3"]
+after = [1]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 10
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up only what this epic's plans and review findings deferred, adding no scope."
+verify = "The epic's tests still pass and every deferred cleanup item is closed or moved to a new story."
+covers = []
+after = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+hitl = false
+risk = "low"

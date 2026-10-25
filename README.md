@@ -28,7 +28,7 @@
 apps/                     runnable apps (Shopong client, web console, OCN Node) — coming
 packages/                 shared libraries, published as @shopong/*
 docs/source/              original inputs: project spine, technology-stack diagram, links
-_bmad-output/             planning artifacts (brief, architecture, epics) and sprint status
+_bmad-output/             the OCN initiative: brief, spec, architecture, epics and stories
 _bmad/, .claude/skills/   BMAD method install used to plan and deliver stories
 AGENTS.md                 rules and delivery protocol for contributors and coding agents
 ```
@@ -44,10 +44,10 @@ pnpm run ci    # lint and format check, type check, tests, build
 
 ## Docs
 
-- [Product brief](_bmad-output/planning-artifacts/product-brief-ocn.md)
-- [Architecture](_bmad-output/planning-artifacts/architecture.md)
-- [Technology register](_bmad-output/planning-artifacts/technology-register.md)
-- [Epics and stories](_bmad-output/planning-artifacts/epics.md)
+- [Product brief](_bmad-output/initiative-ocn/brief-ocn/brief-ocn.md)
+- [Architecture](_bmad-output/initiative-ocn/architecture-ocn/architecture-ocn.md)
+- [Technology register](_bmad-output/initiative-ocn/spec-ocn/technology-register.md)
+- [Epics and stories](_bmad-output/initiative-ocn/tickets.toml)
 - [Contributor and agent rules](AGENTS.md)
 
 ## License

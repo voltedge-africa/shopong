@@ -1,0 +1,60 @@
+# Epic 5: Stablecoin rail (ZARP, ZARsc). Story order is build order.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Decision: ZARP vs ZARsc and custody"
+description = "Compares ZARP and ZARsc on regulation, mint and redeem, API access, fees and custody from issuer documents and written answers, and records decision D-1 with its custody model after legal review."
+verify = "The comparison covers the CASP and FSCA position, reserve attestation, token extensions or contract controls and fees for both tokens, and decision D-1 with its custody model is recorded."
+covers = ["FR13", "AR3"]
+after = []
+hitl = true
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#stablecoin-via-zarp-zarsc", "architecture-ocn/architecture-ocn.md#9-decisions"]
+
+[[entry]]
+id = 2
+type = "story"
+title = "StableRail port and a testnet adapter"
+description = "Implements the StableRail port with a testnet adapter that creates wallets and sends test tokens for the chosen token, with signing keys kept on the OCN Node or with the chosen custody service."
+verify = "The testnet adapter passes the StableRail contract suite, and signing keys never leave the OCN Node or the chosen custody service."
+covers = ["FR13", "NFR5", "AR1"]
+after = [1]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#stablecoin-via-zarp-zarsc"]
+
+[[entry]]
+id = 3
+type = "story"
+title = "Hold part of the pool as stablecoin, mirrored in the books"
+description = "Converts part of the pool to stablecoin after the required approvals, stores the transaction signature in the event, mirrors the move in a balanced ledger entry, and shows both balances with an on-chain proof link in the pool view."
+verify = "An approved conversion stores its transaction signature and posts a balanced entry between the bank pool and stablecoin wallet accounts, shown in the pool view with a proof link."
+covers = ["FR13"]
+after = [1, 2, "4.2", "4.6", "4.7"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#stablecoin-via-zarp-zarsc", "architecture-ocn/architecture-ocn.md#de-ledger-via-ledfra"]
+
+[[entry]]
+id = 4
+type = "story"
+title = "Redeem to Rand and pay a supplier"
+description = "Turns stablecoin back into Rand through the approved path and pays the supplier through the Stitch payout, leaving failed redemptions visible and recoverable."
+verify = "Redemption is recorded and the ledger updated before the supplier is paid through Stitch, and a failure leaves the funds visible and recoverable."
+covers = ["FR13"]
+after = [3, "4.2", "4.4", "4.7"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#stablecoin-via-zarp-zarsc", "architecture-ocn/architecture-ocn.md#payment-processor-via-stitch"]
+
+[[entry]]
+id = 5
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up only what this epic's plans and review findings deferred, adding no scope."
+verify = "The epic's tests still pass and every deferred cleanup item is closed or moved to a new story."
+covers = []
+after = [1, 2, 3, 4]
+hitl = false
+risk = "low"
