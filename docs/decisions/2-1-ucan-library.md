@@ -141,6 +141,28 @@ aliases for `crypto`, `stream` and `buffer`.
 The probe changes, the result JSON and a screenshot were kept outside the repo, in
 `/tmp/ucan-probe-results/` on the machine that ran it. They are not committed.
 
+## In the Shopong app (2026-10-26)
+
+The packaged adapter (`packages/adapter-ucan-iso`, not the spike's copy) was added to `apps/shopong` and
+run there. A development-only screen, `/ucan-check`, runs nine cases through the `CapabilityAuth` port
+(identities, a root grant, a request above the ceiling, a delegated chain, a delegation that raises the
+ceiling, expiry at a supplied time, a tampered token, a chain from another root, a revoked token) and logs
+one `UCAN_CHECK` line. It renders nothing in a release build.
+
+| Where                                       | Result             | Polyfills installed                                                                                    |
+| ------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------ |
+| Web (Chromium, `expo start --web`)          | 9 passed, 0 failed | none (the browser has all of it)                                                                       |
+| Android 16 x86_64 emulator, Expo Go, Hermes | 9 passed, 0 failed | `globalThis.crypto`, `getRandomValues` and `randomUUID` (expo-crypto), `subtle.digest` (@noble/hashes) |
+
+What the app needed, all in `apps/shopong`: `lib/cryptoPolyfills.ts` (above), `lib/cryptoShim.js` plus a
+`crypto` / `node:crypto` mapping in `metro.config.js` (iso-base imports Node's `crypto`), and three
+dependencies: `@shopong/adapter-ucan-iso`, `expo-crypto` 58.0.7 and `@noble/hashes` 2.4.0 (MIT). The same
+nine cases also run in Node (`lib/ucanCheck.test.ts`).
+
+Still not run: a real low-end Android phone, any iPhone or iOS simulator, and the full 17-case contract on
+a device (the screen runs a nine-case subset). The seed-to-identity derivation (AD-18) is not built yet, so
+it was not exercised in the app.
+
 ## Decision
 
 **Go with `iso-ucan` 2.0.0 as the UCAN adapter behind `CapabilityAuth`, conditional on the
