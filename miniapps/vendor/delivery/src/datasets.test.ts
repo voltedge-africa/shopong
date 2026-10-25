@@ -71,6 +71,22 @@ describe("messages", () => {
     },
   );
 
+  it("parses a theme message from a JSON string or an object", () => {
+    expect(parseAppMessage('{"type":"theme","mode":"light"}')).toEqual({
+      type: "theme",
+      mode: "light",
+    });
+    expect(parseAppMessage({ type: "theme", mode: "dark" })).toEqual({
+      type: "theme",
+      mode: "dark",
+    });
+  });
+
+  it("ignores a theme message with a mode it does not know", () => {
+    expect(parseAppMessage({ type: "theme", mode: "sepia" })).toBeUndefined();
+    expect(parseAppMessage({ type: "theme" })).toBeUndefined();
+  });
+
   it("parses the page's ready and error messages and ignores others", () => {
     expect(parsePageMessage('{"type":"ready"}')).toEqual({ type: "ready" });
     expect(parsePageMessage({ type: "error", message: "boom" })).toEqual({

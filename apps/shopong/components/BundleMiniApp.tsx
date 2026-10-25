@@ -2,9 +2,10 @@ import { Asset } from "expo-asset";
 import { useEffect, useRef, useState, type ComponentRef } from "react";
 import { View } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
+import { useCSSVariable, useUniwind } from "uniwind";
 import { Spinner, Text } from "panelui-native";
 
-import { isReadyMessage } from "../lib/bundleMessages";
+import { isReadyMessage, themeMessage } from "../lib/bundleMessages";
 
 type Props = {
   /** The Metro asset id of the built page. */
@@ -23,6 +24,23 @@ export function BundleMiniApp({ asset, messages }: Props) {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  // The page dresses in the app's own theme: it hears the mode first, with its data, and then
+  // again on every change while it stays open.
+  const theme = useUniwind().theme === "light" ? "light" : "dark";
+  const [background] = useCSSVariable(["--color-background"]);
+
+  const onMessage = (event: WebViewMessageEvent) => {
+    if (!isReadyMessage(event.nativeEvent.data)) return;
+    for (const message of [themeMessage(theme), ...messages])
+      webView.current?.postMessage(JSON.stringify(message));
+    setReady(true);
+  };
+
+  useEffect(() => {
+    if (!ready) return;
+    webView.current?.postMessage(JSON.stringify(themeMessage(theme)));
+  }, [theme, ready]);
+
   useEffect(() => {
     let current = true;
     Asset.fromModule(asset)
@@ -38,12 +56,6 @@ export function BundleMiniApp({ asset, messages }: Props) {
     };
   }, [asset]);
 
-  const onMessage = (event: WebViewMessageEvent) => {
-    if (!isReadyMessage(event.nativeEvent.data)) return;
-    for (const message of messages) webView.current?.postMessage(JSON.stringify(message));
-    setReady(true);
-  };
-
   if (failed) {
     return (
       <View className="flex-1 items-center justify-center bg-background p-6">
@@ -58,7 +70,7 @@ export function BundleMiniApp({ asset, messages }: Props) {
         <WebView
           ref={webView}
           source={{ uri }}
-          style={{ flex: 1, backgroundColor: "#0e1116" }}
+          style={{ flex: 1, backgroundColor: background as string }}
           originWhitelist={["file://*"]}
           onShouldStartLoadWithRequest={(request) => request.url === uri}
           onMessage={onMessage}

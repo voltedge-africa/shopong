@@ -21,6 +21,15 @@
         overflow: hidden;
         background: #0e1116;
       }
+      /* The map draws dark by default; if the system is light, start there until the app
+         sends its theme (the Kepler page then restyles itself). */
+      @media (prefers-color-scheme: light) {
+        html,
+        body,
+        #root {
+          background: #f1f1ee;
+        }
+      }
     </style>
   </head>
   <body>

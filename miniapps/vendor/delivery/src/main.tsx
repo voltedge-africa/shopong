@@ -1,7 +1,7 @@
-import { addDataToMap, fitBounds } from "@kepler.gl/actions";
+import { addDataToMap, fitBounds, mapStyleChange } from "@kepler.gl/actions";
 import { KeplerGl } from "@kepler.gl/components";
 import { enhanceReduxMiddleware, keplerGlReducer } from "@kepler.gl/reducers";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import {
@@ -12,16 +12,16 @@ import {
 } from "redux";
 
 import { paddedBounds, toKeplerDatasets } from "./datasets";
-import { LAYER_CONFIG, MAP_CONTROLS } from "./mapConfig";
-import { ATTRIBUTION, CLERMONT_STYLE } from "./basemap/style";
-import { parseAppMessage, type PageMessage } from "./protocol";
+import { makeLayerConfig, MAP_CONTROLS } from "./mapConfig";
+import { ATTRIBUTION, makeClermontStyle } from "./basemap/style";
+import { parseAppMessage, type DeliveryMap, type MapMode, type PageMessage } from "./protocol";
 
 const MAP_ID = "delivery";
 
 // Kepler's type asks for every section of a saved config (filters, interaction settings, ...) but
 // accepts one with only the layers, which is all this page needs.
 type SavedConfig = NonNullable<Parameters<typeof addDataToMap>[0]["config"]>;
-const layerConfig = LAYER_CONFIG as unknown as SavedConfig;
+const makeConfig = (mode: MapMode) => makeLayerConfig(mode) as unknown as SavedConfig;
 
 // Kepler fetches its icon list from a third-party server when it starts. Only the icon layer uses
 // it, and this page makes no outside requests, so that one fetch gets an empty list instead.
@@ -32,20 +32,34 @@ window.fetch = (input, init) =>
     ? Promise.resolve(Response.json({ svgIcons: [] }))
     : realFetch(input, init);
 
+// Both themes live in the reducer from the start; a theme message picks between them with
+// mapStyleChange. The page starts dark; the app says which theme it wants once the page is ready.
+const MAP_STYLES = {
+  "offline-dark": {
+    id: "offline-dark",
+    label: "Clermont (night)",
+    url: "",
+    style: makeClermontStyle("dark"),
+    layerGroups: [],
+  },
+  "offline-light": {
+    id: "offline-light",
+    label: "Clermont (day)",
+    url: "",
+    style: makeClermontStyle("light"),
+    layerGroups: [],
+  },
+};
+
 const reducers = combineReducers({
   keplerGl: keplerGlReducer.initialState({
-    uiState: { mapControls: MAP_CONTROLS },
+    // Kepler opens its "Add Data To Map" modal until a dataset arrives, which flashes on every start
+    // while the page waits for the app's `load` message, and the side panel with "Add Data" shows
+    // until then too. This page is read-only from the first frame: no modal, no panel.
+    uiState: { mapControls: MAP_CONTROLS, currentModal: null, readOnly: true },
     mapStyle: {
-      styleType: "offline",
-      mapStyles: {
-        offline: {
-          id: "offline",
-          label: "Clermont",
-          url: "",
-          style: CLERMONT_STYLE,
-          layerGroups: [],
-        },
-      },
+      styleType: "offline-dark",
+      mapStyles: MAP_STYLES,
     },
   }),
 });
@@ -73,19 +87,34 @@ function useWindowSize() {
 
 function App() {
   const { width, height } = useWindowSize();
+  const [mode, setMode] = useState<MapMode>("dark");
+  // The last map the app sent, kept so a later theme change can re-dress the layers drawn with it.
+  const [map, setMap] = useState<DeliveryMap | null>(null);
+  // The message handler is registered once; it reads the current mode through this ref.
+  const modeRef = useRef<MapMode>("dark");
+  modeRef.current = mode;
+
+  const showMap = (map: DeliveryMap, mode: MapMode) => {
+    store.dispatch(
+      addDataToMap({
+        datasets: toKeplerDatasets(map),
+        options: { centerMap: false, readOnly: true },
+        config: makeConfig(mode),
+      }) as never,
+    );
+    store.dispatch(fitBounds(paddedBounds(map.stops)) as never);
+  };
 
   useEffect(() => {
     const onMessage = (event: Event) => {
       const message = parseAppMessage((event as MessageEvent).data);
       if (message === undefined) return;
-      store.dispatch(
-        addDataToMap({
-          datasets: toKeplerDatasets(message.map),
-          options: { centerMap: false, readOnly: true },
-          config: layerConfig,
-        }) as never,
-      );
-      store.dispatch(fitBounds(paddedBounds(message.map.stops)) as never);
+      if (message.type === "theme") {
+        setMode(message.mode);
+        return;
+      }
+      setMap(message.map);
+      showMap(message.map, modeRef.current);
     };
     // React Native's WebView delivers on `document` on Android and on `window` on iOS.
     window.addEventListener("message", onMessage);
@@ -96,11 +125,27 @@ function App() {
       window.removeEventListener("message", onMessage);
       document.removeEventListener("message", onMessage);
     };
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- the page registers once and hears everything after
   }, []);
+
+  // A theme change while the map is already drawn re-dresses the layers without re-fitting the view.
+  useEffect(() => {
+    store.dispatch(mapStyleChange(`offline-${mode}`) as never);
+    if (map !== null) showMap(map, mode);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `map` is the trigger's payload, not its dep
+  }, [mode]);
 
   return (
     <>
-      <KeplerGl id={MAP_ID} width={width} height={height} mapboxApiAccessToken="" />
+      {/* Kepler's types say `object`, but the component also takes the named themes of
+          @kepler.gl/styles and picks Kepler's own light UI for "light"; the default is its dark UI. */}
+      <KeplerGl
+        id={MAP_ID}
+        width={width}
+        height={height}
+        mapboxApiAccessToken=""
+        theme={mode === "light" ? "light" : undefined}
+      />
       <div
         style={{
           position: "fixed",
@@ -108,8 +153,8 @@ function App() {
           top: 6,
           padding: "1px 6px",
           borderRadius: 4,
-          background: "rgba(11,15,20,0.75)",
-          color: "#94a3b8",
+          background: mode === "light" ? "rgba(255,255,255,0.75)" : "rgba(11,15,20,0.75)",
+          color: mode === "light" ? "#475569" : "#94a3b8",
           font: "11px system-ui, sans-serif",
           pointerEvents: "none",
         }}
