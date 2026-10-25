@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Kitchen",
+    "slug": "kitchen",
+    "scheme": "kitchen",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "africa.voltedge.kitchen"
+    },
+    "android": {
+      "package": "africa.voltedge.kitchen"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Kitchen"
+    },
+    "plugins": ["expo-router", "expo-secure-store", "expo-asset"]
+  }
+}

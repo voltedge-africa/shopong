@@ -1,0 +1,57 @@
+{
+  "name": "@shopong/kitchen",
+  "version": "0.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "pnpm --filter @shopong/kepler-miniapp build && expo start",
+    "android": "pnpm --filter @shopong/kepler-miniapp build && expo start --android",
+    "ios": "pnpm --filter @shopong/kepler-miniapp build && expo start --ios",
+    "web": "pnpm --filter @shopong/kepler-miniapp build && expo start --web",
+    "build": "pnpm --filter @shopong/kepler-miniapp build && expo export --platform web --output-dir web-dist",
+    "check-types": "tsc --noEmit",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "58.0.15",
+    "@expo/vector-icons": "15.1.1",
+    "@react-native-masked-view/masked-view": "0.3.2",
+    "@shopong/kepler-miniapp": "workspace:*",
+    "effect": "4.0.6",
+    "expo": "58.0.19",
+    "expo-asset": "58.0.18",
+    "expo-constants": "58.0.13",
+    "expo-linear-gradient": "58.0.3",
+    "expo-linking": "58.0.14",
+    "expo-router": "58.0.26",
+    "expo-secure-store": "58.0.2",
+    "expo-status-bar": "58.0.4",
+    "expo-symbols": "58.0.4",
+    "panelui-native": "0.114.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-gesture-handler": "3.3.0",
+    "react-native-reanimated": "4.7.1",
+    "react-native-safe-area-context": "5.10.1",
+    "react-native-screens": "4.30.0",
+    "react-native-svg": "15.16.0",
+    "react-native-web": "0.21.4",
+    "react-native-webview": "14.0.1",
+    "react-native-worklets": "0.13.0",
+    "tailwindcss": "4.3.3",
+    "uniwind": "1.13.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "typescript"
+      ]
+    }
+  }
+}
