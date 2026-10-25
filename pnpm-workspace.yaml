@@ -1,6 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+# Kepler.gl pulls in deck.gl typings whose install script only repackages type definitions.
+allowBuilds:
+  "@danmarshall/deckgl-typings": false
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vite-plus: 0.3.0
@@ -24,6 +27,9 @@ minimumReleaseAgeExclude:
   - expo@58.0.19
 overrides:
   vite@*: "catalog:"
+  # One version of the React types for the whole workspace. Kepler.gl asks for the React 18 types,
+  # and with two majors installed every package without its own copy picks the wrong one.
+  "@types/react": "19.3.0"
 peerDependencyRules:
   allowAny:
     - vite
