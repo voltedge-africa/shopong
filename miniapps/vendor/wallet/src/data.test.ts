@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  CARDS,
+  ACCOUNTS,
   SEND_AMOUNT,
   TOP_UP_AMOUNT,
   TRANSACTIONS,
@@ -48,14 +48,14 @@ describe("noise", () => {
 });
 
 describe("spending", () => {
-  const card = CARDS[0]!;
+  const account = ACCOUNTS[0]!;
 
   it.each([
     ["week", 7, "Mon", "Sun"],
     ["month", 30, "1", "30"],
     ["year", 12, "Jan", "Dec"],
   ] as const)("covers a %s with %d points", (range, count, first, last) => {
-    const points = spending(card, range);
+    const points = spending(account, range);
     expect(points).toHaveLength(count);
     expect(points[0]?.label).toBe(first);
     expect(points.at(-1)?.label).toBe(last);
@@ -63,33 +63,36 @@ describe("spending", () => {
 
   it("is a running total, so it never goes down", () => {
     for (const range of ["week", "month", "year"] as const) {
-      const spent = spending(card, range).map((point) => point.spent);
+      const spent = spending(account, range).map((point) => point.spent);
       expect(spent).toEqual([...spent].sort((a, b) => a - b));
     }
   });
 
-  it("draws the same chart every time, and a quieter card spends less", () => {
-    expect(spending(card, "month")).toEqual(spending(card, "month"));
-    const savings = CARDS.find((item) => item.id === "savings")!;
+  it("draws the same chart every time, and a quieter account spends less", () => {
+    expect(spending(account, "month")).toEqual(spending(account, "month"));
+    const savings = ACCOUNTS.find((item) => item.id === "savings")!;
     expect(spending(savings, "month").at(-1)!.spent).toBeLessThan(
-      spending(card, "month").at(-1)!.spent,
+      spending(account, "month").at(-1)!.spent,
     );
   });
 });
 
 describe("the wallet", () => {
-  it("adds the cards up", () => {
-    expect(totalBalance(CARDS)).toBeCloseTo(12_480.36, 2);
+  it("adds the accounts up", () => {
+    expect(totalBalance(ACCOUNTS)).toBeCloseTo(12_480.36, 2);
   });
 
-  it("tops up one card, records it first and leaves the other cards alone", () => {
+  it("tops up one account, records it first and leaves the other accounts alone", () => {
     const next = moveMoney(initialWallet(), "everyday", TOP_UP_AMOUNT, {
       title: "Top-up",
       detail: "From your bank",
       when: "Just now",
     });
-    expect(next.cards.find((card) => card.id === "everyday")?.balance).toBeCloseTo(4240.18, 2);
-    expect(next.cards.find((card) => card.id === "savings")?.balance).toBe(8053.78);
+    expect(next.accounts.find((account) => account.id === "everyday")?.balance).toBeCloseTo(
+      4240.18,
+      2,
+    );
+    expect(next.accounts.find((account) => account.id === "savings")?.balance).toBe(8053.78);
     expect(next.transactions[0]).toMatchObject({
       id: "new-1",
       amount: TOP_UP_AMOUNT,
@@ -111,7 +114,7 @@ describe("the wallet", () => {
       when: "Just now",
     });
     expect(twice.transactions.slice(0, 2).map((row) => row.id)).toEqual(["new-2", "new-1"]);
-    expect(start.cards).toBe(CARDS);
+    expect(start.accounts).toBe(ACCOUNTS);
     expect(start.transactions).toHaveLength(TRANSACTIONS.length);
   });
 
@@ -119,11 +122,11 @@ describe("the wallet", () => {
     let state = initialWallet();
     for (let count = 0; count < 3; count += 1)
       state = moveMoney(state, "everyday", -0.1, { title: "x", detail: "x", when: "x" });
-    expect(state.cards[0]!.balance).toBe(3239.88);
+    expect(state.accounts[0]!.balance).toBe(3239.88);
   });
 
-  it("only lets a card send when it is not frozen and has the money", () => {
-    const [everyday] = CARDS;
+  it("only lets an account send when it is not frozen and has the money", () => {
+    const [everyday] = ACCOUNTS;
     expect(canSend(everyday!, false)).toBe(true);
     expect(canSend(everyday!, true)).toBe(false);
     expect(canSend({ ...everyday!, balance: SEND_AMOUNT - 0.01 }, false)).toBe(false);

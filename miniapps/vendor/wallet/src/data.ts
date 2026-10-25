@@ -1,13 +1,20 @@
-export type CardTone = "primary" | "raised" | "outline";
+export type AccountTone = "primary" | "raised" | "outline";
 
-export type PaymentCard = {
+/** An Ionicons name for the kind of account. */
+export type AccountIcon = "wallet-outline" | "people-outline" | "shield-checkmark-outline";
+
+/** Somewhere money is kept: a personal account, a stokvel's pool or savings. */
+export type Account = {
   id: string;
   name: string;
+  /** What sort of account it is, written on its face. */
+  kind: string;
+  icon: AccountIcon;
+  /** The last four digits of the account number. */
   last4: string;
-  expiry: string;
   /** Rand. */
   balance: number;
-  tone: CardTone;
+  tone: AccountTone;
   /** Typical spend per day, which the chart's figures are built around. */
   dailySpend: number;
 };
@@ -45,12 +52,13 @@ export type SpendingPoint = { label: string; spent: number };
 
 export const HOLDER = { name: "Nomsa Dlamini", initials: "ND" };
 
-export const CARDS: readonly PaymentCard[] = [
+export const ACCOUNTS: readonly Account[] = [
   {
     id: "everyday",
     name: "Everyday",
+    kind: "Personal account",
+    icon: "wallet-outline",
     last4: "4821",
-    expiry: "09/29",
     balance: 3240.18,
     tone: "primary",
     dailySpend: 460,
@@ -58,8 +66,9 @@ export const CARDS: readonly PaymentCard[] = [
   {
     id: "stokvel",
     name: "Stokvel",
+    kind: "Group pool",
+    icon: "people-outline",
     last4: "7713",
-    expiry: "03/28",
     balance: 1186.4,
     tone: "raised",
     dailySpend: 210,
@@ -67,8 +76,9 @@ export const CARDS: readonly PaymentCard[] = [
   {
     id: "savings",
     name: "Savings",
+    kind: "Savings account",
+    icon: "shield-checkmark-outline",
     last4: "0094",
-    expiry: "11/30",
     balance: 8053.78,
     tone: "outline",
     dailySpend: 40,
@@ -197,13 +207,13 @@ export function noise(key: string): number {
 }
 
 /**
- * What one card has spent so far in the range, as a running total. A running total rather than each
+ * What one account has spent so far in the range, as a running total. A running total rather than each
  * day's figure: a month of day-to-day spending reads as noise, while the slope says how much has
  * gone, and when.
  */
-export function spending(card: PaymentCard, range: Range): SpendingPoint[] {
+export function spending(account: Account, range: Range): SpendingPoint[] {
   const day = (key: string, weekend: boolean) =>
-    card.dailySpend * (0.35 + noise(`${card.id}:${key}`) * 1.3) * (weekend ? 1.6 : 1);
+    account.dailySpend * (0.35 + noise(`${account.id}:${key}`) * 1.3) * (weekend ? 1.6 : 1);
 
   const steps =
     range === "week"
@@ -215,7 +225,7 @@ export function spending(card: PaymentCard, range: Range): SpendingPoint[] {
           }))
         : MONTHS.map((label, index) => ({
             label,
-            amount: card.dailySpend * 30 * (0.7 + noise(`${card.id}:y${index}`) * 0.6),
+            amount: account.dailySpend * 30 * (0.7 + noise(`${account.id}:y${index}`) * 0.6),
           }));
 
   let total = 0;
@@ -225,40 +235,40 @@ export function spending(card: PaymentCard, range: Range): SpendingPoint[] {
   });
 }
 
-export const totalBalance = (cards: readonly PaymentCard[]): number =>
-  cards.reduce((sum, card) => sum + card.balance, 0);
+export const totalBalance = (accounts: readonly Account[]): number =>
+  accounts.reduce((sum, account) => sum + account.balance, 0);
 
-/** Can `card` send `amount`? A frozen card cannot, and neither can one without the money. */
-export const canSend = (card: PaymentCard, frozen: boolean, amount = SEND_AMOUNT): boolean =>
-  !frozen && card.balance >= amount;
+/** Can `account` send `amount`? A frozen account cannot, and neither can one without the money. */
+export const canSend = (account: Account, frozen: boolean, amount = SEND_AMOUNT): boolean =>
+  !frozen && account.balance >= amount;
 
 export type WalletState = {
-  cards: readonly PaymentCard[];
+  accounts: readonly Account[];
   transactions: readonly Transaction[];
   /** Counts the entries added so far, so each gets its own id. */
   added: number;
 };
 
 export const initialWallet = (): WalletState => ({
-  cards: CARDS,
+  accounts: ACCOUNTS,
   transactions: TRANSACTIONS,
   added: 0,
 });
 
-/** Moves `amount` on `cardId` (negative sends) and records it as the newest activity. */
+/** Moves `amount` on `accountId` (negative sends) and records it as the newest activity. */
 export function moveMoney(
   state: WalletState,
-  cardId: string,
+  accountId: string,
   amount: number,
   entry: Omit<Transaction, "id" | "amount">,
 ): WalletState {
   const added = state.added + 1;
   return {
     added,
-    cards: state.cards.map((card) =>
-      card.id === cardId
-        ? { ...card, balance: Math.round((card.balance + amount) * 100) / 100 }
-        : card,
+    accounts: state.accounts.map((account) =>
+      account.id === accountId
+        ? { ...account, balance: Math.round((account.balance + amount) * 100) / 100 }
+        : account,
     ),
     transactions: [{ ...entry, id: `new-${added}`, amount }, ...state.transactions],
   };
