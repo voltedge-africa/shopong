@@ -56,3 +56,5 @@ pnpm run ci           # full local check: vp check, check-types, test, build (no
 ```
 
 New packages go in `packages/*` (libraries) or `apps/*` (runnables), named `@shopong/<name>`, with `build` and `check-types` scripts and a `tsconfig.json` that extends `../../tsconfig.base.json`. Tests import from `vite-plus/test`.
+
+Mini apps go in `miniapps/vendor/*` (ours, shipped in the app) or `miniapps/third-party/*` (sandboxed), named `@shopong/miniapp-<name>`; see `miniapps/README.md`. They are source-only, so they have `check-types` and `test` but no `build` script, except `miniapp-delivery`, which builds the Kepler page the app ships.

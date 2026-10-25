@@ -25,11 +25,13 @@
 ## Repository layout
 
 ```
-apps/                     runnable apps (Shopong client, web console, OCN Node) — coming
+apps/shopong/             the Shopong app (Expo: iOS, Android, web)
+apps/node/                the OCN Node (secrets, health; more in later stories)
 packages/                 shared libraries, published as @shopong/*
+miniapps/                 mini apps as packages: vendor/ (ours, shipped in the app), third-party/ (sandboxed)
 docs/source/              original inputs: project spine, technology-stack diagram, links
 _bmad-output/             the OCN initiative: brief, spec, architecture, epics and stories
-_bmad/, .claude/skills/   BMAD method install used to plan and deliver stories
+_bmad/, .agents/skills/   BMAD method install used to plan and deliver stories (.claude/skills links to it)
 AGENTS.md                 rules and delivery protocol for contributors and coding agents
 ```
 
@@ -41,6 +43,8 @@ Requires Node 24 or later and pnpm (pinned in `package.json`; `corepack enable` 
 pnpm install
 pnpm run ci    # lint and format check, type check, tests, build
 ```
+
+To run the app, see [`apps/shopong`](apps/shopong/README.md); for the mini apps, [`miniapps`](miniapps/README.md).
 
 ## Docs
 
