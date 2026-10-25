@@ -7,7 +7,7 @@ const config = getDefaultConfig(__dirname);
 // Mini apps that ship as a built web page (the Kepler.gl map) are bundled as assets.
 config.resolver.assetExts.push("html");
 
-// Three changes to how Metro finds modules.
+// Four changes to how Metro finds modules.
 //
 // 1. The workspace packages (@shopong/ports, @shopong/events, @shopong/adapters-memory) are written the
 //    way TypeScript's NodeNext mode wants: `import "./common.js"` for a file called `common.ts`. Metro
@@ -17,12 +17,19 @@ config.resolver.assetExts.push("html");
 // 3. On the web, OpenUI's default entry mounts a developer overlay (it imports @openuidev/devtools)
 //    when running in development. The React Native entry is the same renderer without it, so the web
 //    build uses that one too.
+// 4. The iso-ucan adapter's `iso-base` runs `import crypto from "crypto"` and reads `crypto.webcrypto`.
+//    Neither Hermes nor Metro has Node's `crypto`, so it gets a stand-in that exposes the global one
+//    (lib/cryptoShim.js; lib/cryptoPolyfills.ts fills in what Hermes lacks on it).
+const cryptoShim = path.join(__dirname, "lib/cryptoShim.js");
 const openuiNativeEntry = path.join(
   path.dirname(require.resolve("@openuidev/react-lang")),
   "index.native.mjs",
 );
 
 const resolveWithTypeScript = (context, moduleName, platform) => {
+  if (moduleName === "crypto" || moduleName === "node:crypto") {
+    return { type: "sourceFile", filePath: cryptoShim };
+  }
   if (platform === "web" && moduleName === "@openuidev/react-lang") {
     return { type: "sourceFile", filePath: openuiNativeEntry };
   }

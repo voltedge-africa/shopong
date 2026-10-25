@@ -15,8 +15,10 @@
   "dependencies": {
     "@expo/metro-runtime": "58.0.15",
     "@expo/vector-icons": "15.1.1",
+    "@noble/hashes": "2.4.0",
     "@openuidev/react-lang": "1.0.1",
     "@react-native-masked-view/masked-view": "0.3.2",
+    "@shopong/adapter-ucan-iso": "workspace:*",
     "@shopong/adapters-memory": "workspace:*",
     "@shopong/adapters-openui": "workspace:*",
     "@shopong/miniapp": "workspace:*",
@@ -30,6 +32,7 @@
     "expo": "58.0.19",
     "expo-asset": "58.0.18",
     "expo-constants": "58.0.13",
+    "expo-crypto": "58.0.7",
     "expo-image-picker": "58.0.10",
     "expo-linear-gradient": "58.0.3",
     "expo-linking": "58.0.14",
