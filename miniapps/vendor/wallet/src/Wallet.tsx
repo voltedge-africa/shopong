@@ -34,7 +34,6 @@ import {
 import { useCSSVariable } from "uniwind";
 
 import {
-  HOLDER,
   IN_THIS_MONTH,
   PAYEE,
   RANGES,
@@ -332,12 +331,9 @@ export default function Wallet() {
             accessibilityLabel={`Total balance ${money(totalBalance(accounts))}`}
             className="gap-1"
           >
-            <View className="flex-row items-center justify-between">
-              <Text size="sm" muted>
-                Total balance
-              </Text>
-              <Avatar fallback={HOLDER.initials} accessibilityLabel={HOLDER.name} />
-            </View>
+            <Text size="sm" muted>
+              Total balance
+            </Text>
             <View className="flex-row items-baseline gap-1">
               <Text weight="bold" className="text-4xl">
                 R

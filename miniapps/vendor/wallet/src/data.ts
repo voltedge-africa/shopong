@@ -50,8 +50,6 @@ export type SpendingPoint = { label: string; spent: number };
 /* Sample data: nothing here is real, and no money moves.                      */
 /* -------------------------------------------------------------------------- */
 
-export const HOLDER = { name: "Nomsa Dlamini", initials: "ND" };
-
 export const ACCOUNTS: readonly Account[] = [
   {
     id: "everyday",
