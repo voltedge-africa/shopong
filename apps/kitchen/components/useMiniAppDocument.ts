@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useCSSVariable } from "uniwind";
 
-import { buildMiniAppDocument, type MiniAppSource } from "../lib/webui/document";
+import type { MiniAppSource } from "@shopong/miniapp";
+import { buildMiniAppDocument } from "../lib/webui/document";
 import { THEME_VARIABLES } from "../lib/webui/kit";
 
 /** The mini app as one HTML document, styled with the current PanelUI theme. */

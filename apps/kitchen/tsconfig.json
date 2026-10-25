@@ -10,5 +10,5 @@
     "allowJs": false,
     "types": []
   },
-  "include": ["app", "components", "lib", "miniapps", "metro.config.js", "uniwind-types.d.ts"]
+  "include": ["app", "components", "lib", "metro.config.js", "uniwind-types.d.ts"]
 }

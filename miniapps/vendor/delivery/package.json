@@ -1,21 +1,22 @@
 {
-  "name": "@shopong/kepler-miniapp",
+  "name": "@shopong/miniapp-delivery",
   "version": "0.0.0",
   "private": true,
-  "description": "Kepler.gl as one self-contained HTML page, shipped inside the app and shown in a WebView by the Delivery mini app",
+  "description": "The Delivery mini app: Kepler.gl as one self-contained HTML page, shown in a WebView by the host app",
   "type": "module",
   "exports": {
-    "./dist/index.html": "./dist/index.html",
-    "./protocol": "./src/protocol.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "build": "vp build && node scripts/inline.mjs",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "vp test"
   },
   "dependencies": {
     "@kepler.gl/actions": "3.2.6",
     "@kepler.gl/components": "3.2.6",
     "@kepler.gl/reducers": "3.2.6",
+    "@shopong/miniapp": "workspace:*",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-redux": "8.1.3",

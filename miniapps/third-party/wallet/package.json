@@ -1,0 +1,20 @@
+{
+  "name": "@shopong/miniapp-wallet",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The wallet mini app: html/css/js that runs in the host's sandboxed WebView",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@shopong/miniapp": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  }
+}

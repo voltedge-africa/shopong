@@ -3,3 +3,5 @@
 @import "panelui-native/theme.css";
 
 @source "./node_modules/panelui-native/src";
+/* The vendored native mini apps are separate packages; their classes must be generated too. */
+@source "../../miniapps/vendor/*/src";

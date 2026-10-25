@@ -1,7 +1,6 @@
-import { KIT_CSS } from "./kit";
+import type { MiniAppSource } from "@shopong/miniapp";
 
-/** What a mini app is made of. It runs inside a WebView with no network and no access to the app. */
-export type MiniAppSource = { html: string; css?: string; js?: string };
+import { KIT_CSS } from "./kit";
 
 /** Theme variable name (`--color-background`) to its current value. */
 export type ThemeTokens = Readonly<Record<string, string | undefined>>;
@@ -53,6 +52,3 @@ ${source.html}
 </body>
 </html>`;
 }
-
-export const escapeHtml = (text: string) =>
-  text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);

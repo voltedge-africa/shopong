@@ -1,6 +1,6 @@
 import { WebView } from "react-native-webview";
 
-import type { MiniAppSource } from "../lib/webui/document";
+import type { MiniAppSource } from "@shopong/miniapp";
 import { useMiniAppDocument } from "./useMiniAppDocument";
 
 // The document is loaded once; any later navigation (links, redirects, window.open) is refused.

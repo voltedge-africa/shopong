@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildMiniAppDocument, escapeHtml, type MiniAppSource } from "./document";
+import type { MiniAppSource } from "@shopong/miniapp";
+
+import { buildMiniAppDocument } from "./document";
 import { KIT_CSS } from "./kit";
 
 const build = (
@@ -58,11 +60,5 @@ describe("buildMiniAppDocument", () => {
 describe("kit", () => {
   it("keeps the hidden attribute working on classes that set display", () => {
     expect(build().replace(/\s/g, "")).toContain("[hidden]{display:none!important}");
-  });
-});
-
-describe("escapeHtml", () => {
-  it("escapes markup characters", () => {
-    expect(escapeHtml(`<a href="x">&'`)).toBe("&#60;a href=&#34;x&#34;&#62;&#38;&#39;");
   });
 });

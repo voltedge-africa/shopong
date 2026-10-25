@@ -2,7 +2,7 @@ import { Suspense, lazy, useMemo } from "react";
 import { View } from "react-native";
 import { Spinner } from "panelui-native";
 
-import type { NativeMiniAppLoader } from "./miniapps";
+import type { NativeMiniAppLoader } from "@shopong/miniapp";
 
 export function NativeMiniApp({ load }: { load: NativeMiniAppLoader }) {
   const MiniApp = useMemo(() => lazy(load), [load]);

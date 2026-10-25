@@ -1,4 +1,4 @@
-import type { AppMessage, DeliveryMap } from "@shopong/kepler-miniapp/protocol";
+import type { AppMessage, DeliveryMap } from "./protocol";
 
 /**
  * Demo data: a round from a collection point in Clermont, Durban, two drop-offs done and two to go.

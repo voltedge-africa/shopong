@@ -1,6 +1,8 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "miniapps/vendor/*"
+  - "miniapps/third-party/*"
 # Kepler.gl pulls in deck.gl typings whose install script only repackages type definitions.
 allowBuilds:
   "@danmarshall/deckgl-typings": false

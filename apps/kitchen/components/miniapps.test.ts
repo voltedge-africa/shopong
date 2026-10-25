@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { CATEGORIES, contentOf, filterMiniApps, installedMiniApps, miniApps } from "./miniapps";
+import { CATEGORIES, filterMiniApps, installedMiniApps, miniApps } from "./miniapps";
 
 describe("miniApps", () => {
   it("has unique ids that are safe to put in a route", () => {
@@ -16,32 +16,20 @@ describe("miniApps", () => {
     }
   });
 
-  it("installs the original eight by default and leaves some for Discover", () => {
-    expect(installedMiniApps.map((app) => app.id)).toEqual([
-      "shop",
-      "stokvel",
-      "wallet",
-      "delivery",
-      "orders",
-      "suppliers",
-      "chat",
+  it("installs Shop, Wallet and Chat by default and leaves two vendored apps for Discover", () => {
+    expect(installedMiniApps.map((app) => app.id)).toEqual(["shop", "wallet", "chat"]);
+    expect(miniApps.filter((app) => !app.installed).map((app) => app.id)).toEqual([
       "insights",
+      "delivery",
     ]);
-    expect(miniApps.length).toBeGreaterThan(installedMiniApps.length);
   });
 
-  it("gives an app without content a placeholder page that names it", () => {
-    const stokvel = miniApps.find((app) => app.id === "stokvel")!;
-    const content = contentOf(stokvel);
-    expect(content.kind).toBe("web");
-    expect(content.kind === "web" && content.source.html).toContain("Stokvel");
-  });
-
-  it("serves web, native and bundle content as declared", () => {
-    const kind = (id: string) => contentOf(miniApps.find((app) => app.id === id)!).kind;
+  it("serves each app's content as its kind: web for third-party, native and bundle for vendored", () => {
+    const kind = (id: string) => miniApps.find((app) => app.id === id)?.content.kind;
     expect(kind("shop")).toBe("web");
-    expect(kind("insights")).toBe("native");
+    expect(kind("wallet")).toBe("web");
     expect(kind("chat")).toBe("native");
+    expect(kind("insights")).toBe("native");
     expect(kind("delivery")).toBe("bundle");
   });
 });
@@ -56,21 +44,16 @@ describe("filterMiniApps", () => {
 
   it("matches the title ignoring case and surrounding spaces", () => {
     expect(titles(filterMiniApps(miniApps, { query: "  WALL " }))).toEqual(["Wallet"]);
-    expect(
-      titles(filterMiniApps(miniApps, { query: "s" })).every((title) => /s/i.test(title)),
-    ).toBe(true);
+    expect(titles(filterMiniApps(miniApps, { query: "e" }))).toEqual(["Wallet", "Delivery"]);
   });
 
   it("filters by category", () => {
-    const money = filterMiniApps(miniApps, { category: "Money" });
-    expect(titles(money)).toEqual(["Wallet", "Funding", "Savings"]);
+    expect(titles(filterMiniApps(miniApps, { category: "Community" }))).toEqual(["Chat"]);
   });
 
   it("combines the query and the category", () => {
-    // "n" is in Funding and Savings but not in Wallet, and in apps of other categories too.
-    expect(titles(filterMiniApps(miniApps, { query: "n", category: "Money" }))).toEqual([
-      "Funding",
-      "Savings",
+    expect(titles(filterMiniApps(miniApps, { query: "e", category: "Logistics" }))).toEqual([
+      "Delivery",
     ]);
     expect(filterMiniApps(miniApps, { query: "chat", category: "Money" })).toEqual([]);
   });
@@ -80,10 +63,6 @@ describe("filterMiniApps", () => {
   });
 
   it("works on the installed list too", () => {
-    expect(titles(filterMiniApps(installedMiniApps, { category: "Commerce" }))).toEqual([
-      "Shop",
-      "Orders",
-      "Suppliers",
-    ]);
+    expect(titles(filterMiniApps(installedMiniApps, { category: "Commerce" }))).toEqual(["Shop"]);
   });
 });

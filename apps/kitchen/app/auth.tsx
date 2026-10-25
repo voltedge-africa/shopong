@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { OtpInput, Text } from "panelui-native";
 
@@ -13,6 +13,8 @@ const ERRORS: Record<Exclude<PinOutcome, "ok">, string> = {
   error: "Couldn't use the PIN store on this device.",
 };
 
+type Focusable = { focus: () => void };
+
 // The only reachable screen until the PIN is entered, so it has no header, back button or swipe back.
 export default function Auth() {
   const { status, create, unlock } = useAuth();
@@ -20,9 +22,19 @@ export default function Auth() {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  const input = useRef<Focusable | null>(null);
 
   const setup = status === "setup";
   const unavailable = status === "unavailable";
+
+  // `autoFocus` does not raise the keyboard on Android when this is the first screen shown: the
+  // field takes focus before the window can show a keyboard. Ask again once the screen has settled.
+  // The field then stays mounted and focused through the steps, so the keyboard stays up.
+  useEffect(() => {
+    if (unavailable) return;
+    const timer = setTimeout(() => input.current?.focus(), 300);
+    return () => clearTimeout(timer);
+  }, [unavailable]);
 
   const [title, hint] = unavailable
     ? ["PIN unavailable", "Kitchen can't read the PIN stored on this device."]
@@ -38,6 +50,9 @@ export default function Auth() {
 
     if (setup && firstEntry === null) {
       setFirstEntry(pin);
+      // Clear on the next tick, not in this batch: the field fires `onComplete` once per fill and
+      // only re-arms when it has rendered the full code, so clearing here would swallow the next one.
+      await new Promise((resolve) => setTimeout(resolve, 0));
       setValue("");
       return;
     }
@@ -64,11 +79,13 @@ export default function Auth() {
       </View>
       {unavailable ? null : (
         <OtpInput
-          key={firstEntry === null ? "first" : "confirm"}
+          // PanelUI types this ref as the older TextInput class; at runtime it is a plain TextInput.
+          ref={(node) => {
+            input.current = node as unknown as Focusable | null;
+          }}
           length={PIN_LENGTH}
           type="numeric"
           mask
-          autoFocus
           value={value}
           onChangeText={setValue}
           onComplete={onComplete}

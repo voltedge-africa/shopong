@@ -1,4 +1,4 @@
-import type { MiniAppSource } from "../lib/webui/document";
+import type { MiniAppSource } from "@shopong/miniapp";
 import { useMiniAppDocument } from "./useMiniAppDocument";
 
 // Without `allow-same-origin` the frame gets an opaque origin: it can run its own script but

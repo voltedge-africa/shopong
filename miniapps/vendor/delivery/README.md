@@ -1,7 +1,8 @@
-# @shopong/kepler-miniapp
+# @shopong/miniapp-delivery
 
-Kepler.gl as **one self-contained HTML file**, shipped inside the Shopong/Kitchen app and shown in a
-WebView by the Delivery mini app. See AD-20 in the architecture: it supersedes the Kepler part of
+The Delivery mini app, a vendored one: Kepler.gl as **one self-contained HTML file**, shipped inside
+the Shopong/Kitchen app and shown in a WebView. `src/index.ts` is its manifest; the rest of `src/` is
+the page. See AD-20 in the architecture: it supersedes the Kepler part of
 AD-5 and AGENTS.md rule 7.
 
 Kepler is React DOM only, so it cannot run as a native screen. This package builds it into a page
@@ -10,7 +11,7 @@ the app opens from disk.
 ## Build
 
 ```sh
-pnpm --filter @shopong/kepler-miniapp build   # vp build, then scripts/inline.mjs
+pnpm --filter @shopong/miniapp-delivery build   # vp build, then scripts/inline.mjs
 ```
 
 `dist/index.html` (about 22 MB, 5.9 MB gzipped) has its scripts and styles inlined. It is git-ignored;
@@ -19,7 +20,7 @@ pnpm --filter @shopong/kepler-miniapp build   # vp build, then scripts/inline.mj
 
 ## How the page talks to the app
 
-`src/protocol.ts`, which the app imports for its types:
+`src/protocol.ts` describes the messages, and `src/data.ts` is the demo data the manifest sends:
 
 - The page says `{ type: "ready" }` once mounted (through `window.ReactNativeWebView` in the app,
   `window.parent` in an iframe).

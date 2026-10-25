@@ -1,0 +1,26 @@
+{
+  "name": "@shopong/miniapp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What a mini app is: its manifest and the kinds of content it can have",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@expo/vector-icons": "15.1.1",
+    "@types/react": "19.3.0",
+    "react": "19.3.0",
+    "react-native": "0.88.0",
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "@expo/vector-icons": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

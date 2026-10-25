@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AIInput, Message, MessageScroller, Text } from "panelui-native";
 
-import { useKeyboardHeight } from "../../lib/useKeyboardHeight";
+import { useKeyboardHeight } from "./useKeyboardHeight";
 import { seedMessages, sendMessage } from "./messages";
 
 export default function Chat() {
