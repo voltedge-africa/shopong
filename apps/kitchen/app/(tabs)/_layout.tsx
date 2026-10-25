@@ -19,12 +19,9 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} md="home" />
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="addons">
-        <NativeTabs.Trigger.Icon
-          sf={{ default: "puzzlepiece.extension", selected: "puzzlepiece.extension.fill" }}
-          md="extension"
-        />
-        <NativeTabs.Trigger.Label>Addons</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="discover">
+        <NativeTabs.Trigger.Icon sf={{ default: "safari", selected: "safari.fill" }} md="explore" />
+        <NativeTabs.Trigger.Label>Discover</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Icon
