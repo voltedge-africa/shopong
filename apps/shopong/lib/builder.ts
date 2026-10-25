@@ -156,7 +156,7 @@ function replyOf(spec: ReplySpec): string {
       : "It never moves money, so nothing needs your OK.",
     "### What you will see",
     ...screens,
-    "Tap **Logic** to see the steps, **Screens** to preview them and **Build** to follow the progress.",
+    "Tap **Logic** to see the steps, **Screens** to preview them and **Build and Publish** to follow the progress and publish.",
     spec.offer,
     PREVIEW_NOTE,
   ].join("\n\n");
@@ -561,7 +561,7 @@ export function refineBuild(build: Build, prompt: string): { build: Build; reply
     reply: [
       `### Added: ${change}`,
       `I added this to your build, so it will be built and tested again. It can do the same things as before, so nothing new needs your OK.`,
-      "Check **Logic** and **Screens** to see if they need the change too, and **Build** to follow the new run.",
+      "Check **Logic** and **Screens** to see if they need the change too, and **Build and Publish** to follow the new run.",
       PREVIEW_NOTE,
     ].join("\n\n"),
   };

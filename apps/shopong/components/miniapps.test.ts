@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { CATEGORIES, filterMiniApps, installedMiniApps, miniApps } from "./miniapps";
+import {
+  CATEGORIES,
+  filterMiniApps,
+  groupMiniApps,
+  installedMiniApps,
+  miniApps,
+  type MiniApp,
+} from "./miniapps";
 
 describe("miniApps", () => {
   it("has unique ids that are safe to put in a route", () => {
@@ -64,5 +71,45 @@ describe("filterMiniApps", () => {
 
   it("works on the installed list too", () => {
     expect(titles(filterMiniApps(installedMiniApps, { category: "Commerce" }))).toEqual(["Shop"]);
+  });
+});
+
+describe("groupMiniApps", () => {
+  const made = (id: string, publisher: string): MiniApp => ({
+    ...miniApps[0]!,
+    id,
+    title: id,
+    publisher,
+  });
+
+  it("puts Shopong's apps first, then yours, then everyone else's", () => {
+    const groups = groupMiniApps([
+      made("c", "Mthunzi Spaza Traders"),
+      made("b", "You"),
+      made("a", "Shopong"),
+      made("d", "Third party"),
+    ]);
+    expect(groups.map((group) => group.title)).toEqual([
+      "By Shopong",
+      "Your apps",
+      "Community apps",
+    ]);
+    expect(groups.map((group) => group.apps.map((app) => app.id))).toEqual([
+      ["a"],
+      ["b"],
+      ["c", "d"],
+    ]);
+  });
+
+  it("leaves out a section with no apps", () => {
+    expect(groupMiniApps([made("a", "Shopong")]).map((group) => group.title)).toEqual([
+      "By Shopong",
+    ]);
+    expect(groupMiniApps([])).toEqual([]);
+  });
+
+  it("shows every app the app ships exactly once", () => {
+    const ids = groupMiniApps(miniApps).flatMap((group) => group.apps.map((app) => app.id));
+    expect([...ids].sort()).toEqual(miniApps.map((app) => app.id).sort());
   });
 });

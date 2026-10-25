@@ -30,5 +30,7 @@ export type MiniAppManifest = {
   title: string;
   icon: ComponentProps<typeof Ionicons>["name"];
   category: MiniAppCategory;
+  /** What the app is for, in a sentence or two of plain words. Shown on its details page. */
+  description: string;
   content: MiniAppContent;
 };

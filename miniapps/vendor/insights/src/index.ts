@@ -5,6 +5,8 @@ export const manifest: MiniAppManifest = {
   title: "Insights",
   icon: "stats-chart-outline",
   category: "Insights",
+  description:
+    "See sales and orders for the last 7 days in simple charts. This is a demo with sample numbers.",
   // Loaded the first time it is opened, not when the app starts.
   content: { kind: "native", load: () => import("./Insights") },
 };

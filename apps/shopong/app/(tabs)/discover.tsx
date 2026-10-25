@@ -8,7 +8,12 @@ import { useCSSVariable } from "uniwind";
 import { MiniAppTile } from "../../components/MiniAppTile";
 import { TabScreen } from "../../components/TabScreen";
 import { useAllMiniApps } from "../../components/publishedMiniApps";
-import { CATEGORIES, filterMiniApps, type MiniAppCategory } from "../../components/miniapps";
+import {
+  CATEGORIES,
+  filterMiniApps,
+  groupMiniApps,
+  type MiniAppCategory,
+} from "../../components/miniapps";
 
 export default function Discover() {
   const router = useRouter();
@@ -18,7 +23,7 @@ export default function Discover() {
   const iconColor = useCSSVariable("--color-primary-foreground") as string;
 
   const apps = useAllMiniApps();
-  const results = filterMiniApps(apps, { query, category });
+  const groups = groupMiniApps(filterMiniApps(apps, { query, category }));
 
   return (
     <TabScreen>
@@ -54,21 +59,30 @@ export default function Discover() {
             </Chip>
           ))}
         </ScrollView>
-        {results.length === 0 ? (
+        {groups.length === 0 ? (
           <Text muted className="py-8 text-center">
             No mini apps match.
           </Text>
         ) : (
-          <View className="flex-row flex-wrap">
-            {results.map((app) => (
-              <MiniAppTile
-                key={app.id}
-                app={app}
-                showInstalled
-                onPress={() => router.push({ pathname: "/miniapp/[id]", params: { id: app.id } })}
-              />
-            ))}
-          </View>
+          groups.map((group) => (
+            <View key={group.title} className="gap-1">
+              <Text accessibilityRole="header" weight="semibold" size="lg">
+                {group.title}
+              </Text>
+              <View className="flex-row flex-wrap">
+                {group.apps.map((app) => (
+                  <MiniAppTile
+                    key={app.id}
+                    app={app}
+                    showInstalled
+                    onPress={() =>
+                      router.push({ pathname: "/details/[id]", params: { id: app.id } })
+                    }
+                  />
+                ))}
+              </View>
+            </View>
+          ))
         )}
       </ScrollView>
     </TabScreen>

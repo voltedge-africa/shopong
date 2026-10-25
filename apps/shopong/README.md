@@ -23,7 +23,7 @@ full reload asks for a new one.
 
 | Path          | What it holds                                                                               |
 | ------------- | ------------------------------------------------------------------------------------------- |
-| `app/`        | Expo Router routes: `auth` (PIN), `(tabs)`, `miniapp/[id]`, `create` (the builder)          |
+| `app/`        | Expo Router routes: `auth` (PIN), `(tabs)`, `details/[id]`, `miniapp/[id]`, `create`        |
 | `components/` | UI, and `miniapps.ts`, the registry of mini apps this app ships and which are on by default |
 | `lib/`        | Pure logic with tests: PIN, notifications, bundle messages, the web mini app document       |
 | `global.css`  | Tailwind 4 and PanelUI theme through Uniwind; scans `miniapps/vendor/*/src`                 |

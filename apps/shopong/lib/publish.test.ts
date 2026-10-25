@@ -145,6 +145,21 @@ describe("normalise", () => {
   });
 });
 
+describe("screenshots", () => {
+  it("start empty for a new app and carry over when updating one", () => {
+    expect(defaultForm(pledges).screenshots).toEqual([]);
+    const published = appRecord({
+      id: "build-c1",
+      build: pledges,
+      artifact: artifactOf(pledges),
+      form: { ...defaultForm(pledges), screenshots: ["a.jpg", "b.jpg"] },
+      now: NOW,
+    });
+    expect(published.screenshots).toEqual(["a.jpg", "b.jpg"]);
+    expect(defaultForm(pledges, published).screenshots).toEqual(["a.jpg", "b.jpg"]);
+  });
+});
+
 describe("appRecord", () => {
   it("holds everything the platform needs to install the app", () => {
     const app = record();

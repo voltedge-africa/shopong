@@ -10,7 +10,7 @@ export const BUILD_VIEWS = [
   { to: "thread", label: "Thread", icon: "chatbubble-outline" },
   { to: "logic", label: "Logic", icon: "git-network-outline" },
   { to: "screens", label: "Screens", icon: "phone-portrait-outline" },
-  { to: "build", label: "Build", icon: "checkmark-done-outline" },
+  { to: "build", label: "Build and Publish", icon: "checkmark-done-outline" },
 ] as const;
 
 export type BuildRoute = (typeof BUILD_VIEWS)[number]["to"];

@@ -2,7 +2,7 @@
 
 Each mini app is its own workspace package. The host app (`apps/shopong`) decides which ones it
 ships and which are installed by default; a package only describes itself with a `manifest`
-(`@shopong/miniapp` has the types: id, title, icon, category and the content).
+(`@shopong/miniapp` has the types: id, title, icon, category, description and the content).
 
 | Folder         | Whose code                            | How it runs                                                                        | Packages                                 |
 | -------------- | ------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------- |
@@ -17,6 +17,7 @@ components and carry the same pinned peers as the app, so there is one copy of e
 
 1. Make `miniapps/<vendor|third-party>/<name>` with a `package.json` named `@shopong/miniapp-<name>`
    (copy a sibling) that exports a `manifest`.
-2. Add it to `apps/shopong/components/miniapps.ts`, with whether it is installed by default.
+2. Add it to `apps/shopong/components/miniapps.ts`, with whether it is installed by default and who
+   made it. Discover shows its `description` on the app's details page.
 3. A vendored native package needs its source folder covered by `@source` in
    `apps/shopong/global.css` (already matches `vendor/*/src`).

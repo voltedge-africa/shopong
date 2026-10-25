@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 
+import { communityApps } from "./communityApps";
 import type { PublishedApp } from "./publish";
 
 type Listener = () => void;
@@ -30,7 +31,7 @@ export function createPublishedStore(initial: readonly PublishedApp[] = []) {
   };
 }
 
-export const publishedStore = createPublishedStore();
+export const publishedStore = createPublishedStore(communityApps);
 
 export const usePublishedApps = (): readonly PublishedApp[] =>
   useSyncExternalStore(publishedStore.subscribe, publishedStore.get, publishedStore.get);

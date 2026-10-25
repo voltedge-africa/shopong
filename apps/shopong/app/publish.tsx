@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { Alert, Button, Chip, Input, Text } from "panelui-native";
@@ -8,6 +9,7 @@ import { useCSSVariable } from "uniwind";
 
 import { MiniAppTile } from "../components/MiniAppTile";
 import { ScreenSwitcher } from "../components/ScreenSwitcher";
+import { Screenshots } from "../components/Screenshots";
 import { toMiniApp, useAllMiniApps } from "../components/publishedMiniApps";
 import { APP_ICONS } from "../lib/builder";
 import { artifactOf } from "../lib/ci";
@@ -23,6 +25,7 @@ import {
   type PublishForm,
 } from "../lib/publish";
 import { publishIdFor, publishedStore, usePublishedApps } from "../lib/publishedApps";
+import { MAX_SCREENSHOTS, addImages, removeImage, shotsFor } from "../lib/screenshots";
 
 function Section({
   title,
@@ -99,6 +102,22 @@ export default function Publish() {
   const preview = toMiniApp({ ...draft, name: draft.name || "Your app" });
   const update = (patch: Partial<PublishForm>) => setForm({ ...current, ...patch });
   const showErrors = submitted || current.name !== defaultForm(build, existing).name;
+
+  const addScreenshots = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      selectionLimit: MAX_SCREENSHOTS - current.screenshots.length,
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    update({
+      screenshots: addImages(
+        current.screenshots,
+        result.assets.map((asset) => asset.uri),
+      ),
+    });
+  };
 
   const publish = () => {
     setSubmitted(true);
@@ -210,6 +229,28 @@ export default function Publish() {
             </Chip>
           ))}
         </View>
+      </Section>
+
+      <Section
+        title="Screenshots"
+        hint={
+          current.screenshots.length === 0
+            ? `Show people what your app looks like. Add up to ${MAX_SCREENSHOTS} pictures. Until you do, people see your app's own screens.`
+            : `${current.screenshots.length} of ${MAX_SCREENSHOTS} pictures. Tap the cross on a picture to take it out.`
+        }
+      >
+        <Screenshots
+          shots={shotsFor(current.screenshots, build.screens)}
+          onRemove={(uri) => update({ screenshots: removeImage(current.screenshots, uri) })}
+        />
+        <Button
+          variant="outline"
+          disabled={current.screenshots.length >= MAX_SCREENSHOTS}
+          accessibilityLabel="Add screenshots"
+          onPress={() => void addScreenshots()}
+        >
+          Add screenshots
+        </Button>
       </Section>
 
       <Section

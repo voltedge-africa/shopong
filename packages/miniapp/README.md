@@ -4,7 +4,8 @@ The contract for mini apps: what a mini app is and the kinds of content it can h
 constants only; no runtime code beyond `CATEGORIES`.
 
 A mini app package exports a `manifest` (`MiniAppManifest`): `id`, `title`, `icon` (an Ionicons
-name), `category` (one of `CATEGORIES`) and `content`. Whether it is installed is the host app's
+name), `category` (one of `CATEGORIES`), `description` (plain words, shown on its details page) and
+`content`. Whether it is installed is the host app's
 choice, so it is not in the manifest.
 
 | `content.kind` | What it is                                                       | Runs                                         |
@@ -21,6 +22,7 @@ export const manifest: MiniAppManifest = {
   title: "Chat",
   icon: "chatbubbles-outline",
   category: "Community",
+  description: "Message the people in your group.",
   content: { kind: "native", load: () => import("./Chat") },
 };
 ```

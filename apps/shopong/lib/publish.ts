@@ -11,6 +11,8 @@ export type PublishForm = {
   category: MiniAppCategory;
   /** What is new in this version. Only asked for when updating an app that is already published. */
   notes: string;
+  /** Pictures of the app, added by the author: where each can be read from. */
+  screenshots: readonly string[];
 };
 
 /**
@@ -27,6 +29,8 @@ export type PublishedApp = {
   version: string;
   /** What is new in this version. */
   notes: string;
+  /** Pictures the author added. When there are none, Discover shows the app's own screens. */
+  screenshots: readonly string[];
   runtime: {
     /** Where it runs. */
     runsIn: "Shopong";
@@ -47,6 +51,9 @@ export type PublishedApp = {
   publisher: string;
   build: Build;
 };
+
+/** The publisher of the apps this person builds. */
+export const YOU = "You";
 
 export const NAME_MAX = 24;
 export const DESCRIPTION_MAX = 100;
@@ -73,6 +80,7 @@ export function defaultForm(build: Build, published?: PublishedApp): PublishForm
         icon: published.icon,
         category: published.category,
         notes: "",
+        screenshots: published.screenshots,
       }
     : {
         name: fitName(build.title),
@@ -80,6 +88,7 @@ export function defaultForm(build: Build, published?: PublishedApp): PublishForm
         icon: build.icon,
         category: build.category,
         notes: "",
+        screenshots: [],
       };
 }
 
@@ -118,6 +127,7 @@ export function appRecord(input: {
     category: form.category,
     version: artifact.version,
     notes: form.notes.trim(),
+    screenshots: form.screenshots,
     runtime: { runsIn: "Shopong", minShopong: MIN_SHOPONG, offline: true },
     permissions: build.permissions,
     needsApproval: build.needsApproval,
@@ -125,7 +135,7 @@ export function appRecord(input: {
     size: artifact.size,
     file: artifact.file,
     builtAt: now,
-    publisher: "You",
+    publisher: YOU,
     build,
   };
 }

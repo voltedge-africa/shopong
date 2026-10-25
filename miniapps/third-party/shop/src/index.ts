@@ -66,5 +66,7 @@ export const manifest: MiniAppManifest = {
   title: "Shop",
   icon: "storefront-outline",
   category: "Commerce",
+  description:
+    "Look through a few everyday products and fill a cart. This is a demo: nothing is ordered.",
   content: { kind: "web", source },
 };

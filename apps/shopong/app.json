@@ -18,6 +18,14 @@
       "output": "single",
       "name": "Shopong"
     },
-    "plugins": ["expo-router", "expo-secure-store", "expo-asset"]
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-asset",
+      [
+        "expo-image-picker",
+        { "photosPermission": "Shopong uses your photos so you can add pictures of your app." }
+      ]
+    ]
   }
 }
