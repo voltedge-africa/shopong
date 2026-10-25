@@ -27,7 +27,7 @@ describe("miniApps", () => {
   it("serves each app's content as its kind: web for third-party, native and bundle for vendored", () => {
     const kind = (id: string) => miniApps.find((app) => app.id === id)?.content.kind;
     expect(kind("shop")).toBe("web");
-    expect(kind("wallet")).toBe("web");
+    expect(kind("wallet")).toBe("native");
     expect(kind("chat")).toBe("native");
     expect(kind("insights")).toBe("native");
     expect(kind("delivery")).toBe("bundle");

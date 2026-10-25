@@ -1,0 +1,43 @@
+{
+  "name": "@shopong/miniapp-wallet",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The wallet mini app: PanelUI's Wallet block, a React Native component we vendor and ship in the app",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@shopong/miniapp": "workspace:*"
+  },
+  "devDependencies": {
+    "@expo/vector-icons": "15.1.1",
+    "@react-native-masked-view/masked-view": "0.3.2",
+    "@types/react": "19.3.0",
+    "expo-linear-gradient": "58.0.3",
+    "panelui-native": "0.114.0",
+    "react": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-gesture-handler": "3.3.0",
+    "react-native-reanimated": "4.7.1",
+    "react-native-safe-area-context": "5.10.1",
+    "react-native-svg": "15.16.0",
+    "react-native-worklets": "0.13.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "uniwind": "1.13.0",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "@expo/vector-icons": "*",
+    "panelui-native": "*",
+    "react": "*",
+    "react-native": "*",
+    "react-native-safe-area-context": "*",
+    "uniwind": "*"
+  }
+}

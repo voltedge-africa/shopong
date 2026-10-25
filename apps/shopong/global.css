@@ -3,5 +3,11 @@
 @import "panelui-native/theme.css";
 
 @source "./node_modules/panelui-native/src";
-/* The vendored native mini apps are separate packages; their classes must be generated too. */
-@source "../../miniapps/vendor/*/src";
+/*
+ * The vendored native mini apps are separate packages; their classes must be generated too. One line
+ * per app: a single glob over the vendor folder did not pick up the Wallet, which left classes such as
+ * `gap-7` and `max-w-xl` out and put its sections flush against each other. Add a line for a new one.
+ */
+@source "../../miniapps/vendor/chat/src";
+@source "../../miniapps/vendor/insights/src";
+@source "../../miniapps/vendor/wallet/src";

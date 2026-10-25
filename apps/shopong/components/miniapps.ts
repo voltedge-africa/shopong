@@ -13,8 +13,8 @@ export type MiniApp = MiniAppManifest & {
 };
 
 /**
- * The mini apps this app ships. Shop and Wallet are third-party: web pages in a sandbox. Chat,
- * Insights and Delivery are vendored: ours, shipped in the app.
+ * The mini apps this app ships. Shop is third-party: a web page in a sandbox. Chat, Wallet, Insights
+ * and Delivery are vendored: ours, shipped in the app.
  */
 export const miniApps: readonly MiniApp[] = [
   { ...shop, installed: true },
