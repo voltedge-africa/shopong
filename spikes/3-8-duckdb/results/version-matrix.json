@@ -1,0 +1,2011 @@
+{
+  "duckdb-1.32.0": {
+    "steps": {
+      "init": {
+        "bundle": "eh",
+        "alias": "duckdb-1.32.0",
+        "pkgVersion": "1.32.0",
+        "instantiateMs": 1433,
+        "version": {
+          "v": "v1.4.3",
+          "api": "wasm",
+          "cer": "",
+          "der": null,
+          "threads": "1"
+        },
+        "platform": [
+          {
+            "platform": "wasm_eh"
+          }
+        ],
+        "sourceId": {
+          "source_id": "d1dc88f950"
+        },
+        "crossOriginIsolated": false
+      },
+      "load10kJson": {
+        "format": "json",
+        "total": 10000,
+        "genMs": 6,
+        "times": {
+          "members": 38,
+          "orders": 34,
+          "pledges": 16,
+          "deliveries": 28
+        },
+        "totalMs": 116,
+        "counts": {
+          "members": 500,
+          "orders": 4000,
+          "pledges": 4000,
+          "deliveries": 1500
+        },
+        "types": [
+          {
+            "table_name": "deliveries",
+            "column_name": "collection_point",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivered_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivery_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "dispatched_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "order_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "status",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "commitment",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "joined_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lat",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lon",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "member_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "item",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "member_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "order_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "price_cents",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "qty",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "ts_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "amount_cents",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "cycle",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "member_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "paid",
+            "data_type": "BOOLEAN"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "pledge_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "ts_ms",
+            "data_type": "UBIGINT"
+          }
+        ]
+      },
+      "load10kArrow": {
+        "format": "arrow",
+        "total": 10000,
+        "genMs": 8,
+        "times": {
+          "members": 16,
+          "orders": 14,
+          "pledges": 7,
+          "deliveries": 4
+        },
+        "totalMs": 41,
+        "counts": {
+          "members": 500,
+          "orders": 4000,
+          "pledges": 4000,
+          "deliveries": 1500
+        },
+        "types": [
+          {
+            "table_name": "deliveries",
+            "column_name": "delivery_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "collection_point",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "dispatched_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivered_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "status",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "commitment",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lat",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lon",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "joined_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "item",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "qty",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "price_cents",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "ts_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "pledge_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "cycle",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "amount_cents",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "paid",
+            "data_type": "BOOLEAN"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "ts_ms",
+            "data_type": "DOUBLE"
+          }
+        ]
+      },
+      "aggregates": {
+        "spend_per_item": {
+          "medianMs": 2.6,
+          "minMs": 2.1,
+          "rows": 6,
+          "sample": {
+            "item": "tinned pilchards",
+            "n": 645,
+            "rand": 138546.14
+          }
+        },
+        "who_has_not_paid": {
+          "medianMs": 3,
+          "minMs": 2.9,
+          "rows": 20,
+          "sample": {
+            "member_id": 86,
+            "unpaid": 2
+          }
+        },
+        "delivery_hours_per_point": {
+          "medianMs": 3,
+          "minMs": 2.6,
+          "rows": 4,
+          "sample": {
+            "collection_point": "cp1",
+            "n": 387,
+            "avg_hours": 16.685808214183176
+          }
+        },
+        "price_history_by_month": {
+          "medianMs": 8.5,
+          "minMs": 5.6,
+          "rows": 74,
+          "sample": {
+            "item": "bread flour 5kg",
+            "mon": 1767218400000,
+            "avg_price": 57.7525
+          }
+        },
+        "three_way_join": {
+          "medianMs": 5.7,
+          "minMs": 5.3,
+          "rows": 4,
+          "sample": {
+            "collection_point": "cp1",
+            "members": 262,
+            "total_value": 57472.61
+          }
+        },
+        "window_rank": {
+          "medianMs": 2.3,
+          "minMs": 1.9,
+          "rows": 10,
+          "sample": {
+            "member_id": 442,
+            "total": 284809,
+            "r": 1
+          }
+        }
+      },
+      "spatial": {
+        "install": {
+          "ms": 0.8,
+          "value": "ok"
+        },
+        "load": {
+          "ms": 1062.4,
+          "value": "ok"
+        },
+        "checks": [
+          {
+            "sql": "select ST_AsText(ST_Point(27.91, -26.24)) wkt",
+            "ms": 5,
+            "rows": [
+              {
+                "wkt": "POINT (27.91 -26.24)"
+              }
+            ]
+          },
+          {
+            "sql": "select ST_Distance(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) planar_deg",
+            "ms": 3,
+            "rows": [
+              {
+                "planar_deg": 0.031622776601685366
+              }
+            ]
+          },
+          {
+            "sql": "select ST_Distance_Sphere(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) metres",
+            "ms": 2,
+            "rows": [
+              {
+                "metres": 3477.519008047925
+              }
+            ]
+          },
+          {
+            "sql": "select name, cp, ST_AsText(geom) wkt from ST_Read('suburbs.geojson') order by cp",
+            "ms": 35,
+            "rows": [
+              {
+                "name": "Orlando Hall catchment",
+                "cp": "cp1",
+                "wkt": "POLYGON ((27.885 -26.264999999999997, 27.935 -26.264999999999997, 27.935 -26.215, 27.885 -26.215, 27.885 -26.264999999999997))"
+              },
+              {
+                "name": "Diepkloof Spaza catchment",
+                "cp": "cp2",
+                "wkt": "POLYGON ((27.915000000000003 -26.275, 27.965 -26.275, 27.965 -26.225, 27.915000000000003 -26.225, 27.915000000000003 -26.275))"
+              },
+              {
+                "name": "Meadowlands Church catchment",
+                "cp": "cp3",
+                "wkt": "POLYGON ((27.855 -26.235, 27.904999999999998 -26.235, 27.904999999999998 -26.185000000000002, 27.855 -26.185000000000002, 27.855 -26.235))"
+              },
+              {
+                "name": "Dobsonville Depot catchment",
+                "cp": "cp4",
+                "wkt": "POLYGON ((27.825000000000003 -26.205, 27.875 -26.205, 27.875 -26.155, 27.825000000000003 -26.155, 27.825000000000003 -26.205))"
+              }
+            ]
+          },
+          {
+            "sql": "select count(*) members_in_catchments from members m, ST_Read('suburbs.geojson') s where ST_Within(ST_Point(m.lon, m.lat), s.geom)",
+            "ms": 59,
+            "rows": [
+              {
+                "members_in_catchments": 155
+              }
+            ]
+          },
+          {
+            "sql": "select ST_AsGeoJSON(ST_Point(27.91, -26.24)) gj",
+            "ms": 2,
+            "rows": [
+              {
+                "gj": "{\"type\":\"Point\",\"coordinates\":[27.91,-26.24]}"
+              }
+            ]
+          },
+          {
+            "sql": "select ST_AsGeoJSON(ST_Point(lon, lat)) cell, count(*) n from members group by lon, lat order by n desc limit 3",
+            "ms": 2,
+            "rows": [
+              {
+                "cell": "{\"type\":\"Point\",\"coordinates\":[27.83,-26.23]}",
+                "n": 5
+              },
+              {
+                "cell": "{\"type\":\"Point\",\"coordinates\":[27.97,-26.27]}",
+                "n": 5
+              },
+              {
+                "cell": "{\"type\":\"Point\",\"coordinates\":[27.92,-26.19]}",
+                "n": 5
+              }
+            ]
+          },
+          {
+            "sql": "select cp, count(*) members from (select m.member_id, arg_min(c.cp, ST_Distance_Sphere(ST_Point(m.lon, m.lat), ST_Point(c.lon, c.lat))) cp from members m cross join collection_points c group by m.member_id) group by 1 order by 1",
+            "ms": 6,
+            "rows": [
+              {
+                "cp": "cp1",
+                "members": 66
+              },
+              {
+                "cp": "cp2",
+                "members": 165
+              },
+              {
+                "cp": "cp3",
+                "members": 147
+              },
+              {
+                "cp": "cp4",
+                "members": 122
+              }
+            ]
+          }
+        ],
+        "checkNames": [
+          "st_point",
+          "st_distance",
+          "st_distance_sphere",
+          "st_read_geojson",
+          "st_within_count",
+          "st_asgeojson",
+          "members_per_grid_cell",
+          "nearest_collection_point"
+        ],
+        "extensions": [
+          {
+            "extension_name": "core_functions",
+            "loaded": true,
+            "installed": true,
+            "install_path": "(BUILT-IN)",
+            "extension_version": "v1.4.3"
+          },
+          {
+            "extension_name": "icu",
+            "loaded": true,
+            "installed": false,
+            "install_path": "",
+            "extension_version": "v1.4.3"
+          },
+          {
+            "extension_name": "spatial",
+            "loaded": true,
+            "installed": false,
+            "install_path": "",
+            "extension_version": "2f2668d"
+          }
+        ]
+      },
+      "parquet": {
+        "before": {
+          "n": 4000,
+          "s": 57134923
+        },
+        "after": {
+          "n": 4000,
+          "s": 57134923
+        },
+        "diffRows": {
+          "n": 0
+        },
+        "parquetBytes": 46931,
+        "exportMs": 580.2,
+        "importMs": 19.5
+      },
+      "kepler": {
+        "arrowSchema": [
+          "member_id: Int32",
+          "lat: Float64",
+          "lon: Float64",
+          "orders: Int32",
+          "last_order: Timestamp<MICROSECOND, UTC>"
+        ],
+        "kepler": {
+          "fields": [
+            {
+              "name": "member_id",
+              "format": "",
+              "type": "integer"
+            },
+            {
+              "name": "lat",
+              "format": "",
+              "type": "real"
+            },
+            {
+              "name": "lon",
+              "format": "",
+              "type": "real"
+            },
+            {
+              "name": "orders",
+              "format": "",
+              "type": "integer"
+            },
+            {
+              "name": "last_order",
+              "format": "",
+              "type": "timestamp"
+            }
+          ],
+          "rows": [
+            [0, -26.2, 27.89, 8, "2026-10-30T08:09:44.487Z"],
+            [1, -26.27, 27.91, 6, "2026-11-29T12:25:57.977Z"],
+            [2, -26.15, 27.89, 7, "2026-09-14T13:45:30.488Z"],
+            [3, -26.17, 27.86, 9, "2026-11-10T17:58:53.590Z"],
+            [4, -26.18, 27.92, 2, "2026-08-24T15:58:44.792Z"]
+          ]
+        }
+      }
+    },
+    "console": [
+      "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "warning: Buffering missing file: orders.parquet"
+    ],
+    "externalRequests": [
+      {
+        "url": "https://extensions.duckdb.org/v1.4.3/wasm_eh/icu.duckdb_extension.wasm"
+      },
+      {
+        "url": "https://extensions.duckdb.org/v1.4.3/wasm_eh/spatial.duckdb_extension.wasm"
+      },
+      {
+        "url": "https://extensions.duckdb.org/v1.4.3/wasm_eh/parquet.duckdb_extension.wasm"
+      }
+    ]
+  },
+  "duckdb-dev57": {
+    "steps": {
+      "init": {
+        "bundle": "eh",
+        "alias": "duckdb-dev57",
+        "pkgVersion": "1.33.1-dev57.0",
+        "instantiateMs": 1564,
+        "version": {
+          "v": "v1.5.4",
+          "api": "wasm",
+          "cer": "",
+          "der": null,
+          "threads": "1"
+        },
+        "platform": [
+          {
+            "platform": "wasm_eh"
+          }
+        ],
+        "sourceId": {
+          "source_id": "08e34c447b"
+        },
+        "crossOriginIsolated": false
+      },
+      "load10kJson": {
+        "format": "json",
+        "total": 10000,
+        "genMs": 9,
+        "times": {
+          "members": 51,
+          "orders": 43,
+          "pledges": 23,
+          "deliveries": 41
+        },
+        "totalMs": 158,
+        "counts": {
+          "members": 500,
+          "orders": 4000,
+          "pledges": 4000,
+          "deliveries": 1500
+        },
+        "types": [
+          {
+            "table_name": "deliveries",
+            "column_name": "collection_point",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivered_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivery_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "dispatched_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "order_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "status",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "commitment",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "joined_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lat",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lon",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "member_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "item",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "member_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "order_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "price_cents",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "qty",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "ts_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "amount_cents",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "cycle",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "member_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "paid",
+            "data_type": "BOOLEAN"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "pledge_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "ts_ms",
+            "data_type": "UBIGINT"
+          }
+        ]
+      },
+      "load10kArrow": {
+        "format": "arrow",
+        "total": 10000,
+        "genMs": 6,
+        "times": {
+          "members": 15,
+          "orders": 13,
+          "pledges": 11,
+          "deliveries": 5
+        },
+        "totalMs": 44,
+        "counts": {
+          "members": 500,
+          "orders": 4000,
+          "pledges": 4000,
+          "deliveries": 1500
+        },
+        "types": [
+          {
+            "table_name": "deliveries",
+            "column_name": "delivery_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "collection_point",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "dispatched_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivered_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "status",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "commitment",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lat",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lon",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "joined_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "item",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "qty",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "price_cents",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "ts_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "pledge_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "cycle",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "amount_cents",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "paid",
+            "data_type": "BOOLEAN"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "ts_ms",
+            "data_type": "DOUBLE"
+          }
+        ]
+      },
+      "aggregates": {
+        "spend_per_item": {
+          "medianMs": 5.6,
+          "minMs": 4.8,
+          "rows": 6,
+          "sample": {
+            "item": "tinned pilchards",
+            "n": 645,
+            "rand": 138546.14
+          }
+        },
+        "who_has_not_paid": {
+          "medianMs": 3.5,
+          "minMs": 3.1,
+          "rows": 20,
+          "sample": {
+            "member_id": 86,
+            "unpaid": 2
+          }
+        },
+        "delivery_hours_per_point": {
+          "medianMs": 3.2,
+          "minMs": 2.9,
+          "rows": 4,
+          "sample": {
+            "collection_point": "cp1",
+            "n": 387,
+            "avg_hours": 16.685808214183176
+          }
+        },
+        "price_history_by_month": {
+          "medianMs": 46.4,
+          "minMs": 11.8,
+          "rows": 74,
+          "sample": {
+            "item": "bread flour 5kg",
+            "mon": 1767218400000,
+            "avg_price": 57.7525
+          }
+        },
+        "three_way_join": {
+          "medianMs": 12,
+          "minMs": 6.3,
+          "rows": 4,
+          "sample": {
+            "collection_point": "cp1",
+            "members": 262,
+            "total_value": 57472.61
+          }
+        },
+        "window_rank": {
+          "medianMs": 3.3,
+          "minMs": 2.6,
+          "rows": 10,
+          "sample": {
+            "member_id": 442,
+            "total": 284809,
+            "r": 1
+          }
+        }
+      },
+      "spatial": {
+        "install": {
+          "ms": 1.2,
+          "value": "ok"
+        },
+        "load": {
+          "ms": 1180.2,
+          "value": "ok"
+        },
+        "checks": [
+          {
+            "sql": "select ST_AsText(ST_Point(27.91, -26.24)) wkt",
+            "ms": 4,
+            "rows": [
+              {
+                "wkt": "POINT (27.91 -26.24)"
+              }
+            ]
+          },
+          {
+            "sql": "select ST_Distance(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) planar_deg",
+            "ms": 2,
+            "rows": [
+              {
+                "planar_deg": 0.031622776601685366
+              }
+            ]
+          },
+          {
+            "sql": "select ST_Distance_Sphere(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) metres",
+            "ms": 2,
+            "rows": [
+              {
+                "metres": 3477.519008047925
+              }
+            ]
+          },
+          {
+            "sql": "select name, cp, ST_AsText(geom) wkt from ST_Read('suburbs.geojson') order by cp",
+            "ms": 53,
+            "rows": [
+              {
+                "name": "Orlando Hall catchment",
+                "cp": "cp1",
+                "wkt": "POLYGON ((27.885 -26.264999999999997, 27.935 -26.264999999999997, 27.935 -26.215, 27.885 -26.215, 27.885 -26.264999999999997))"
+              },
+              {
+                "name": "Diepkloof Spaza catchment",
+                "cp": "cp2",
+                "wkt": "POLYGON ((27.915000000000003 -26.275, 27.965 -26.275, 27.965 -26.225, 27.915000000000003 -26.225, 27.915000000000003 -26.275))"
+              },
+              {
+                "name": "Meadowlands Church catchment",
+                "cp": "cp3",
+                "wkt": "POLYGON ((27.855 -26.235, 27.904999999999998 -26.235, 27.904999999999998 -26.185000000000002, 27.855 -26.185000000000002, 27.855 -26.235))"
+              },
+              {
+                "name": "Dobsonville Depot catchment",
+                "cp": "cp4",
+                "wkt": "POLYGON ((27.825000000000003 -26.205, 27.875 -26.205, 27.875 -26.155, 27.825000000000003 -26.155, 27.825000000000003 -26.205))"
+              }
+            ]
+          },
+          {
+            "sql": "select count(*) members_in_catchments from members m, ST_Read('suburbs.geojson') s where ST_Within(ST_Point(m.lon, m.lat), s.geom)",
+            "ms": 18,
+            "rows": [
+              {
+                "members_in_catchments": 155
+              }
+            ]
+          },
+          {
+            "sql": "select ST_AsGeoJSON(ST_Point(27.91, -26.24)) gj",
+            "ms": 2,
+            "rows": [
+              {
+                "gj": "{\"type\":\"Point\",\"coordinates\":[27.91,-26.24]}"
+              }
+            ]
+          },
+          {
+            "sql": "select ST_AsGeoJSON(ST_Point(lon, lat)) cell, count(*) n from members group by lon, lat order by n desc limit 3",
+            "ms": 3,
+            "rows": [
+              {
+                "cell": "{\"type\":\"Point\",\"coordinates\":[27.83,-26.23]}",
+                "n": 5
+              },
+              {
+                "cell": "{\"type\":\"Point\",\"coordinates\":[27.97,-26.27]}",
+                "n": 5
+              },
+              {
+                "cell": "{\"type\":\"Point\",\"coordinates\":[27.92,-26.19]}",
+                "n": 5
+              }
+            ]
+          },
+          {
+            "sql": "select cp, count(*) members from (select m.member_id, arg_min(c.cp, ST_Distance_Sphere(ST_Point(m.lon, m.lat), ST_Point(c.lon, c.lat))) cp from members m cross join collection_points c group by m.member_id) group by 1 order by 1",
+            "ms": 5,
+            "rows": [
+              {
+                "cp": "cp1",
+                "members": 66
+              },
+              {
+                "cp": "cp2",
+                "members": 165
+              },
+              {
+                "cp": "cp3",
+                "members": 147
+              },
+              {
+                "cp": "cp4",
+                "members": 122
+              }
+            ]
+          }
+        ],
+        "checkNames": [
+          "st_point",
+          "st_distance",
+          "st_distance_sphere",
+          "st_read_geojson",
+          "st_within_count",
+          "st_asgeojson",
+          "members_per_grid_cell",
+          "nearest_collection_point"
+        ],
+        "extensions": [
+          {
+            "extension_name": "core_functions",
+            "loaded": true,
+            "installed": true,
+            "install_path": "(BUILT-IN)",
+            "extension_version": "v1.5.4"
+          },
+          {
+            "extension_name": "icu",
+            "loaded": true,
+            "installed": false,
+            "install_path": "",
+            "extension_version": "v1.5.4"
+          },
+          {
+            "extension_name": "spatial",
+            "loaded": true,
+            "installed": false,
+            "install_path": "",
+            "extension_version": "28db190"
+          }
+        ]
+      },
+      "parquet": {
+        "before": {
+          "n": 4000,
+          "s": 57134923
+        },
+        "after": {
+          "n": 4000,
+          "s": 57134923
+        },
+        "diffRows": {
+          "n": 0
+        },
+        "parquetBytes": 46951,
+        "exportMs": 465.3,
+        "importMs": 24.5
+      },
+      "kepler": {
+        "arrowSchema": [
+          "member_id: Int32",
+          "lat: Float64",
+          "lon: Float64",
+          "orders: Int32",
+          "last_order: Timestamp<MICROSECOND, UTC>"
+        ],
+        "kepler": {
+          "fields": [
+            {
+              "name": "member_id",
+              "format": "",
+              "type": "integer"
+            },
+            {
+              "name": "lat",
+              "format": "",
+              "type": "real"
+            },
+            {
+              "name": "lon",
+              "format": "",
+              "type": "real"
+            },
+            {
+              "name": "orders",
+              "format": "",
+              "type": "integer"
+            },
+            {
+              "name": "last_order",
+              "format": "",
+              "type": "timestamp"
+            }
+          ],
+          "rows": [
+            [0, -26.2, 27.89, 8, "2026-10-30T08:09:44.487Z"],
+            [1, -26.27, 27.91, 6, "2026-11-29T12:25:57.977Z"],
+            [2, -26.15, 27.89, 7, "2026-09-14T13:45:30.488Z"],
+            [3, -26.17, 27.86, 9, "2026-11-10T17:58:53.590Z"],
+            [4, -26.18, 27.92, 2, "2026-08-24T15:58:44.792Z"]
+          ]
+        }
+      }
+    },
+    "console": [
+      "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "warning: Buffering missing file: orders.parquet"
+    ],
+    "externalRequests": [
+      {
+        "url": "https://extensions.duckdb.org/v1.5.4/wasm_eh/icu.duckdb_extension.wasm"
+      },
+      {
+        "url": "https://extensions.duckdb.org/v1.5.4/wasm_eh/spatial.duckdb_extension.wasm"
+      },
+      {
+        "url": "https://extensions.duckdb.org/v1.5.4/wasm_eh/parquet.duckdb_extension.wasm"
+      }
+    ]
+  },
+  "duckdb-dev65": {
+    "steps": {
+      "init": {
+        "bundle": "eh",
+        "alias": "duckdb-dev65",
+        "pkgVersion": "1.33.1-dev65.0",
+        "instantiateMs": 1319,
+        "version": {
+          "v": "v1.5.6",
+          "api": "wasm",
+          "cer": "",
+          "der": null,
+          "threads": "1"
+        },
+        "platform": [
+          {
+            "platform": "wasm_eh"
+          }
+        ],
+        "sourceId": {
+          "source_id": "069cc9f9b5"
+        },
+        "crossOriginIsolated": false
+      },
+      "load10kJson": {
+        "format": "json",
+        "total": 10000,
+        "genMs": 7,
+        "times": {
+          "members": 44,
+          "orders": 33,
+          "pledges": 16,
+          "deliveries": 29
+        },
+        "totalMs": 122,
+        "counts": {
+          "members": 500,
+          "orders": 4000,
+          "pledges": 4000,
+          "deliveries": 1500
+        },
+        "types": [
+          {
+            "table_name": "deliveries",
+            "column_name": "collection_point",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivered_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivery_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "dispatched_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "order_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "status",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "commitment",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "joined_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lat",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lon",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "member_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "item",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "member_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "order_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "price_cents",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "qty",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "ts_ms",
+            "data_type": "UBIGINT"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "amount_cents",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "cycle",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "member_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "paid",
+            "data_type": "BOOLEAN"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "pledge_id",
+            "data_type": "INTEGER"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "ts_ms",
+            "data_type": "UBIGINT"
+          }
+        ]
+      },
+      "load10kArrow": {
+        "format": "arrow",
+        "total": 10000,
+        "genMs": 5,
+        "times": {
+          "members": 13,
+          "orders": 12,
+          "pledges": 9,
+          "deliveries": 4
+        },
+        "totalMs": 38,
+        "counts": {
+          "members": 500,
+          "orders": 4000,
+          "pledges": 4000,
+          "deliveries": 1500
+        },
+        "types": [
+          {
+            "table_name": "deliveries",
+            "column_name": "delivery_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "collection_point",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "dispatched_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivered_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "status",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "commitment",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lat",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lon",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "joined_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "item",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "qty",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "price_cents",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "ts_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "pledge_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "cycle",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "amount_cents",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "paid",
+            "data_type": "BOOLEAN"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "ts_ms",
+            "data_type": "DOUBLE"
+          }
+        ]
+      },
+      "aggregates": {
+        "spend_per_item": {
+          "medianMs": 2.4,
+          "minMs": 2.1,
+          "rows": 6,
+          "sample": {
+            "item": "tinned pilchards",
+            "n": 645,
+            "rand": 138546.14
+          }
+        },
+        "who_has_not_paid": {
+          "medianMs": 3.9,
+          "minMs": 2.7,
+          "rows": 20,
+          "sample": {
+            "member_id": 86,
+            "unpaid": 2
+          }
+        },
+        "delivery_hours_per_point": {
+          "medianMs": 2,
+          "minMs": 1.8,
+          "rows": 4,
+          "sample": {
+            "collection_point": "cp1",
+            "n": 387,
+            "avg_hours": 16.685808214183176
+          }
+        },
+        "price_history_by_month": {
+          "medianMs": 9.5,
+          "minMs": 5.9,
+          "rows": 74,
+          "sample": {
+            "item": "bread flour 5kg",
+            "mon": 1767218400000,
+            "avg_price": 57.7525
+          }
+        },
+        "three_way_join": {
+          "medianMs": 9.1,
+          "minMs": 4.5,
+          "rows": 4,
+          "sample": {
+            "collection_point": "cp1",
+            "members": 262,
+            "total_value": 57472.61
+          }
+        },
+        "window_rank": {
+          "medianMs": 2.3,
+          "minMs": 2.1,
+          "rows": 10,
+          "sample": {
+            "member_id": 442,
+            "total": 284809,
+            "r": 1
+          }
+        }
+      },
+      "spatial": {
+        "install": {
+          "ms": 0.9,
+          "value": "ok"
+        },
+        "load": {
+          "ms": 1173.4,
+          "value": "ok"
+        },
+        "checks": [
+          {
+            "sql": "select ST_AsText(ST_Point(27.91, -26.24)) wkt",
+            "ms": 4,
+            "rows": [
+              {
+                "wkt": "POINT (27.91 -26.24)"
+              }
+            ]
+          },
+          {
+            "sql": "select ST_Distance(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) planar_deg",
+            "ms": 3,
+            "rows": [
+              {
+                "planar_deg": 0.031622776601685366
+              }
+            ]
+          },
+          {
+            "sql": "select ST_Distance_Sphere(ST_Point(27.91, -26.24), ST_Point(27.94, -26.25)) metres",
+            "ms": 3,
+            "rows": [
+              {
+                "metres": 3477.519008047925
+              }
+            ]
+          },
+          {
+            "sql": "select name, cp, ST_AsText(geom) wkt from ST_Read('suburbs.geojson') order by cp",
+            "ms": 63,
+            "rows": [
+              {
+                "name": "Orlando Hall catchment",
+                "cp": "cp1",
+                "wkt": "POLYGON ((27.885 -26.264999999999997, 27.935 -26.264999999999997, 27.935 -26.215, 27.885 -26.215, 27.885 -26.264999999999997))"
+              },
+              {
+                "name": "Diepkloof Spaza catchment",
+                "cp": "cp2",
+                "wkt": "POLYGON ((27.915000000000003 -26.275, 27.965 -26.275, 27.965 -26.225, 27.915000000000003 -26.225, 27.915000000000003 -26.275))"
+              },
+              {
+                "name": "Meadowlands Church catchment",
+                "cp": "cp3",
+                "wkt": "POLYGON ((27.855 -26.235, 27.904999999999998 -26.235, 27.904999999999998 -26.185000000000002, 27.855 -26.185000000000002, 27.855 -26.235))"
+              },
+              {
+                "name": "Dobsonville Depot catchment",
+                "cp": "cp4",
+                "wkt": "POLYGON ((27.825000000000003 -26.205, 27.875 -26.205, 27.875 -26.155, 27.825000000000003 -26.155, 27.825000000000003 -26.205))"
+              }
+            ]
+          },
+          {
+            "sql": "select count(*) members_in_catchments from members m, ST_Read('suburbs.geojson') s where ST_Within(ST_Point(m.lon, m.lat), s.geom)",
+            "ms": 19,
+            "rows": [
+              {
+                "members_in_catchments": 155
+              }
+            ]
+          },
+          {
+            "sql": "select ST_AsGeoJSON(ST_Point(27.91, -26.24)) gj",
+            "ms": 2,
+            "rows": [
+              {
+                "gj": "{\"type\":\"Point\",\"coordinates\":[27.91,-26.24]}"
+              }
+            ]
+          },
+          {
+            "sql": "select ST_AsGeoJSON(ST_Point(lon, lat)) cell, count(*) n from members group by lon, lat order by n desc limit 3",
+            "ms": 4,
+            "rows": [
+              {
+                "cell": "{\"type\":\"Point\",\"coordinates\":[27.83,-26.23]}",
+                "n": 5
+              },
+              {
+                "cell": "{\"type\":\"Point\",\"coordinates\":[27.97,-26.27]}",
+                "n": 5
+              },
+              {
+                "cell": "{\"type\":\"Point\",\"coordinates\":[27.92,-26.19]}",
+                "n": 5
+              }
+            ]
+          },
+          {
+            "sql": "select cp, count(*) members from (select m.member_id, arg_min(c.cp, ST_Distance_Sphere(ST_Point(m.lon, m.lat), ST_Point(c.lon, c.lat))) cp from members m cross join collection_points c group by m.member_id) group by 1 order by 1",
+            "ms": 9,
+            "rows": [
+              {
+                "cp": "cp1",
+                "members": 66
+              },
+              {
+                "cp": "cp2",
+                "members": 165
+              },
+              {
+                "cp": "cp3",
+                "members": 147
+              },
+              {
+                "cp": "cp4",
+                "members": 122
+              }
+            ]
+          }
+        ],
+        "checkNames": [
+          "st_point",
+          "st_distance",
+          "st_distance_sphere",
+          "st_read_geojson",
+          "st_within_count",
+          "st_asgeojson",
+          "members_per_grid_cell",
+          "nearest_collection_point"
+        ],
+        "extensions": [
+          {
+            "extension_name": "core_functions",
+            "loaded": true,
+            "installed": true,
+            "install_path": "(BUILT-IN)",
+            "extension_version": "v1.5.6"
+          },
+          {
+            "extension_name": "icu",
+            "loaded": true,
+            "installed": false,
+            "install_path": "",
+            "extension_version": "v1.5.6"
+          },
+          {
+            "extension_name": "spatial",
+            "loaded": true,
+            "installed": false,
+            "install_path": "",
+            "extension_version": "04270fe"
+          }
+        ]
+      },
+      "parquet": {
+        "before": {
+          "n": 4000,
+          "s": 57134923
+        },
+        "after": {
+          "n": 4000,
+          "s": 57134923
+        },
+        "diffRows": {
+          "n": 0
+        },
+        "parquetBytes": 46951,
+        "exportMs": 495.6,
+        "importMs": 36.1
+      },
+      "kepler": {
+        "arrowSchema": [
+          "member_id: Int32",
+          "lat: Float64",
+          "lon: Float64",
+          "orders: Int32",
+          "last_order: Timestamp<MICROSECOND, UTC>"
+        ],
+        "kepler": {
+          "fields": [
+            {
+              "name": "member_id",
+              "format": "",
+              "type": "integer"
+            },
+            {
+              "name": "lat",
+              "format": "",
+              "type": "real"
+            },
+            {
+              "name": "lon",
+              "format": "",
+              "type": "real"
+            },
+            {
+              "name": "orders",
+              "format": "",
+              "type": "integer"
+            },
+            {
+              "name": "last_order",
+              "format": "",
+              "type": "timestamp"
+            }
+          ],
+          "rows": [
+            [0, -26.2, 27.89, 8, "2026-10-30T08:09:44.487Z"],
+            [1, -26.27, 27.91, 6, "2026-11-29T12:25:57.977Z"],
+            [2, -26.15, 27.89, 7, "2026-09-14T13:45:30.488Z"],
+            [3, -26.17, 27.86, 9, "2026-11-10T17:58:53.590Z"],
+            [4, -26.18, 27.92, 2, "2026-08-24T15:58:44.792Z"]
+          ]
+        }
+      }
+    },
+    "console": [
+      "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "warning: Buffering missing file: orders.parquet"
+    ],
+    "externalRequests": [
+      {
+        "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/icu.duckdb_extension.wasm"
+      },
+      {
+        "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/spatial.duckdb_extension.wasm"
+      },
+      {
+        "url": "https://extensions.duckdb.org/v1.5.6/wasm_eh/parquet.duckdb_extension.wasm"
+      }
+    ]
+  },
+  "duckdb-dev110": {
+    "steps": {
+      "init": {
+        "bundle": "base",
+        "alias": "duckdb-dev110",
+        "pkgVersion": "1.33.1-dev110.0",
+        "instantiateMs": 1418,
+        "version": {
+          "v": "v2.0.0-dev88614",
+          "api": "wasm",
+          "cer": "",
+          "der": null,
+          "threads": "1"
+        },
+        "platform": [
+          {
+            "platform": "wasm_eh"
+          }
+        ],
+        "sourceId": {
+          "source_id": "d54cbbe3df"
+        },
+        "crossOriginIsolated": false
+      },
+      "load10kJson": {
+        "error": "page.evaluate: Error: {\"exception_type\":\"Extension Autoloading\",\"exception_message\":\"An error occurred while trying to automatically install the required extension 'json:\\nExtension \\\"json\\\" could not be fetched from \\\"https://extensions.duckdb.org/d54cbbe3df/wasm_eh/json.duckdb_extension.wasm\\\"\"}\n    at Jl.onMessage (http://127.0.0.1:39233/assets/index-Bx4pRgGD.js:6:52801)"
+      },
+      "load10kArrow": {
+        "format": "arrow",
+        "total": 10000,
+        "genMs": 8,
+        "times": {
+          "members": 31,
+          "orders": 17,
+          "pledges": 9,
+          "deliveries": 7
+        },
+        "totalMs": 64,
+        "counts": {
+          "members": 500,
+          "orders": 4000,
+          "pledges": 4000,
+          "deliveries": 1500
+        },
+        "types": [
+          {
+            "table_name": "deliveries",
+            "column_name": "delivery_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "collection_point",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "dispatched_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "delivered_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "deliveries",
+            "column_name": "status",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "commitment",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lat",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "lon",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "members",
+            "column_name": "joined_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "order_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "item",
+            "data_type": "VARCHAR"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "qty",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "price_cents",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "orders",
+            "column_name": "ts_ms",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "pledge_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "member_id",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "cycle",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "amount_cents",
+            "data_type": "DOUBLE"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "paid",
+            "data_type": "BOOLEAN"
+          },
+          {
+            "table_name": "pledges",
+            "column_name": "ts_ms",
+            "data_type": "DOUBLE"
+          }
+        ]
+      },
+      "aggregates": {
+        "error": "page.evaluate: Error: Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'icu:\nExtension \"icu\" could not be fetched from \"https://extensions.duckdb.org/d54cbbe3df/wasm_eh/icu.duckdb_extension.wasm\"\n    at Jl.onMessage (http://127.0.0.1:39233/assets/index-Bx4pRgGD.js:6:52801)"
+      },
+      "spatial": {
+        "install": {
+          "ms": 2.2,
+          "value": "ok"
+        },
+        "load": {
+          "ms": 238.3,
+          "value": "ERR IO Error: Extension \"spatial\" could not be fetched from \"https://extensions.duckdb.org/d54cbbe3df/wasm_eh/spatial.duckdb_extension.wasm\""
+        }
+      },
+      "parquet": {
+        "error": "page.evaluate: Error: Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'parquet:\nExtension \"parquet\" could not be fetched from \"https://extensions.duckdb.org/d54cbbe3df/wasm_eh/parquet.duckdb_extension.wasm\"\n    at Jl.onMessage (http://127.0.0.1:39233/assets/index-Bx4pRgGD.js:6:52801)"
+      },
+      "kepler": {
+        "arrowSchema": [
+          "member_id: Int32",
+          "lat: Float64",
+          "lon: Float64",
+          "orders: Int32",
+          "last_order: Timestamp<MICROSECOND, UTC>"
+        ],
+        "kepler": {
+          "fields": [
+            {
+              "name": "member_id",
+              "format": "",
+              "type": "integer"
+            },
+            {
+              "name": "lat",
+              "format": "",
+              "type": "real"
+            },
+            {
+              "name": "lon",
+              "format": "",
+              "type": "real"
+            },
+            {
+              "name": "orders",
+              "format": "",
+              "type": "integer"
+            },
+            {
+              "name": "last_order",
+              "format": "",
+              "type": "timestamp"
+            }
+          ],
+          "rows": [
+            [0, -26.2, 27.89, 8, "2026-10-30T08:09:44.487Z"],
+            [1, -26.27, 27.91, 6, "2026-11-29T12:25:57.977Z"],
+            [2, -26.15, 27.89, 7, "2026-09-14T13:45:30.488Z"],
+            [3, -26.17, 27.86, 9, "2026-11-10T17:58:53.590Z"],
+            [4, -26.18, 27.92, 2, "2026-08-24T15:58:44.792Z"]
+          ]
+        }
+      }
+    },
+    "console": [
+      "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "externalRequests": [
+      {
+        "url": "https://extensions.duckdb.org/d54cbbe3df/wasm_eh/json.duckdb_extension.wasm"
+      },
+      {
+        "url": "https://extensions.duckdb.org/d54cbbe3df/wasm_eh/icu.duckdb_extension.wasm"
+      },
+      {
+        "url": "https://extensions.duckdb.org/d54cbbe3df/wasm_eh/spatial.duckdb_extension.wasm"
+      },
+      {
+        "url": "https://extensions.duckdb.org/d54cbbe3df/wasm_eh/parquet.duckdb_extension.wasm"
+      }
+    ]
+  }
+}
