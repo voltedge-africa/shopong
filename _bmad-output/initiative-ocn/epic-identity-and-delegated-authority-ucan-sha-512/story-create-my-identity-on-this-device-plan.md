@@ -3,14 +3,14 @@ title: 'Create my identity on this device'
 type: 'feature'
 ticket: 2
 created: '2026-10-26'
-status: 'draft'
+status: 'built'
 baseline_revision: 'd904351297102d17c2812110deeab2ea143b0baf'
 route: 'full'
 route_source: 'auto'
 risk: 'high'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 context: []
 ---
@@ -81,6 +81,16 @@ context: []
 ## Plan Change Log
 
 ## Review Triage Log
+
+Pass 1 (quick lens). Verdicts: 0 high, 0 medium, 3 low kept, 1 low rejected, 1 low rejected.
+
+| Finding | Verdict | Route | Evidence |
+|---|---|---|---|
+| A failed keystore read shows "Couldn't read your identity." with no retry or Create (`IdentityProvider.tsx`, `IdentityCard.tsx`) | low | rejected | Real, but not creating is the safe outcome: if the read throws, a seed may exist and `createIdentity` reads first and would throw too. The PIN code has the same dead end. A retry button is added complexity for a rare case. |
+| Comment in `identityStore.ts` says "Android clears the keystore entry on uninstall", unverified | low | patch | The claim came from the plan's question 4 and nothing here confirms it; Android Auto Backup may behave differently. Smallest fix: drop the claim from the comment. |
+| The identity loads while the PIN screen is showing (`IdentityProvider.tsx`) | low | patch | Real: the provider sits above the stack, so the keystore is read and the signer built before unlock. The criterion still holds. Smallest fix: start the load only once `useAuth().status` is `unlocked`. |
+| The "Couldn't read your identity." text can show twice (`IdentityCard.tsx`) | low | patch | Real: `create()` returning `unreadable` sets the status, which renders the text, and the card also sets `error` to the same text. Smallest fix: do not set `error` for `unreadable`. |
+| No unmount guard in `create` | low | rejected | The provider lives at the root and is never unmounted while the app runs, so the state updates are harmless. A guard adds a branch for no reachable case. |
 
 ## Design Notes
 
