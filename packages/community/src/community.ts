@@ -6,8 +6,11 @@ import {
   PersonalDataError,
   assertNoPersonalData,
   createEvent,
+  encodeUtf8,
   eventIdOf,
+  sha512Hex,
   type EventEnvelope,
+  type EventId,
   type EventType,
   type JsonObject,
   type Sha512,
@@ -29,6 +32,7 @@ import {
   type SpaceDefinition,
 } from "@shopong/ports";
 import { createCommunityApply, FOUNDER_INVITATION } from "./apply.js";
+import { logTimeOf } from "./log-time.js";
 import {
   QUOTE_MESSAGES,
   checkQuote,
@@ -40,6 +44,8 @@ import {
 import {
   checkAction,
   coTreasurerJoinGrant,
+  coTreasurerProblem,
+  type StandingContext,
   issueRole,
   rolesOf,
   type ActionRequest,
@@ -64,6 +70,24 @@ export interface CommunityDeps {
   readonly randomBytes: (length: number) => Uint8Array;
 }
 
+/**
+ * The event id the record uses. An event that cannot be canonicalised (a NaN or infinite number, a value JSON
+ * cannot hold) gets the id of its JSON form, which is what the record holds once the event has travelled. So
+ * the record never throws, and `apply` refuses the event for its time (review items 3 and 4). A last resort
+ * is one fixed id, used only when even the JSON form cannot be hashed.
+ */
+export async function eventIdFor(event: EventEnvelope, sha512: Sha512): Promise<EventId> {
+  try {
+    return await eventIdOf(event, sha512);
+  } catch {
+    try {
+      return await eventIdOf(JSON.parse(JSON.stringify(event)) as unknown, sha512);
+    } catch {
+      return (await sha512Hex(encodeUtf8("ocn:unhashable-event"), sha512)) as EventId;
+    }
+  }
+}
+
 /** The definition (apply + event id) every phone of one community uses. */
 export function communityDefinition(
   deps: Pick<CommunityDeps, "auth" | "sha512">,
@@ -72,7 +96,7 @@ export function communityDefinition(
 ): SpaceDefinition<EventEnvelope> {
   return {
     apply: createCommunityApply({ auth: deps.auth, creator, spaceKey }),
-    eventId: (event) => eventIdOf(event, deps.sha512),
+    eventId: (event) => eventIdFor(event, deps.sha512),
   };
 }
 
@@ -100,6 +124,11 @@ export interface QuoteReceipt {
   readonly id: string;
   /** True when this exact event was already in the log: nothing new was written, so one quote stands. */
   readonly duplicate: boolean;
+}
+
+/** Log time as the phone's copy of the view holds it. Authority is checked at this time, as `apply` checks it. */
+async function logAt(space: Space<EventEnvelope>): Promise<EpochMs> {
+  return (await logTimeOf(space.view)) ?? 0;
 }
 
 function field(value: JsonValue, key: string): JsonValue | undefined {
@@ -182,8 +211,8 @@ export interface Community {
   ): Promise<Result<RoleDraft, RoleError | CommunityError>>;
   /** The roles recorded for me, ended ones included. */
   roles(): Promise<readonly RoleRecord[]>;
-  /** "What can I do?": may I do this now? */
-  checkAction(request: ActionRequest, now: EpochMs): Promise<Result<RoleCheck, RoleError>>;
+  /** "What can I do?": may I do this? Judged at log time, as `apply` judges it (story 3.6). */
+  checkAction(request: ActionRequest): Promise<Result<RoleCheck, RoleError>>;
   /**
    * Record a typed quote (story 6.8). Only the treasurer may; an incomplete quote is refused with the
    * reasons and nothing is written. A quote for the same supplier and order replaces the older one.
@@ -201,6 +230,7 @@ function wrap(
   creator: Did,
   space: Space<EventEnvelope>,
 ): Community {
+  const standingOf = (): StandingContext => ({ auth: deps.auth, creator, spaceKey: key });
   return {
     key,
     name,
@@ -211,8 +241,12 @@ function wrap(
       let via: { issuer: Did; token: CapabilityToken } | undefined;
       if (me !== creator) {
         await space.update();
-        const grant = await coTreasurerJoinGrant(space.view, me, now);
-        if (grant === undefined) return err("not_creator", "Only the creator can invite.");
+        const at = await logAt(space);
+        const grant = await coTreasurerJoinGrant(space.view, me, at);
+        const problem = await coTreasurerProblem(standingOf(), space.view, me, at);
+        if (grant === undefined || problem !== undefined) {
+          return err("not_creator", problem ?? "Only the creator can invite.");
+        }
         via = { issuer: me, token: grant.token };
       }
       const issued = await issueInvitation({
@@ -250,6 +284,7 @@ function wrap(
         grantee,
         role,
         now,
+        logTime: await logAt(space),
         ...(options.limit === undefined ? {} : { limit: options.limit }),
         ...(options.days === undefined ? {} : { days: options.days }),
       });
@@ -273,19 +308,21 @@ function wrap(
       await space.update();
       return rolesOf(space.view, me);
     },
-    async checkAction(request, now) {
+    async checkAction(request) {
       await space.update();
       return checkAction(
         { auth: deps.auth, view: space.view, creator, spaceKey: key },
         me,
         request,
-        now,
+        await logAt(space),
       );
     },
     async addQuote(input, now) {
       await space.update();
-      if (!(await isTreasurer(space.view, creator, me, now))) {
-        return err("not_permitted", QUOTE_MESSAGES.not_permitted);
+      const at = await logAt(space);
+      if (!(await isTreasurer(standingOf(), space.view, me, at))) {
+        const problem = await coTreasurerProblem(standingOf(), space.view, me, at);
+        return err("not_permitted", problem ?? QUOTE_MESSAGES.not_permitted);
       }
       const checked = checkQuote(input);
       if (!checked.ok) return err("incomplete", checked.problems.join(" "));

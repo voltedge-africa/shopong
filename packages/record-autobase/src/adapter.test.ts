@@ -381,3 +381,41 @@ describe("file permissions", () => {
     expect(statSync(join(folder, "spaces.json")).mode & 0o777).toBe(0o600);
   });
 });
+
+describe("removal in Autobase (story 3.3)", () => {
+  it("Autobase removes a writer, refuses to remove its last indexer, and the creator stays admitted", async () => {
+    const master = randomBytes(32);
+    const tag = "autobase-removal";
+    const a = await (await node("did:test:owner-ab", master)).create(contractDefinition);
+    const b = await (await node("did:test:bob-ab", master)).open(a.key, contractDefinition);
+    expect((await a.append({ kind: "admit", tag, writer: b.local })).ok).toBe(true);
+    await replicatePair(a, b);
+
+    /** The writer key the adapter recorded for a DID (kept in the view after removal, for re-admission). */
+    const writerKey = async (did: string) => {
+      const node = await baseOf(a).view.get(`_sys/key/${did}`);
+      return Buffer.from(node.value as string, "hex");
+    };
+    const creatorKey = await writerKey(a.local);
+    const bobKey = await writerKey(b.local);
+
+    // Two indexers (the creator and bob): either may be removed.
+    expect(baseOf(a).removeable(bobKey)).toBe(true);
+    expect(baseOf(a).removeable(creatorKey)).toBe(true);
+
+    expect((await a.append({ kind: "remove", tag, writer: b.local })).ok).toBe(true);
+    await replicatePair(a, b);
+    expect(await a.writers()).toEqual([a.local]);
+    expect(await b.writable()).toBe(false);
+    // The creator is now the only indexer, so Autobase refuses to remove it.
+    expect(baseOf(a).removeable(creatorKey)).toBe(false);
+
+    // The creator is never removed, even when named, and stays admitted.
+    await a.append({ kind: "remove", tag: `${tag}-creator`, writer: a.local });
+    await a.update();
+    expect(await a.writable()).toBe(true);
+    expect(await a.writers()).toEqual([a.local]);
+    // The writer key of bob is kept, so a fresh admission can use it again.
+    expect(await writerKey(b.local)).toEqual(bobKey);
+  }, 120_000);
+});

@@ -105,6 +105,17 @@ context: []
 
 ## Review Triage Log
 
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 4 high, 2 medium, 1 low.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | The record froze for good after any quiet gap of more than 24 hours (a claim over the cap was refused, and log time only moves on accepted events) | high, real | patch, **departs from the accepted plan answer Q1-A ("refused")** | Clamp instead of refuse: the event is judged at the current log time and moves log time by at most the cap; tests failed first, including "two days of silence, then an honest join"; mutation-checked. Judged times can lag real time after a long gap (S-3.6-14) |
+| 2 | A revoked or replaced ancestor grant did not stop a co-treasurer's invite or quote in `apply` | high, real | patch | Both now verify the holder's token chain at log time; tests failed first |
+| 3, 4 | A missing, non-integer or NaN `claimedAt` corrupted log time or made `apply` throw | high, real | patch | Refused with "This event has no valid time." before anything else; the event id computation cannot throw; replicas stay identical in any order |
+| 5 | The cap is per event, not cumulative | medium | defer | S-3.6-2 |
+| 6 | The first accepted event sets log time uncapped | medium | defer | S-3.6-3 (creator trusted; a wrong clock at founding skews everything after it) |
+| 7 | A taken-back ancestor gave the wrong sentence | low, real | patch | "This role has been taken back."; test failed first |
+
 ## Design Notes
 
 `apply` must not read the clock (AGENTS.md rule 3). Log time is therefore the only time it can use, and the Node's clock stays the final guard for anything with a real-world effect.

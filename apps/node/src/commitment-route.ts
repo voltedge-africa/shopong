@@ -6,7 +6,7 @@
 // The value is never logged.
 
 import type { FastifyInstance } from "fastify";
-import { isTreasurer } from "@shopong/community";
+import { isTreasurer, logTimeOf } from "@shopong/community";
 import { z } from "zod";
 import type { CapabilityAuth, Commitments } from "@shopong/ports";
 import { nodeMessage, type AuthorityConfig, type NodeProblem } from "./authority.ts";
@@ -97,7 +97,10 @@ export function registerCommitmentRoute(
     if (commitments === undefined || config === undefined) {
       return refuse("not_configured", nodeMessage("not_configured"), actor);
     }
-    if (!(await isTreasurer(config.view, config.creator, actor, verdict.now))) {
+    // Judged at the later of the record's log time and the Node's clock, as the authority check is (story 3.6).
+    const at = Math.max(verdict.now, (await logTimeOf(config.view)) ?? 0);
+    const standing = { auth: options.auth, creator: config.creator, spaceKey: config.spaceKey };
+    if (!(await isTreasurer(standing, config.view, actor, at))) {
       return refuse("not_treasurer", COMMITMENT_MESSAGES.not_treasurer, actor);
     }
     if (!limits.spend("commitments", actor, COMMITMENT_RATE.max, COMMITMENT_RATE.windowMs)) {

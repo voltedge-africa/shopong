@@ -29,7 +29,8 @@ export type InvitationProblem =
   | "someone_else"
   | "unreadable"
   | "bad_invitee"
-  | "missing_proof";
+  | "missing_proof"
+  | "revoked";
 
 export const INVITATION_MESSAGES: { readonly [P in InvitationProblem]: string } = {
   no_identity: "Make your identity first.",
@@ -39,6 +40,7 @@ export const INVITATION_MESSAGES: { readonly [P in InvitationProblem]: string } 
   unreadable: "This invitation can't be checked.",
   bad_invitee: "That doesn't look like an identity.",
   missing_proof: "This invitation has no proof in it.",
+  revoked: "This role has been taken back.",
 };
 
 export type InvitationError = PortError<InvitationProblem>;
@@ -49,6 +51,7 @@ const fail = (problem: InvitationProblem) => err(problem, INVITATION_MESSAGES[pr
 export function problemOf(code: AuthorityProblem): InvitationProblem {
   if (code === "ended") return "expired";
   if (code === "not_yours") return "someone_else";
+  if (code === "revoked") return "revoked";
   return "unreadable";
 }
 
@@ -179,6 +182,8 @@ export interface CheckInvitationRequest {
    * (review finding 1). Absent means none is, so a passed-on invitation is refused.
    */
   readonly isCurrentGrant?: (holder: Did, tokenId: string) => boolean | Promise<boolean>;
+  /** Whether a grant has been taken back in the record (`role.revoked`). Absent means none has been. */
+  readonly isRevoked?: (tokenId: string) => boolean | Promise<boolean>;
 }
 
 /** Checks an invitation on this phone with no network, and names the problem in plain words. */
@@ -201,6 +206,7 @@ export async function checkInvitation(
     rootIssuer: parts.creator,
     at: now,
     required: { with: spaceUri(parts.spaceKey), can: JOIN_ABILITY },
+    ...(request.isRevoked === undefined ? {} : { isRevoked: request.isRevoked }),
     isCurrentGrant: request.isCurrentGrant ?? (() => false),
   });
   if (!verified.ok) return fail(problemOf(verified.error.code));
