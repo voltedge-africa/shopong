@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollView } from "react-native";
 import { Alert, Button, Input, Text } from "panelui-native";
 
@@ -19,6 +19,13 @@ export default function Join() {
   const [text, setText] = useState(fromLink);
   const [outcome, setOutcome] = useState<{ ok: boolean; message: string } | undefined>();
   const [busy, setBusy] = useState(false);
+
+  // A new link opened while this screen is already showing replaces the old text and result.
+  useEffect(() => {
+    if (fromLink === "") return;
+    setText(fromLink);
+    setOutcome(undefined);
+  }, [fromLink]);
 
   const onCheck = async () => {
     if (busy) return;
