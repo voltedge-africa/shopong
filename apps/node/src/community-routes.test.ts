@@ -435,3 +435,66 @@ describe("POST /communities/:key/members", () => {
 
 void eventIdOf;
 void T0;
+
+// Story 8.1: the creator's community name and rules note, written through the Node's events route.
+describe("POST /spaces/:key/events: the community name (story 8.1)", () => {
+  it("accepts a valid community.named from the creator, and the record gives it back to every member", async () => {
+    const node = await start();
+    const creator = await phone();
+    const key = randomKey();
+    expect((await createCommunity(node, creator, key)).status).toBe(200);
+    const founder = await eventOf(key, creator, "member.joined", { invitation: "founder" });
+    expect((await post(node, creator, key, founder)).status).toBe(200);
+
+    const naming = createEvent({
+      type: "community.named",
+      space: key,
+      actor: creator.did,
+      proof: [],
+      claimedAt: Date.now(),
+      nonce: randomHex(16),
+      payload: { name: "Ntombi Stokvel", rules: "We pay in on the first Friday." },
+    } as never);
+    const accepted = await post(node, creator, key, naming);
+    expect(accepted.status).toBe(200);
+    expect(accepted.json.id).toBe(await eventIdOf(naming, webCryptoSha512));
+
+    const pulled = await call(node, creator, "GET", `/spaces/${key}/events?after=`);
+    expect(pulled.status).toBe(200);
+    // Each pulled entry carries the envelope under `event`.
+    const events = pulled.json.events as { event?: { type?: string; payload?: unknown } }[];
+    expect(events.map((entry) => entry.event)).toContainEqual(
+      expect.objectContaining({
+        type: "community.named",
+        payload: { name: "Ntombi Stokvel", rules: "We pay in on the first Friday." },
+      }),
+    );
+  });
+
+  it("refuses a malformed community.named at the route, in plain words, and writes nothing", async () => {
+    const node = await start();
+    const creator = await phone();
+    const key = randomKey();
+    expect((await createCommunity(node, creator, key)).status).toBe(200);
+    const founder = await eventOf(key, creator, "member.joined", { invitation: "founder" });
+    expect((await post(node, creator, key, founder)).status).toBe(200);
+
+    // A raw envelope, not built by `createEvent`, so the route's own check is what refuses it.
+    const raw = {
+      v: 1,
+      type: "community.named",
+      space: key,
+      actor: creator.did,
+      proof: [],
+      claimedAt: Date.now(),
+      nonce: randomHex(16),
+      payload: { name: "N".repeat(81), rules: "" },
+    };
+    const refused = await call(node, creator, "POST", `/spaces/${key}/events`, raw);
+    expect(refused.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(refused.json)).not.toContain("N".repeat(81));
+    const pulled = await call(node, creator, "GET", `/spaces/${key}/events?after=`);
+    const types = (pulled.json.events as { event?: { type?: string } }[]).map((e) => e.event?.type);
+    expect(types).not.toContain("community.named");
+  });
+});

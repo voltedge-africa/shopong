@@ -42,6 +42,7 @@ export const EVENT_TYPES = [
   "solution.shared",
   "agent.action",
   "file.attached",
+  "community.named",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -89,6 +90,15 @@ export interface RoleGrantedPayload extends JsonObject {
   readonly grantee: string;
   /** When the role ends, milliseconds since the Unix epoch. */
   readonly expiresAt: number;
+}
+
+/**
+ * `community.named` (story 8.1): the community's name and a short rules note, both plain text. The creator writes it on
+ * creation; every member sees the same words. Neither field may hold an identity or an address (AGENTS rule 6).
+ */
+export interface CommunityNamedPayload extends JsonObject {
+  readonly name: string;
+  readonly rules: string;
 }
 
 /**
@@ -159,6 +169,7 @@ export type PayloadMap = { [T in EventType]: JsonObject } & {
   "member.removed": MemberRemovedPayload;
   "collection.confirmed": CollectionConfirmedPayload;
   "delivery.disputed": DeliveryDisputedPayload;
+  "community.named": CommunityNamedPayload;
 };
 
 export interface Issue {
@@ -369,6 +380,27 @@ const deliveryPlanned: PayloadValidator = (payload) => {
   return issues;
 };
 
+/** The longest name and rules note a community can carry (story 8.1). */
+export const COMMUNITY_NAME_MAX = 80;
+export const COMMUNITY_RULES_MAX = 500;
+
+/** `community.named` (story 8.1): a name of 1 to 80 characters and rules of up to 500, one line each, no address. */
+const communityNamed: PayloadValidator = (payload) => [
+  ...onlyKeys(payload, ["name", "rules"]),
+  ...requireString(
+    payload,
+    "name",
+    placeName(COMMUNITY_NAME_MAX),
+    "must be a community name of 1 to 80 characters, not an address",
+  ),
+  ...requireString(
+    payload,
+    "rules",
+    boundedText(0, COMMUNITY_RULES_MAX),
+    "must be a rules note of up to 500 characters, on one line",
+  ),
+];
+
 /**
  * A coarse coordinate (story 7.6): a latitude or longitude in degrees, as a decimal string with at most two decimal
  * places (about 1 km). The canonical JSON takes no floats (canonical.ts), so the degrees travel as text. Anything finer is
@@ -536,4 +568,5 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "delivery.confirmed": deliveryConfirmed,
   "collection.confirmed": collectionConfirmed,
   "delivery.disputed": deliveryDisputed,
+  "community.named": communityNamed,
 };

@@ -25,6 +25,8 @@ export {
   type QuoteReceipt,
 } from "./community.js";
 export { DELIVERY_MESSAGES, plannerProblem } from "./delivery.js";
+export { holdersOf, isRoleStanding, type HeldRole } from "./roles.js";
+export { NAMING_MESSAGES, namingProblem } from "./naming.js";
 export {
   PROOF_MESSAGES,
   progressOf,
@@ -32,7 +34,6 @@ export {
   type DisputeRecord,
   type OrderProgress,
 } from "./delivery-proof.js";
-export { isRoleStanding } from "./roles.js";
 export {
   PAYMENT_TYPE_MESSAGE,
   PLEDGE_LIMITS,

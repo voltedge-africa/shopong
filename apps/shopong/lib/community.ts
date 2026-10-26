@@ -15,6 +15,7 @@ import {
   type CommunityDeps,
   type CommunityError,
   type GrantOptions,
+  type HeldRole,
   type Invitation,
   type InvitationError,
   type Member,
@@ -53,6 +54,7 @@ export type CommunityService = {
     name: string,
     key?: string,
     approvals?: number,
+    rules?: string,
   ) => Promise<Result<Community, CommunityError>>;
   invite: (invitee: string) => Promise<Result<Invitation, InvitationError | CommunityError>>;
   /** Check pasted text on this phone with no network. Joining for real waits for epic 3. */
@@ -66,6 +68,8 @@ export type CommunityService = {
   ) => Promise<Result<RoleDraft, RoleError | CommunityError>>;
   /** The roles recorded for me. */
   roles: () => Promise<readonly RoleRecord[]>;
+  /** Every role recorded in the community, with its holder: what every member sees (story 8.1). */
+  roleHolders: () => Promise<readonly HeldRole[]>;
   /** "What can I do?" */
   checkAction: (request: ActionRequest) => Promise<Result<RoleCheck, RoleError>>;
   /** Record a typed quote (story 6.8). Only the treasurer can. */
@@ -104,7 +108,7 @@ export function createCommunityService(
 
   return {
     community: () => current,
-    async create(name, key, approvals) {
+    async create(name, key, approvals, rules) {
       if (identity === null)
         return logged("Make a community", err("refused", "Make your identity first."));
       const made = await createCommunity(
@@ -114,6 +118,7 @@ export function createCommunityService(
         now(),
         key,
         approvals,
+        rules,
       );
       if (made.ok) current = made.value;
       return logged("Make a community", made);
@@ -161,6 +166,9 @@ export function createCommunityService(
     },
     async roles() {
       return current === null ? [] : current.roles();
+    },
+    async roleHolders() {
+      return current === null ? [] : current.roleHolders();
     },
     async checkAction(request) {
       if (current === null) {

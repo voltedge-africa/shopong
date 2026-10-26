@@ -54,8 +54,10 @@ import {
   type ActionRequest,
   type RoleCheck,
   type RoleDraft,
+  type HeldRole,
   type RoleError,
   type RoleRecord,
+  holdersOf,
 } from "./roles.js";
 import {
   INVITATION_MESSAGES,
@@ -65,6 +67,7 @@ import {
   type InvitationError,
 } from "./invitation.js";
 import { encodeProof } from "./proof.js";
+import { EMPTY_NAME_MESSAGE, NAMING_TYPE, namingProblem } from "./naming.js";
 import { newCommunityKey, toHex } from "./space.js";
 
 export interface CommunityDeps {
@@ -117,7 +120,7 @@ export interface GrantOptions {
   readonly days?: number;
 }
 
-export const EMPTY_NAME_MESSAGE = "Give your community a name.";
+export { EMPTY_NAME_MESSAGE };
 
 /** `not_permitted`: not the treasurer. `incomplete`: nothing is recorded; the reasons are in the message. */
 export type QuoteError = PortError<"not_permitted" | "incomplete" | "refused">;
@@ -275,6 +278,8 @@ export interface Community {
   ): Promise<Result<RoleDraft, RoleError | CommunityError>>;
   /** The roles recorded for me, ended ones included. */
   roles(): Promise<readonly RoleRecord[]>;
+  /** Every role recorded in this community, with its holder, ended ones included (story 8.1). */
+  roleHolders(): Promise<readonly HeldRole[]>;
   /** "What can I do?": may I do this? Judged at log time, as `apply` judges it (story 3.6). */
   checkAction(request: ActionRequest): Promise<Result<RoleCheck, RoleError>>;
   /**
@@ -394,6 +399,10 @@ function wrap(
     async roles() {
       await space.update();
       return rolesOf(space.view, me);
+    },
+    async roleHolders() {
+      await space.update();
+      return holdersOf(await space.view.list("roles/"));
     },
     async checkAction(request) {
       await space.update();
@@ -518,7 +527,8 @@ function wrap(
 
 /**
  * Make a community with me as its creator and only member. `key` is the community key; pass one when the Node
- * must hold the same key (story 3.4), otherwise a new random key is made.
+ * must hold the same key (story 3.4), otherwise a new random key is made. The name and the rules note are written
+ * as one `community.named` event straight after the founding, so every member sees them (story 8.1).
  */
 export async function createCommunity(
   deps: CommunityDeps,
@@ -528,9 +538,15 @@ export async function createCommunity(
   key: string = newCommunityKey(deps.randomBytes),
   /** How many people must approve a supplier payment (story 4.7): 1 to 5. Absent, the founding event says nothing and two apply. */
   approvals?: number,
+  /** A short rules note, plain text, up to 500 characters. Empty when left out. */
+  rules: string = "",
 ): Promise<Result<Community, CommunityError>> {
   const trimmed = name.trim();
-  if (trimmed === "") return err("empty_name", EMPTY_NAME_MESSAGE);
+  const trimmedRules = rules.trim();
+  const problem = namingProblem(trimmed, trimmedRules);
+  if (problem !== undefined) {
+    return err(problem === EMPTY_NAME_MESSAGE ? "empty_name" : "refused", problem);
+  }
   const creator = record.local;
   const space = await record.create(communityDefinition(deps, creator, key));
   const founded = await append(
@@ -545,6 +561,16 @@ export async function createCommunity(
     now,
   );
   if (!founded.ok) return founded;
+  const named = await append(
+    deps,
+    space,
+    key,
+    NAMING_TYPE,
+    { name: trimmed, rules: trimmedRules },
+    [],
+    now,
+  );
+  if (!named.ok) return named;
   return ok(wrap(deps, creator, key, trimmed, creator, space));
 }
 

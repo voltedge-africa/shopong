@@ -30,7 +30,8 @@ const build = (fields: {
     | "collection.confirmed"
     | "delivery.disputed"
     | "payment.payout"
-    | "payment.approved";
+    | "payment.approved"
+    | "community.named";
   space: string;
   actor: Did;
   proof: readonly string[];
@@ -119,6 +120,24 @@ export function approvalEvent(
       bank: input.bank,
       signature: input.signature,
     },
+  });
+}
+
+/**
+ * The community's name and rules note (story 8.1), written by the creator after the founding event. Plain text; the
+ * registry and `apply` refuse anything else. Every member sees these words once they are on the Node.
+ */
+export function namingEvent(
+  input: Base & { readonly me: Did; readonly name: string; readonly rules: string },
+): EventEnvelope {
+  return build({
+    type: "community.named",
+    space: input.community,
+    actor: input.me,
+    proof: [],
+    claimedAt: input.now,
+    nonce: hex(input.randomBytes(16)),
+    payload: { name: input.name, rules: input.rules },
   });
 }
 

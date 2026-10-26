@@ -279,6 +279,27 @@ export async function readRole(
 }
 
 /** Every role recorded for a member, ended or not. */
+/** A role recorded in the view, with the member who holds it. Every member sees every holder (story 8.1). */
+export interface HeldRole extends RoleRecord {
+  readonly holder: Did;
+}
+
+/** Every role in these view rows, each with its holder. A row that is not a role record is left out. */
+export function holdersOf(
+  rows: readonly { readonly key: string; readonly value: JsonValue }[],
+): readonly HeldRole[] {
+  const out: HeldRole[] = [];
+  for (const row of rows) {
+    if (!row.key.startsWith("roles/")) continue;
+    const rest = row.key.slice("roles/".length);
+    const slash = rest.lastIndexOf("/");
+    const record = parseRecord(row.value);
+    if (slash < 0 || record === undefined) continue;
+    out.push({ holder: rest.slice(0, slash) as Did, ...record });
+  }
+  return out;
+}
+
 export async function rolesOf(view: ViewReader, holder: string): Promise<readonly RoleRecord[]> {
   const out: RoleRecord[] = [];
   for (const entry of await view.list(`roles/${holder}/`)) {
