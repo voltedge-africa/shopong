@@ -91,3 +91,15 @@ covers = []
 after = [1, 2, 3, 4, 5, 6, 7]
 hitl = false
 risk = "low"
+
+[[entry]]
+id = 9
+type = "story"
+title = "Review and redo every Demonstration 1 shortcut"
+description = "Walks every open row in initiative-ocn/shortcuts.md, highest risk first (money, authority, personal data, then the rest), and for each one either reimplements it properly, closes it with evidence, or records the product owner's decision to accept it; no row is left as a note."
+verify = "Every shortcut row is closed, reimplemented or explicitly accepted by the product owner with a reason, the register has no open row from before this story, and the full test suite still passes."
+covers = []
+after = ["12.6"]
+hitl = true
+risk = "high"
+references = []
