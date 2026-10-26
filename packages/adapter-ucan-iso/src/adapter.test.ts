@@ -1,7 +1,7 @@
 // The port's contract suite against the iso-ucan adapter: plain, with the clock and network trapped
 // during `verify` (it must be a pure function of its inputs, AD-6), and with issue-time attenuation
 // checks off so `verify` alone has to refuse amplifying delegations.
-import { describe, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import type { CapabilityAuth } from "@shopong/ports";
 import { capabilityAuthContract, runCapabilityAuthContract } from "@shopong/ports-contract";
 import { IsoUcanCapabilityAuth } from "./adapter.js";
@@ -53,4 +53,34 @@ describe("IsoUcanCapabilityAuth, no attenuation check at issue", () => {
   for (const c of capabilityAuthContract) {
     it(c.name, async () => c.run(new IsoUcanCapabilityAuth({ checkAttenuationOnIssue: false })));
   }
+});
+
+// The Ed25519 seed AD-18 derives from the recovery seed 00 01 02 ... 1f (see apps/shopong/lib/identitySeed.ts,
+// which tests the derivation itself). Pinned here so the adapter's use of it cannot drift.
+const GOLDEN_IDENTITY_SEED = "ee42e9a2e84c803afdcce145d2ee449d0d27b3ee1b6fd7c562e12ee3ff086eda";
+const GOLDEN_DID = "did:key:z6MkmtmqQWNzwamfa7QWkNU3Sk2qHpuXK4VrfMXXqVouVZtL";
+
+describe("IsoUcanCapabilityAuth, identitySeed", () => {
+  const seed = Uint8Array.from(GOLDEN_IDENTITY_SEED.match(/../g) ?? [], (h) => parseInt(h, 16));
+
+  it("the first identity is the seed's key and later ones are fresh", async () => {
+    const auth = new IsoUcanCapabilityAuth({ identitySeed: seed });
+    expect(await auth.createIdentity()).toBe(GOLDEN_DID);
+    const next = await auth.createIdentity();
+    expect(next).not.toBe(GOLDEN_DID);
+  });
+
+  it("the same seed gives the same DID on a new adapter", async () => {
+    const a = await new IsoUcanCapabilityAuth({ identitySeed: seed }).createIdentity();
+    const b = await new IsoUcanCapabilityAuth({ identitySeed: seed }).createIdentity();
+    expect(a).toBe(b);
+  });
+
+  it("refuses a seed that is not 32 bytes", () => {
+    expect(() => new IsoUcanCapabilityAuth({ identitySeed: new Uint8Array(16) })).toThrow(
+      RangeError,
+    );
+  });
+
+  runCapabilityAuthContract(() => new IsoUcanCapabilityAuth({ identitySeed: seed }));
 });

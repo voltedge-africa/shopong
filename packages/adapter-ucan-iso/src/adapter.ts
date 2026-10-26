@@ -71,6 +71,12 @@ export interface IsoUcanCapabilityAuthOptions {
   checkAttenuationOnIssue?: boolean;
   /** Supply keys (for example derived from a recovery seed); otherwise random. */
   createSigner?: () => Promise<EdDSASigner>;
+  /**
+   * The 32-byte Ed25519 seed of this device's own identity (AD-18: derived from the recovery seed,
+   * never the recovery seed itself). The first `createIdentity()` returns the DID of this key; later
+   * calls make fresh keys as usual. Ignored when `createSigner` is given.
+   */
+  identitySeed?: Uint8Array;
 }
 
 interface Bundle {
@@ -85,7 +91,20 @@ export class IsoUcanCapabilityAuth implements CapabilityAuth {
 
   constructor(options: IsoUcanCapabilityAuthOptions = {}) {
     this.#checkOnIssue = options.checkAttenuationOnIssue ?? true;
-    this.#createSigner = options.createSigner ?? (() => EdDSASigner.generate());
+    const seed = options.identitySeed;
+    if (seed !== undefined && seed.length !== 32) {
+      throw new RangeError("identitySeed must be 32 bytes");
+    }
+    let seedPending = seed !== undefined;
+    this.#createSigner =
+      options.createSigner ??
+      (() => {
+        if (seedPending && seed !== undefined) {
+          seedPending = false;
+          return EdDSASigner.generate(seed);
+        }
+        return EdDSASigner.generate();
+      });
   }
 
   async createIdentity(): Promise<Did> {

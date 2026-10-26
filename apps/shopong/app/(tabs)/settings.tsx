@@ -1,6 +1,7 @@
 import { ScrollView } from "react-native";
 import { Text } from "panelui-native";
 
+import { IdentityCard } from "../../components/IdentityCard";
 import { TabScreen } from "../../components/TabScreen";
 
 export default function Settings() {
@@ -10,6 +11,7 @@ export default function Settings() {
         <Text accessibilityRole="header" size="3xl" weight="bold">
           Settings
         </Text>
+        <IdentityCard />
       </ScrollView>
     </TabScreen>
   );
