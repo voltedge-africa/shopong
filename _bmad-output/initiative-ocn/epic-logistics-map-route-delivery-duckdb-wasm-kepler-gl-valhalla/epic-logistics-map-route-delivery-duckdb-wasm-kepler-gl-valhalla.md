@@ -59,3 +59,4 @@ The map, route, multi-stop and delivery-proof capabilities in the web console an
 - Assumption: the map reads coarsened member locations from the community Hyperbee view through the web console (3.8), not from a separate store.
 - Open question: entry 7.6 pins 4.7 because the top-level row names it, but proof of delivery is what the pool consumes; if the pool needs this epic's proof event, the dependency runs the other way (epic 4 on epic 7). The user decides which epic owns that link and whether the row should move.
 - Assumption: entry 8, a closing Refactor sweep, was added by default because the epic has more than three entries; declining it is a `Decision:` line.
+- Decision: 2026-10-26, the product owner wants Valhalla tested on a device, the Android emulator first, before the routing decision for Demonstration 1 is recorded. Spike 7.1 stays open until that test is run.

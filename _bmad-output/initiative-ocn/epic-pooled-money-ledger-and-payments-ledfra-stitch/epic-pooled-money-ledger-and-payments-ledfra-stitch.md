@@ -38,7 +38,7 @@ Members and the treasurer can trust the pool's money because every payment, bala
 3. A supplier payment goes through only when enough approvers within their ceilings have approved, and is refused with its reason otherwise.
 4. The pool total shown to members equals the ledger balance, and a mismatch with the shared record is flagged.
 5. A cancelled order refunds each member with a visible state, and a shortfall choice is recorded and shown to members.
-6. Decision D-2 (ledger) and the Stitch decision record exist before the stories that depend on them are built.
+6. Decision D-2 (ledger) and the Stitch decision record exist before the stories that depend on them are built. D-2 is closed (our own ledger): `docs/decisions/d-2-own-ledger.md`; the Stitch record comes from spike 4.4.
 
 ## Boundaries
 
@@ -63,3 +63,6 @@ The pool's money: the Ledger adapter, Stitch pay-in and pay-out, the webhook and
 - Open question: entry 7 pays "a selected quote", and quotes belong to epic 6 (structured quotes). Epic 6 is not in this epic's `after`, so no pin is written; the user decides whether to add that dependency.
 - Assumption: AR6 (mirror every ledger posting as a shared-record event) is delivered by entry 2, and UX-DR2 (a confirmation step on every money action) by entry 7; placed here because the spec does not map them to an epic.
 - Assumption: entry 9, a closing Refactor sweep, was added by default because the epic has more than three entries; declining it is a `Decision:` line.
+- Decision: 2026-10-26, the product owner closed D-2: the ledger is our own, self-hosted on the OCN Node, not Ledfra. Entry 4.2 now builds it behind the `Ledger` port and no longer waits on the sandbox step 1.6 (it needs no outside account). The folder and epic names still say Ledfra; they are left as they are so ids and paths do not change.
+- Dropped: 2026-10-26, entry 4.1 (Ledfra fit): there is no vendor to test now that D-2 is closed in favour of our own ledger; the Early Access deadline of 2026-12-31 no longer applies.
+- Observation (2026-10-26, from the re-cut check, not changed): 4.3 and 4.4 both touch Stitch authentication with no ordering between them; consider making 4.3 wait on the 4.4 spike when 4.3 is planned.
