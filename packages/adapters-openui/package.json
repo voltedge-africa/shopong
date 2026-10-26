@@ -22,6 +22,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@shopong/component-library": "workspace:*",
     "@shopong/ports-contract": "workspace:*",
     "typescript": "7.0.2",
     "vite-plus": "catalog:"

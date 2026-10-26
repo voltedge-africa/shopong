@@ -619,6 +619,9 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
+      '@shopong/component-library':
+        specifier: workspace:*
+        version: link:../component-library
       '@shopong/ports-contract':
         specifier: workspace:*
         version: link:../ports-contract
@@ -644,6 +647,19 @@ importers:
       '@shopong/adapters-memory':
         specifier: workspace:*
         version: link:../adapters-memory
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.0(@types/node@24.19.2)(@voidzero-dev/vite-plus-core@0.3.0(@types/node@24.19.2)(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2))(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2)
+
+  packages/component-library:
+    dependencies:
+      '@shopong/ports':
+        specifier: workspace:*
+        version: link:../ports
+    devDependencies:
       typescript:
         specifier: 7.0.2
         version: 7.0.2

@@ -21,6 +21,8 @@ remind = Button("Remind everyone who owes", "primary", @MessageSend())
   checking library here and the drawing library in the app are both built from it, so they cannot
   disagree.
 - **`inspectScreen(library, source)`** is the same check without the promise.
+- **`generateSpec(library)`** is the library's JSON Schema, and **`generateSystemPrompt(library)`** is the model
+  prompt as a plain function. Both are local. The approved library itself is `@shopong/component-library`.
 
 ## What the check adds to OpenUI's parser
 

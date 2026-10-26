@@ -75,6 +75,22 @@ export function openUiLibraryOf(library: ComponentLibrary): Required<Library> {
   return compile(library).library;
 }
 
+/**
+ * The spec of a library: the JSON Schema of its OpenUI form, built locally. This is what
+ * `openui generate --spec` would write, without the CLI or a network call.
+ */
+export function generateSpec(library: ComponentLibrary): LibraryJSONSchema {
+  return compile(library).schema;
+}
+
+/**
+ * The system prompt that teaches a model a library, built locally. The same text `GenUi.systemPrompt`
+ * returns, as a plain function: no gateway, no network.
+ */
+export function generateSystemPrompt(library: ComponentLibrary): Promise<string> {
+  return new OpenUiGenUi([library]).systemPrompt(library);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Checking                                                                    */
 /* -------------------------------------------------------------------------- */
