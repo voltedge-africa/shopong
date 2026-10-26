@@ -14,6 +14,7 @@ import { registerCommunityRoutes, type CommunityHub } from "./community-routes.t
 import { registerPoolRoute, type PoolRouteOptions } from "./pool-routes.ts";
 import { registerTileRoutes, type TileRouteOptions } from "./tiles-routes.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
+import { registerFileRoutes, type FileRouteOptions } from "./files.ts";
 import { registerPaymentRoutes } from "./payments-routes.ts";
 import {
   registerPaymentRequestRoutes,
@@ -67,6 +68,8 @@ export interface AppOptions {
   checking?: CheckingRouteOptions;
   /** Sets up a new community's books chart when it is made (story 4.5). */
   books?: { readonly configureCommunity: (communityKey: string) => Promise<void> };
+  /** The signed file routes (story 3.7). Without it, they are not served. */
+  files?: FileRouteOptions;
   /** The map tile releases (story 7.2). Without a releases folder the `/map` routes are not served. */
   tiles?: TileRouteOptions;
 }
@@ -98,7 +101,11 @@ async function report(options: AppOptions): Promise<HealthReport> {
  * the process is alive; `/ready` answers 503 until every enabled component is ok.
  */
 export function buildApp(options: AppOptions): FastifyInstance {
-  const app: FastifyInstance = Fastify({ loggerInstance: options.logger });
+  // A file's hash is a 128-character path parameter, past Fastify's default limit of 100 (story 3.7).
+  const app: FastifyInstance = Fastify({
+    loggerInstance: options.logger,
+    routerOptions: { maxParamLength: 256 },
+  });
   const auth = options.auth ?? new IsoUcanCapabilityAuth();
 
   app.get("/health", async () => report(options));
@@ -121,6 +128,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     config: options.authority,
   });
   registerSyncRoutes(app, auth, options.sync ?? {});
+  if (options.files !== undefined) registerFileRoutes(app, options.files);
   registerPoolRoute(app, auth, options.pool ?? {});
   if (options.routes !== undefined) registerRouteRoutes(app, auth, options.routes);
   if (options.tiles !== undefined) registerTileRoutes(app, options.tiles);

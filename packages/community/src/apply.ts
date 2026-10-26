@@ -15,7 +15,7 @@
 //
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
 // `joined/<invitation id>` { member }, `roles/<did>/<role>` and `revoked/<grant id>` (see roles.ts),
-// `quotes/<order>/<supplier>` (see quotes.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
+// `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
 // pledges.ts), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
@@ -26,10 +26,12 @@ import {
   checkPersonalFields,
   isPlainObject,
   type EventEnvelope,
+  type FileAttachedPayload,
   type JsonObject,
 } from "@shopong/events";
 import type { Apply, CapabilityAuth, Did, EpochMs, RecordEntry, ViewWriter } from "@shopong/ports";
 import { invitePassOnAllowed } from "./chain.js";
+import { fileOfOrderKey, fileShapeProblem, fileUploadProblem } from "./files.js";
 import {
   DELIVERY_MESSAGES,
   deliveryKey,
@@ -120,6 +122,7 @@ const CHECKED: ReadonlySet<string> = new Set([
   "quote.added",
   "pledge.created",
   "payment.requested",
+  "file.attached",
   "place.registered",
   "delivery.planned",
   "delivery.confirmed",
@@ -409,6 +412,27 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /**
+   * A file is named by its event only when the event is in the strict form, its sender may attach that purpose at log
+   * time, and the file is recorded under its order (story 3.7). The bytes are the Node's; the record holds the reference.
+   */
+  async function fileAttached(
+    event: EventEnvelope,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const shape = fileShapeProblem(event.payload);
+    if (shape !== undefined) return shape;
+    const payload = event.payload as unknown as FileAttachedPayload;
+    const refused = await fileUploadProblem(standing, view, event.actor, payload.purpose, at);
+    if (refused !== undefined) return refused;
+    await view.put(fileOfOrderKey(payload.order, payload.hash), {
+      ...(event.payload as JsonObject),
+      by: event.actor,
+    });
+    return undefined;
+  }
+
   return async (entries, view, host) => {
     for (const entry of entries) {
       const event = entry.event;
@@ -473,6 +497,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return pledgeCreated(entry, view);
       case "payment.requested":
         return paymentRequested(entry, view);
+      case "file.attached":
+        return fileAttached(event, view, at);
       case "place.registered":
         return placeRegisteredCheck(event, view, at);
       case "delivery.planned":

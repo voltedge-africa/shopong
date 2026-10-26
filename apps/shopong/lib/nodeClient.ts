@@ -5,7 +5,7 @@
 // (a plain refusal: park it and show the reason).
 
 import { signRequest, type PoolView, type RequestParts } from "@shopong/community";
-import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
+import { toBase64, webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import type { CapabilityAuth, Did } from "@shopong/ports";
 
 export type NodeFailure =
@@ -92,6 +92,18 @@ export interface NodeClient {
     event: EventEnvelope,
   ): Promise<NodeReply<{ id: string; duplicate: boolean }>>;
   pull(key: string, after: string, limit?: number): Promise<NodeReply<PulledPage>>;
+  /** Keeps one file on the Node (story 3.7). The Node checks the role, size, type and hash before it keeps anything. */
+  uploadFile(
+    key: string,
+    file: {
+      readonly sha512: string;
+      readonly purpose: string;
+      readonly type: string;
+      readonly bytes: Uint8Array;
+    },
+  ): Promise<NodeReply<{ readonly sha512: string; readonly duplicate: boolean }>>;
+  /** The bytes of one file the Node holds, as base64 (story 3.7). Members only. */
+  readFile(key: string, hash: string): Promise<NodeReply<{ readonly bytes: string }>>;
   /** The pool as the Node reads the books and the record (story 4.6). Members only. */
   pool(key: string): Promise<NodeReply<PoolView>>;
   /** Plans a route between two places the community registered (story 7.4). The treasurer or a current driver. */
@@ -286,6 +298,22 @@ export function createNodeClient(options: NodeClientOptions): NodeClient {
           ...(typeof j.bankPath === "string" ? { bankPath: j.bankPath } : {}),
         }),
       ),
+    uploadFile: (key, file) =>
+      request(
+        "POST",
+        `/spaces/${key}/files`,
+        {
+          sha512: file.sha512,
+          purpose: file.purpose,
+          type: file.type,
+          bytes: toBase64(file.bytes),
+        },
+        (j) => ({ sha512: String(j.sha512), duplicate: j.duplicate === true }),
+      ),
+    readFile: (key, hash) =>
+      request("GET", `/spaces/${key}/files/${hash}`, undefined, (j) => ({
+        bytes: typeof j.bytes === "string" ? j.bytes : "",
+      })),
     pull: (key, after, limit = 100) =>
       request(
         "GET",

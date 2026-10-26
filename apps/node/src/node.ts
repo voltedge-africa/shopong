@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { FastifyInstance } from "fastify";
+import { HyperdriveFileStores } from "@shopong/adapter-hyperdrive";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { SIMULATED_MODE, type SimulatedStitch } from "@shopong/adapter-stitch-sim";
 import { configureChart, openSqliteLedger } from "@shopong/ledger-sqlite";
@@ -142,6 +143,8 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
   // The SQLite books this Node opened (not an injected ledger): closed with the Node.
   let ownedBooks: { close(): void } | undefined;
   let checking: RunningChecking | undefined;
+  // The community files (story 3.7): one Hyperdrive per community, beside the record. Opened only with the record.
+  let files: HyperdriveFileStores | undefined;
   let app: FastifyInstance;
   const identity = opened === undefined ? undefined : await nodeIdentityOf(masterKeyOf(secrets));
   try {
@@ -187,6 +190,13 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
             indexer: opened.record,
             auth,
             maxCommunities: config.maxCommunities,
+          });
+    files =
+      opened === undefined
+        ? undefined
+        : await HyperdriveFileStores.open({
+            dataDir: config.dataDir,
+            masterKey: masterKeyOf(secrets),
           });
     const paymentRequests = paymentRequestOptionsOf({ auth, hub, payments, secrets, identity });
 
@@ -235,6 +245,9 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       auth,
       sync: hub === undefined ? {} : { hub },
       ...(hub === undefined ? {} : { communities: hub }),
+      ...(hub === undefined || files === undefined
+        ? {}
+        : { files: { hub, stores: files, auth, quotaBytes: config.fileQuotaBytes } }),
       ...(routeOptions === undefined ? {} : { routes: routeOptions }),
       pool: {
         ...(hub === undefined ? {} : { hub }),
@@ -297,6 +310,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
     checking?.close();
     await closeInOrder([
       () => hub?.close(),
+      () => files?.close(),
       () => opened?.record.close(),
       () => ownedBooks?.close(),
     ]);
@@ -340,6 +354,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
         () => checking?.close(),
         () => app.close(),
         () => hub?.close(),
+        () => files?.close(),
         () => opened?.record.close(),
         () => ownedBooks?.close(),
       ]),

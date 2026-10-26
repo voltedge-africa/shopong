@@ -106,3 +106,37 @@ baseline_revision: '2d1ef5d846450eee09b35853682df06a69a0c175'
 7. **How does an event name a file?**
    - A) A new `file.attached` event that other events point to, so there is one reference shape (recommended: rule 2 adds types, not envelopes).
    - B) A `file` field inside each event that needs one (`quote.added`, `delivery.confirmed`), with no new type.
+
+## Implementation Notes
+
+**Verify line, for the product owner to reword in `tickets.toml`.** The ticket's verify line (story 3.7) reads: "An attached file's event carries its SHA-512, a receiving device fetches and verifies it lazily, and a blob freed with clear(path) is re-fetched on demand." `clear(path)` is Hyperdrive's call on a phone replica, which decision 3.1 defers. The reworded line that this story meets: "An attached file's event carries its SHA-512; a receiving device fetches the file from the Node when it is opened, checks it against that hash, and may delete its cached copy, after which it is fetched again from the Node on demand." Open Question 2 option A is the reason.
+
+**What was built** (story PR on `story/3-7-files-and-photos`):
+- `packages/ports` `FileStore` port, with its contract suite (`packages/ports-contract`) and an in-memory adapter (`packages/adapters-memory`).
+- `packages/adapter-hyperdrive`: the Hyperdrive adapter, `hyperdrive` 13.3.4 (Apache-2.0), on the repo's `corestore` 7.16.1 and `hypercore` 11.39.3 (one copy each, checked with `pnpm why`). One Hyperdrive per community, on a Corestore under `<data>/files`.
+- `packages/events`: `file.attached` (strict shape, purpose rules), `attachment.ts` (type from the bytes, size limits, metadata strip for JPEG, PNG and WebP), `base64.ts`.
+- `packages/community`: `files.ts` (who may attach: the treasurer for a price list, a driver for a delivery photo) and the `file.attached` case in `apply`.
+- `apps/node/src/files.ts`: signed upload and read routes; wired in `node.ts` and `app.ts`.
+- `apps/shopong`: `attachmentStore.ts` (native store), `byteStore.ts`, `attachments.ts` (the upload-then-event service), the node client calls, the provider and the orders host.
+- `miniapps/vendor/orders`: `FilesPanel.tsx` and `files.ts` (the plain words), shown on an order.
+
+**Decisions that differ from the code map.** The Hyperdrive is opened by `node.ts` through the adapter, not by a new method on `hub.ts`, so `hub.ts` is unchanged. The upload and read bodies are JSON with the file in base64 (the signed-request gate signs the text). A photo's role is the driver's `delivery/confirm`, and a price list's is the treasurer's, the same rule in the Node route and in `apply`. A PDF is accepted for a price list but its metadata is not stripped (shortcut S-3.7-4).
+
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 2 high, 7 medium, 7 low.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | JPEG bytes after the end of the image (a motion photo's video with GPS) survived the strip | high, real | patch | The scan is walked to the real end-of-image marker and the rest is dropped; test with an MP4-like blob after EOI failed first; mutation-checked |
+| 2 | A file name could carry a street address into the replicated record | high, real | patch | The record carries only a generated label ("Price list" / "Delivery photo" plus a short hash); the person's file name stays on the phone; tests failed first |
+| 3 | WebP kept every chunk except EXIF, XMP and ICC, and trailing bytes | medium, real | patch | An allow-list (VP8, VP8L, VP8X, ALPH, ANIM, ANMF), stopping at the RIFF size |
+| 4 | PDFs are passed through unstripped | medium, known | defer | S-3.7-4 (the plan's answer strips photos; PDF metadata is left) |
+| 5 | No quota or rate limit on uploads, and no delete path | medium, real | patch (limits), defer (delete) | 20 uploads per 10 minutes per member, 200 MB per community; S-3.7-19 |
+| 6 | Upload bodies are buffered before the signature gate | medium, real | patch | A cap of 4 uploads in flight and an early refusal on the declared length; the comment was corrected |
+| 7 | The same photo attached to a second order dropped the first order's pending event | medium, real | patch | Pending items keyed by community, order and hash; test failed first |
+| 8 | The phone cache was keyed by hash only and never evicted | medium, real | patch | Keyed by community and hash; LRU cap of 100 MB |
+| 9 | One failed store open disabled every file route until restart | medium, real | patch | Reset and retried on the next call |
+| 10 | The picker's cached copy of the image was never deleted | medium, needs a device check | patch | The picker's copy is deleted after upload; EXIF is not read |
+| 11-16 | Role check by log time vs phone clock; nonce use; missing Content-Range; empty reply read as "does not match"; no dimension check; no encryption at rest | low | patch (13, 14), defer (rest) | S-3.7-3, S-3.7-18 to S-3.7-23 |
+
