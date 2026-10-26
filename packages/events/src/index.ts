@@ -56,6 +56,8 @@ export {
   isEventType,
   type EventType,
   type Issue,
+  type MemberInvitedPayload,
+  type MemberJoinedPayload,
   type PayloadMap,
   type PayloadValidator,
 } from "./registry.js";

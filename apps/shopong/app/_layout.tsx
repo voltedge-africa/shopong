@@ -7,6 +7,7 @@ import { View } from "react-native";
 import { useCSSVariable } from "uniwind";
 
 import { AuthProvider, useAuth } from "../lib/auth";
+import { CommunityProvider } from "../lib/CommunityProvider";
 import { IdentityProvider } from "../lib/IdentityProvider";
 
 function AppStack() {
@@ -31,6 +32,7 @@ function AppStack() {
         <Stack.Screen name="miniapp/[id]" />
         <Stack.Screen name="create" options={{ headerShown: false }} />
         <Stack.Screen name="publish" options={{ title: "Publish" }} />
+        <Stack.Screen name="join" options={{ title: "Join a community" }} />
         <Stack.Screen name="ucan-check" options={{ title: "UCAN check" }} />
       </Stack.Protected>
       <Stack.Protected guard={!unlocked}>
@@ -46,7 +48,9 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <AuthProvider>
         <IdentityProvider>
-          <AppStack />
+          <CommunityProvider>
+            <AppStack />
+          </CommunityProvider>
         </IdentityProvider>
       </AuthProvider>
     </PanelUIProvider>

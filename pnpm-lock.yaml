@@ -85,6 +85,12 @@ importers:
       '@shopong/adapters-openui':
         specifier: workspace:*
         version: link:../../packages/adapters-openui
+      '@shopong/community':
+        specifier: workspace:*
+        version: link:../../packages/community
+      '@shopong/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@shopong/miniapp':
         specifier: workspace:*
         version: link:../../packages/miniapp
@@ -487,6 +493,28 @@ importers:
       '@shopong/ports-contract':
         specifier: workspace:*
         version: link:../ports-contract
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.0(@types/node@24.19.2)(@voidzero-dev/vite-plus-core@0.3.0(@types/node@24.19.2)(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2))(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2)
+
+  packages/community:
+    dependencies:
+      '@shopong/events':
+        specifier: workspace:*
+        version: link:../events
+      '@shopong/ports':
+        specifier: workspace:*
+        version: link:../ports
+    devDependencies:
+      '@shopong/adapter-ucan-iso':
+        specifier: workspace:*
+        version: link:../adapter-ucan-iso
+      '@shopong/adapters-memory':
+        specifier: workspace:*
+        version: link:../adapters-memory
       typescript:
         specifier: 7.0.2
         version: 7.0.2

@@ -1,0 +1,79 @@
+// The app's side of a community: one in-memory record network for this run of the app, and the few
+// actions the screens need. The rules live in `@shopong/community`. Nothing here is saved: closing the
+// app loses the community (shortcut S-2.3-4).
+import {
+  checkInvitation,
+  createCommunity,
+  type CheckedInvitation,
+  type Community,
+  type CommunityDeps,
+  type CommunityError,
+  type Invitation,
+  type InvitationError,
+  type Member,
+} from "@shopong/community";
+import { createMemoryRecordNetwork, type MemoryRecordNetwork } from "@shopong/adapters-memory";
+import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
+import { err, type CapabilityAuth, type Did, type EpochMs, type Result } from "@shopong/ports";
+
+export type CommunityIdentity = { did: Did; auth: CapabilityAuth };
+
+export type CommunityServiceOptions = {
+  randomBytes: (length: number) => Uint8Array;
+  now?: () => EpochMs;
+  network?: MemoryRecordNetwork;
+};
+
+export type CommunityService = {
+  community: () => Community | null;
+  create: (name: string) => Promise<Result<Community, CommunityError>>;
+  invite: (invitee: string) => Promise<Result<Invitation, InvitationError | CommunityError>>;
+  /** Check pasted text on this phone with no network. Joining for real waits for epic 3. */
+  check: (text: string) => Promise<Result<CheckedInvitation, InvitationError>>;
+  members: () => Promise<readonly Member[]>;
+};
+
+export function createCommunityService(
+  identity: CommunityIdentity | null,
+  options: CommunityServiceOptions,
+): CommunityService {
+  const now = options.now ?? Date.now;
+  const network = options.network ?? createMemoryRecordNetwork();
+  let current: Community | null = null;
+  const deps = (auth: CapabilityAuth): CommunityDeps => ({
+    auth,
+    sha512: webCryptoSha512,
+    randomBytes: options.randomBytes,
+  });
+
+  return {
+    community: () => current,
+    async create(name) {
+      if (identity === null) return err("refused", "Make your identity first.");
+      const made = await createCommunity(
+        deps(identity.auth),
+        network.peer<EventEnvelope>(identity.did),
+        name,
+        now(),
+      );
+      if (made.ok) current = made.value;
+      return made;
+    },
+    async invite(invitee) {
+      if (current === null) return err("refused", "Make a community first.");
+      return current.invite(invitee, now());
+    },
+    async check(text) {
+      const held = current;
+      return checkInvitation({
+        auth: identity?.auth ?? ({} as CapabilityAuth),
+        text,
+        me: identity?.did,
+        now: now(),
+        isUsed: async (id) =>
+          held !== null && (await held.space.view.get(`joined/${id}`)) !== undefined,
+      });
+    },
+    members: async () => (current === null ? [] : current.members()),
+  };
+}

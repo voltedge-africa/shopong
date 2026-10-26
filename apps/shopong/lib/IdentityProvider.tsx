@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 
+import type { CapabilityAuth } from "@shopong/ports";
+
 import { useAuth } from "./auth";
 import { createIdentityOnce, loadIdentity, type Identity } from "./identity";
 import { identityStore } from "./identityStore";
@@ -26,6 +28,8 @@ type IdentityContextValue = {
   status: IdentityStatus;
   /** The DID, once its seed is saved. */
   did: string | null;
+  /** The signing side of the identity, for issuing and checking invitations. Never leaves the app. */
+  auth: CapabilityAuth | null;
   create: () => Promise<CreateOutcome>;
 };
 
@@ -75,7 +79,7 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ status, did: identity?.did ?? null, create }),
+    () => ({ status, did: identity?.did ?? null, auth: identity?.auth ?? null, create }),
     [status, identity, create],
   );
   return <IdentityContext.Provider value={value}>{children}</IdentityContext.Provider>;

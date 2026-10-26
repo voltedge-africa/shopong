@@ -200,7 +200,7 @@ EVENT_ACCEPT = [
         "known member.invited with commitment",
         "known",
         None,
-        pretty(env(type="member.invited", payload={"phone": "c" * 128, "role": "member"})),
+        pretty(env(type="member.invited", payload={"phone": "c" * 128, "role": "member", "invitation": "bafyinvitation", "invitee": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK", "expiresAt": 1793606400000})),
     ),
     ("known root event without proof", "known", None, pretty(env(type="role.granted", proof=[], payload={}))),
     (
