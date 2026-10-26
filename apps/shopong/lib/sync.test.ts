@@ -47,6 +47,8 @@ function fakeNode(admitted: Did[]) {
       value: { key: KEY, spaceKey: "s", duplicate: false },
     }),
     admitMember: async () => ({ ok: true, value: { admitted: true } }),
+    // The pool is read by the card, not by the queue (story 4.6): not part of these sync tests.
+    pool: async () => ({ ok: false, failure: { kind: "offline", reason: "not used here" } }),
     async postEvent(_key, event) {
       if (state.down) return offline();
       const id = await eventIdOf(event, webCryptoSha512);

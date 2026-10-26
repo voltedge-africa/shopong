@@ -2,12 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { SIMULATED_MODE, type SimulatedStitch } from "@shopong/adapter-stitch-sim";
 import type { AutobaseSharedRecord } from "@shopong/record-autobase";
+import type { Did, Ledger } from "@shopong/ports";
 import { buildApp } from "./app.ts";
 import { COMPONENT_NAMES, createStubComponent, type NodeComponent } from "./components.ts";
 import { loadConfig, type LoadOptions } from "./config.ts";
 import { ReplicaHub } from "./hub.ts";
 import { createLogger, type LogSink } from "./logger.ts";
-import { masterKeyOf, openRecordComponent } from "./record.ts";
+import { masterKeyOf, nodeIdentityOf, openRecordComponent } from "./record.ts";
 import { missingRequiredFor } from "./secrets.ts";
 import { openSimulatedPayments, paymentsComponent } from "./payments.ts";
 import { readVersion } from "./version.ts";
@@ -21,6 +22,8 @@ export interface RunningNode {
   record: AutobaseSharedRecord<unknown> | undefined;
   /** The member replicas and the indexer's sync surface, or undefined when the record component is off. */
   hub: ReplicaHub | undefined;
+  /** The Node's own identity (record.ts), or undefined when the record component is off. */
+  nodeIdentity: Did | undefined;
   /** The simulated payments (story 4.4), or undefined when the payments component is off. */
   payments: SimulatedStitch | undefined;
   close(): Promise<void>;
@@ -29,6 +32,11 @@ export interface RunningNode {
 export interface StartOptions extends LoadOptions {
   /** Where log lines go. Defaults to standard output. */
   sink?: LogSink;
+  /**
+   * The books the pool read uses (story 4.6). Absent, the pool route answers 503 "The books can't be read right now.".
+   * Configured by the caller; the ledger's own file and its wiring are not part of this story.
+   */
+  ledger?: Ledger;
 }
 
 /**
@@ -69,6 +77,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
   let hub: ReplicaHub | undefined;
   let payments: SimulatedStitch | undefined;
   let app: FastifyInstance;
+  const identity = opened === undefined ? undefined : await nodeIdentityOf(masterKeyOf(secrets));
   try {
     payments = config.components.payments.enabled
       ? openSimulatedPayments({
@@ -80,6 +89,9 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
     const components: NodeComponent[] = COMPONENT_NAMES.map((name) => {
       if (name === "record" && opened !== undefined) return opened.component;
       if (name === "payments") return paymentsComponent(config.components.payments.enabled);
+      // An injected ledger (story 4.6) is the books in use: health says so, rather than reading the config switch.
+      if (name === "ledger" && options.ledger !== undefined)
+        return createStubComponent(name, { enabled: true, secretsPresent: true });
       return createStubComponent(name, {
         enabled: config.components[name].enabled,
         secretsPresent: missingRequiredFor(name, secrets, config.paymentsAdapter).length === 0,
@@ -102,6 +114,13 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       auth,
       sync: hub === undefined ? {} : { hub },
       ...(hub === undefined ? {} : { communities: hub }),
+      pool: {
+        ...(hub === undefined ? {} : { hub }),
+        ...(options.ledger === undefined ? {} : { ledger: options.ledger }),
+        ...(identity === undefined
+          ? {}
+          : { masterKey: masterKeyOf(secrets), nodeIdentity: identity }),
+      },
       allowedCreators: config.allowedCreators,
       cors: { origins: config.corsOrigins, environment: config.environment },
       ...(payments === undefined ? {} : { payments }),
@@ -141,6 +160,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
     port,
     record: opened?.record,
     hub,
+    nodeIdentity: identity,
     payments,
     close: () =>
       closeInOrder([() => app.close(), () => hub?.close(), () => opened?.record.close()]),

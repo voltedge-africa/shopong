@@ -117,3 +117,15 @@ export {
   type RequestParts,
 } from "./request-proof.js";
 export { REFUSAL_LOG_LIMIT, addRefusal, type Refusal } from "./refusals.js";
+export {
+  POOL_STATUS_LABELS,
+  poolView,
+  randText,
+  type PoolFlag,
+  type PoolFlagKind,
+  type PoolInputs,
+  type PoolReading,
+  type PoolStatus,
+  type PoolStatusKind,
+  type PoolView,
+} from "./pool.js";

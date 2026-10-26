@@ -17,6 +17,7 @@
     "@shopong/adapter-ucan-iso": "workspace:*",
     "@shopong/community": "workspace:*",
     "@shopong/events": "workspace:*",
+    "@shopong/ledger-sqlite": "workspace:*",
     "@shopong/ports": "workspace:*",
     "@shopong/record-autobase": "workspace:*",
     "fastify": "5.12.7",

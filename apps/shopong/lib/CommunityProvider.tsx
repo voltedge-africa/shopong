@@ -35,6 +35,7 @@ import { NODE_ADDRESS } from "./nodeAddress";
 import { createNodeClient, type NodeClient } from "./nodeClient";
 import { cameBackOnline } from "./connectivity";
 import { createQueueStore } from "./queueStore";
+import { poolScreenOf, type PoolScreen } from "./pool";
 import { createSyncService, type Mark, type SyncService, type SyncState } from "./sync";
 import { useIdentity } from "./IdentityProvider";
 
@@ -83,6 +84,10 @@ type CommunityContextValue = {
   markOfCommunity: () => Mark | undefined;
   /** Joins a community through the Node: admits this person, then queues the join. Resolves a plain reason on failure. */
   joinOnNode: (text: string) => Promise<string | undefined>;
+  /** The pool as the Node reads it (story 4.6), or `null` when this is not a community on the Node. */
+  pool: PoolScreen | null;
+  /** Reads the pool from the Node again now. */
+  refreshPool: () => Promise<void>;
 };
 
 /** What the session needs to talk to the Node: the client (absent without an address) and the sync service. */
@@ -116,6 +121,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   const [invitations, setInvitations] = useState<readonly Invitation[]>([]);
   const [roles, setRoles] = useState<readonly RoleRecord[]>([]);
   const [refusals, setRefusals] = useState<readonly Refusal[]>([]);
+  const [pool, setPool] = useState<PoolScreen | null>(null);
 
   // One service per identity, so one in-memory record for as long as the identity is the same.
   const service = useRef<{ did: string | null; value: CommunityService } | null>(null);
@@ -136,6 +142,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       setRefusals([]);
       setNodeCommunity(null);
       setNodeMembers([]);
+      setPool(null);
       setCommunityEvent(undefined);
       invitationEvents.current = new Map();
     }
@@ -167,6 +174,15 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     }
     return node.current;
   }, [did, auth]);
+
+  /** Reads the pool from the Node. Shows the Node's answer; a failure shows its state and no figures as current. */
+  const refreshPool = useCallback(async () => {
+    const bundle = nodeFor();
+    if (bundle === null || bundle.client === undefined || nodeCommunity === null) return;
+    setPool((old) => old ?? { state: "loading" });
+    const reply = await bundle.client.pool(nodeCommunity.key);
+    setPool(poolScreenOf(reply, Date.now()));
+  }, [nodeFor, nodeCommunity]);
 
   /**
    * Sends the queue, then pulls the community. Waits out the backoff the last try asked for, unless `force` (Try
@@ -210,6 +226,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     nodeFor();
     const timer = setInterval(() => void tick(), TICK_MS);
+    // The pool is asked on its own clock, outside the sync backoff, so its figures age honestly (triage 2).
+    const poolTimer = setInterval(() => void refreshPool(), TICK_MS);
     // netinfo may repeat "connected" while the phone stays online: only the change counts, and the backoff holds after one try.
     const unsubscribe = NetInfo.addEventListener((state) => {
       const offline = state.isConnected === false;
@@ -220,9 +238,10 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     });
     return () => {
       clearInterval(timer);
+      clearInterval(poolTimer);
       unsubscribe();
     };
-  }, [nodeFor, tick]);
+  }, [nodeFor, tick, refreshPool]);
 
   const create = useCallback(
     async (name: string) => {
@@ -434,6 +453,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       markOfInvitation,
       markOfCommunity,
       joinOnNode,
+      pool: nodeCommunity === null ? null : pool,
+      refreshPool,
     }),
     [
       community,
@@ -459,6 +480,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       markOfInvitation,
       markOfCommunity,
       joinOnNode,
+      nodeCommunity,
+      pool,
+      refreshPool,
     ],
   );
   return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;

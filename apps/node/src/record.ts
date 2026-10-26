@@ -3,6 +3,7 @@
 
 import { createHmac } from "node:crypto";
 import { join } from "node:path";
+import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { openAutobaseRecord, type AutobaseSharedRecord } from "@shopong/record-autobase";
 import type { Did } from "@shopong/ports";
 import type { NodeComponent } from "./components.ts";
@@ -29,6 +30,18 @@ export function masterKeyOf(secrets: ResolvedSecrets): Buffer {
 export function nodeDid(masterKey: Uint8Array): Did {
   const digest = createHmac("sha512", masterKey).update("ocn/node/v1/did", "utf8").digest();
   return `did:ocn:node-${digest.subarray(0, 16).toString("hex")}` as Did;
+}
+
+/**
+ * The Node's own `did:key` identity, derived from the master key, for signing the money postings it mirrors into the
+ * record (story 4.6). Not the record's writer identity (`nodeDid`), which is a placeholder of another kind.
+ */
+export async function nodeIdentityOf(masterKey: Uint8Array): Promise<Did> {
+  const seed = createHmac("sha512", masterKey)
+    .update("ocn/node/v1/identity", "utf8")
+    .digest()
+    .subarray(0, 32);
+  return new IsoUcanCapabilityAuth({ identitySeed: new Uint8Array(seed) }).createIdentity();
 }
 
 export interface OpenedRecord {

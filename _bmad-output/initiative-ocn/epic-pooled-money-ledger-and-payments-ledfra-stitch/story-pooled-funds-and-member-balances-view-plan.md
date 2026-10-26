@@ -97,3 +97,18 @@ baseline_revision: '788a54d8ab1c5cedcf4ab94ed00f62779eefa091'
    - A) Both, as the brief says, for this story. (Recommended: the product owner set it in the brief.)
    - B) Web only, with the emulator run on request.
 6. **Could not verify:** whether the Node has the `ledger/read` ability in any role today (it does not appear in `ROLES`), and whether the record view exposes money events by key without a scan. Both need a check before tasks start.
+
+## Triage log
+
+**2026-10-26, review and product-owner testing on the emulator (fixes to the merged story 4.6, not a status change).**
+
+- **0 HIGH, fixed without a shortcut.** The books used one global pool account, one supplier payable, one fees account and one member id per DID, so two communities on one Node shared a pool: a member of one saw another community's money. Now every account of a community carries a scope (the first 32 hex of SHA-256 of the community key): `poolAccountOf`, `supplierPayableOf`, `feesOf`, `memberLiabilityOf`, `configureChart(ledger, communityKey)`, `configureMemberAccount(ledger, communityKey, memberId)`. The global constants are removed, so nothing can post to a shared name. The member id is HMAC-SHA512 over the community key and the DID, so the same person in two communities has two accounts. Story 4.2's contract tests are updated to the scoped chart and stay green. Failing first: the cross-community route test returned community B's pool as R123.45 before the change, and passes now.
+- **1 MEDIUM, fixed.** A removed member (story 3.3's `removed/<did>`) is left out of the equal split and the member list, by the same check as `isMember`. Failing first: with four members and one removed, the split was R75.00 and four members were listed; now R100.00 and three.
+- **2 MEDIUM, fixed.** The pool is asked on its own 5-second timer, outside the sync backoff. The card shows "Last checked HH:MM" and "These figures may be out of date." after 30 seconds. Shortcut S-4.6-8 updated.
+- **3 MEDIUM, fixed, shortcut S-4.6-13.** A removed person's `quote.selected` does not count; each selection is judged by the creator-or-co-treasurer standing at the head's log time.
+- **4 LOW, fixed.** A `ledger.posted` counts only when the creator's writer appended it and `by` names the Node's identity.
+- **5 LOW, fixed, shortcut S-4.6-15.** When the books and the record disagree, the pool is read once more after 200 ms before any flag. Failing first: a mirror landing 100 ms late was flagged; now it is not.
+- **6 LOW, fixed.** A record amount for an id the books do not hold, or an id not admitted, is flagged.
+- **7 LOW, fixed.** An id off the member list is never shown as Paid; its status is "Not a member of this pool".
+- **8 LOW, deferred, shortcut S-4.6-14.** An invalid later `quote.selected` is skipped; no test yet.
+- **9 LOW, fixed.** A 503 `record_off` shows "The Node record is not running.", not "We can't reach the Node."

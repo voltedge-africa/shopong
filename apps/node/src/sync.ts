@@ -87,7 +87,8 @@ type SyncProblem =
   | "not_yours"
   | "not_writable"
   | "invalid_cursor"
-  | "personal_data";
+  | "personal_data"
+  | "node_only";
 
 const SYNC_STATUS: { readonly [P in SyncProblem]: number } = {
   not_held: 404,
@@ -98,6 +99,7 @@ const SYNC_STATUS: { readonly [P in SyncProblem]: number } = {
   not_writable: 403,
   invalid_cursor: 400,
   personal_data: 400,
+  node_only: 403,
 };
 
 const SYNC_MESSAGES: { readonly [P in SyncProblem]: string } = {
@@ -109,6 +111,7 @@ const SYNC_MESSAGES: { readonly [P in SyncProblem]: string } = {
   not_writable: "This person cannot write to that community.",
   invalid_cursor: "That place in the record is not one this Node gave out.",
   personal_data: PERSONAL_DATA_MESSAGE,
+  node_only: "Only the OCN Node writes money postings to the record.",
 };
 
 const CURSOR_PREFIX = "ocn-pull/v1:";
@@ -189,6 +192,8 @@ export function registerSyncRoutes(
       if (!parsed.ok) return refuse("invalid_event", actor);
       const event = parsed.event as EventEnvelope;
       if (event.space !== key) return refuse("wrong_space", actor);
+      // Money postings are written by the Node alone (story 4.6): a phone's `ledger.posted` would count as money.
+      if (event.type === "ledger.posted") return refuse("node_only", actor);
 
       // Only the signer's own events, written through the signer's own replica. `apply` still decides their meaning.
       if (event.actor !== actor || space.local !== actor) return refuse("not_yours", actor);

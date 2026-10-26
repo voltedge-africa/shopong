@@ -51,6 +51,9 @@ importers:
       '@shopong/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@shopong/ledger-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/ledger-sqlite
       '@shopong/ports':
         specifier: workspace:*
         version: link:../../packages/ports

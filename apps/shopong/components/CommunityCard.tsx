@@ -16,6 +16,7 @@ import {
 import { money } from "@shopong/ports";
 
 import { useCommunity } from "../lib/CommunityProvider";
+import { PoolCard } from "./PoolCard";
 import { useIdentity } from "../lib/IdentityProvider";
 import { shortDid } from "../lib/identitySeed";
 import type { Mark } from "../lib/sync";
@@ -164,6 +165,7 @@ export function CommunityCard() {
               {shortDid(member.did)}
             </Text>
           ))}
+          <PoolCard />
           <Text muted>
             To invite someone, ask them to send you their full identity from their Settings, then
             paste it here.

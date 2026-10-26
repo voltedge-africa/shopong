@@ -14,12 +14,13 @@ import {
   unique,
 } from "@shopong/ports-contract";
 import {
-  FEES,
-  POOL_BANK,
-  SUPPLIER_PAYABLE,
+  communityScope,
   configureChart,
   configureMemberAccount,
-  memberLiability,
+  feesOf,
+  memberLiabilityOf,
+  poolAccountOf,
+  supplierPayableOf,
   openSqliteLedger,
   type SqliteLedger,
 } from "./index.js";
@@ -194,16 +195,19 @@ describe("SqliteLedger: rows of the I/O matrix the contract does not cover", () 
   });
 });
 
+const COMMUNITY = "7".repeat(64);
+const OTHER = "9".repeat(64);
+
 describe("demonstration chart of accounts", () => {
   it("configures the pool and the supplier payable as guarded and fees as unguarded", async () => {
     const ledger = openLedger();
-    expectOk(await configureChart(ledger));
+    expectOk(await configureChart(ledger, COMMUNITY));
 
     expectErr(
       await ledger.post({
         idempotencyKey: randomEventId(),
         description: "pool overdraw",
-        entries: [debit(FEES, 10), credit(POOL_BANK, 10)],
+        entries: [debit(feesOf(COMMUNITY), 10), credit(poolAccountOf(COMMUNITY), 10)],
       }),
       "insufficient_funds",
     );
@@ -211,7 +215,7 @@ describe("demonstration chart of accounts", () => {
       await ledger.post({
         idempotencyKey: randomEventId(),
         description: "fee taken from nothing",
-        entries: [debit(FEES, 10), credit(SUPPLIER_PAYABLE, 10)],
+        entries: [debit(feesOf(COMMUNITY), 10), credit(supplierPayableOf(COMMUNITY), 10)],
       }),
     );
   });
@@ -219,20 +223,20 @@ describe("demonstration chart of accounts", () => {
   it("guards each member liability once it is configured", async () => {
     const ledger = openLedger();
     const memberId = HEX64;
-    expectOk(await configureMemberAccount(ledger, memberId));
-    const account = memberLiability(memberId);
+    expectOk(await configureMemberAccount(ledger, COMMUNITY, memberId));
+    const account = memberLiabilityOf(COMMUNITY, memberId);
     expectOk(
       await ledger.post({
         idempotencyKey: randomEventId(),
         description: "contribution",
-        entries: [debit(POOL_BANK, 100_00), credit(account, 100_00)],
+        entries: [debit(poolAccountOf(COMMUNITY), 100_00), credit(account, 100_00)],
       }),
     );
     expectErr(
       await ledger.post({
         idempotencyKey: randomEventId(),
         description: "over-refund",
-        entries: [debit(account, 100_01), credit(POOL_BANK, 100_01)],
+        entries: [debit(account, 100_01), credit(poolAccountOf(COMMUNITY), 100_01)],
       }),
       "insufficient_funds",
     );
@@ -240,7 +244,9 @@ describe("demonstration chart of accounts", () => {
 
   it("accepts only opaque member ids: lowercase hex of 32 or more characters", async () => {
     const ledger = openLedger();
-    expect(memberLiability(HEX64)).toBe(`liabilities:member/${HEX64}`);
+    expect(memberLiabilityOf(COMMUNITY, HEX64)).toBe(
+      `liabilities:member/${communityScope(COMMUNITY)}/${HEX64}`,
+    );
     for (const refused of [
       "0821234567", // a phone number, digits only
       "8001015009087", // a 13-digit ID number
@@ -248,9 +254,51 @@ describe("demonstration chart of accounts", () => {
       "ABCDEF".repeat(6), // upper case
       "Not A Slug",
     ]) {
-      expect(() => memberLiability(refused)).toThrow(TypeError);
-      expectErr(await configureMemberAccount(ledger, refused), "invalid_request");
+      expect(() => memberLiabilityOf(COMMUNITY, refused)).toThrow(TypeError);
+      expectErr(await configureMemberAccount(ledger, COMMUNITY, refused), "invalid_request");
     }
+  });
+});
+
+describe("one ledger, many communities (story 4.6 fix)", () => {
+  it("gives each community its own pool, supplier payable and fees", async () => {
+    const ledger = openLedger();
+    expectOk(await configureChart(ledger, COMMUNITY));
+    expectOk(await configureChart(ledger, OTHER));
+    expect(poolAccountOf(COMMUNITY)).not.toBe(poolAccountOf(OTHER));
+    expect(supplierPayableOf(COMMUNITY)).not.toBe(supplierPayableOf(OTHER));
+    expect(feesOf(COMMUNITY)).not.toBe(feesOf(OTHER));
+
+    expectOk(
+      await ledger.post({
+        idempotencyKey: randomEventId(),
+        description: "pay-in to A",
+        entries: [
+          debit(poolAccountOf(COMMUNITY), 123_45),
+          credit(memberLiabilityOf(COMMUNITY, HEX64), 123_45),
+        ],
+      }),
+    );
+    expect((await ledger.balance(poolAccountOf(COMMUNITY), "ZAR")).balance.minor).toBe(123_45);
+    expect((await ledger.balance(poolAccountOf(OTHER), "ZAR")).balance.minor).toBe(0);
+  });
+
+  it("gives the same person two different member accounts, one per community", async () => {
+    const ledger = openLedger();
+    const inA = memberLiabilityOf(COMMUNITY, HEX64);
+    const inB = memberLiabilityOf(OTHER, HEX64);
+    expect(inA).not.toBe(inB);
+    expectOk(await configureMemberAccount(ledger, COMMUNITY, HEX64));
+    expectOk(await configureMemberAccount(ledger, OTHER, HEX64));
+    expectOk(
+      await ledger.post({
+        idempotencyKey: randomEventId(),
+        description: "contribution to A",
+        entries: [debit(poolAccountOf(COMMUNITY), 50_00), credit(inA, 50_00)],
+      }),
+    );
+    expect((await ledger.balance(inA, "ZAR")).balance.minor).toBe(50_00);
+    expect((await ledger.balance(inB, "ZAR")).balance.minor).toBe(0);
   });
 });
 
@@ -384,27 +432,30 @@ describe("guards cannot be switched off once an account has entries", () => {
 
   it("the chart's pool and supplier payable cannot be unguarded once used", async () => {
     const ledger = openLedger();
-    expectOk(await configureChart(ledger));
+    expectOk(await configureChart(ledger, COMMUNITY));
     expectOk(
       await ledger.post({
         idempotencyKey: randomEventId(),
         description: "pool funded",
-        entries: [debit(POOL_BANK, 100), credit(FEES, 100)],
+        entries: [debit(poolAccountOf(COMMUNITY), 100), credit(feesOf(COMMUNITY), 100)],
       }),
     );
     expectOk(
       await ledger.post({
         idempotencyKey: randomEventId(),
         description: "supplier owed",
-        entries: [debit(FEES, 10), credit(SUPPLIER_PAYABLE, 10)],
+        entries: [debit(feesOf(COMMUNITY), 10), credit(supplierPayableOf(COMMUNITY), 10)],
       }),
     );
-    expectErr(await ledger.configureAccount(POOL_BANK, { guarded: false }), "invalid_request");
     expectErr(
-      await ledger.configureAccount(SUPPLIER_PAYABLE, { guarded: false }),
+      await ledger.configureAccount(poolAccountOf(COMMUNITY), { guarded: false }),
       "invalid_request",
     );
-    expectOk(await configureChart(ledger));
+    expectErr(
+      await ledger.configureAccount(supplierPayableOf(COMMUNITY), { guarded: false }),
+      "invalid_request",
+    );
+    expectOk(await configureChart(ledger, COMMUNITY));
   });
 });
 
