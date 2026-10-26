@@ -13,6 +13,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@shopong/adapter-hyperdrive": "workspace:*",
     "@shopong/adapter-stitch-sim": "workspace:*",
     "@shopong/adapter-ucan-iso": "workspace:*",
     "@shopong/community": "workspace:*",

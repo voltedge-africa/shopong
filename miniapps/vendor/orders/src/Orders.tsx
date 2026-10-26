@@ -7,6 +7,7 @@ import { Alert, Button, Input, Text } from "panelui-native";
 import { amountProblem, type Quote } from "@shopong/community";
 
 import { OrdersHostContext, type OrdersHost, type PaymentHost } from "./host";
+import { FilesPanel } from "./FilesPanel";
 import { deliveryText, emptyLine, parseRand, quoteInput, randText, type LineDraft } from "./form";
 import {
   actionLabel,
@@ -101,6 +102,10 @@ function OrdersView({ host }: { host: OrdersHost }) {
 
         {host.payments !== undefined && name !== "" ? (
           <PayPanel key={name} payments={host.payments} order={name} />
+        ) : null}
+
+        {host.attachments !== undefined && name !== "" ? (
+          <FilesPanel key={name} host={host.attachments} order={name} />
         ) : null}
 
         {host.canAdd ? (

@@ -4,6 +4,7 @@
 // (member.invited and member.joined: story 2.3; role.granted: story 2.4; member.removed: story 3.3). The envelope
 // itself is strict (envelope.ts).
 
+import { fileAttachedIssues } from "./attachment.js";
 import type { JsonObject } from "./json.js";
 
 export const EVENT_TYPES = [
@@ -35,6 +36,7 @@ export const EVENT_TYPES = [
   "solution.saved",
   "solution.shared",
   "agent.action",
+  "file.attached",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -161,6 +163,12 @@ const roleGranted: PayloadValidator = (payload) => {
   return issues;
 };
 
+/**
+ * `file.attached` (story 3.7): a file is kept on the Node under its SHA-512, and this event names it. Strict: the
+ * fields, the types and the purpose's size and type rules are checked here (`attachment.ts`).
+ */
+const fileAttached: PayloadValidator = (payload) => fileAttachedIssues(payload);
+
 export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator } = {
   ...(Object.fromEntries(EVENT_TYPES.map((t) => [t, anyObject])) as {
     [T in EventType]: PayloadValidator;
@@ -169,4 +177,5 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "member.joined": memberJoined,
   "role.granted": roleGranted,
   "member.removed": memberRemoved,
+  "file.attached": fileAttached,
 };

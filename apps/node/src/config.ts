@@ -47,11 +47,20 @@ const componentFileSchema = z.strictObject({ enabled: z.boolean().optional() });
 
 const didSchema = z.string().regex(/^did:key:z[1-9A-HJ-NP-Za-km-z]+$/u, "did");
 export const DEFAULT_MAX_COMMUNITIES = 50;
+/** The bytes one community may hold in its files: 200 MB (story 3.7, review patch). */
+export const DEFAULT_FILE_QUOTA_BYTES = 200 * 1024 * 1024;
 
 const fileSchema = z.strictObject({
   dataDir: z.string().min(1).optional(),
   /** The most communities this Node will host, in all (review N1). Default 50. */
   maxCommunities: z.number().int().min(1).max(100_000).optional(),
+  /** The bytes one community may hold in its files. Default 200 MB (story 3.7, review patch). */
+  fileQuotaBytes: z
+    .number()
+    .int()
+    .min(1)
+    .max(10 * 1024 * 1024 * 1024)
+    .optional(),
   /** DIDs allowed to create communities. Empty (the default) means open: for local development only. */
   allowedCreators: z.array(didSchema).optional(),
   server: z.strictObject({ host: hostSchema.optional(), port: portSchema.optional() }).optional(),
@@ -77,6 +86,8 @@ export interface NodeConfig {
   environment: Environment;
   /** The most communities hosted on this Node, all creators together. */
   maxCommunities: number;
+  /** The bytes one community may hold in its files (story 3.7). Default 200 MB. */
+  fileQuotaBytes: number;
   /** DIDs allowed to create communities. Empty means open (local development only). */
   allowedCreators: string[];
   /** Browser origins allowed to call the Node's routes (exact, for example `https://app.example`). Empty by default. */
@@ -189,6 +200,7 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
     logLevel: file.logLevel ?? "info",
     environment: file.environment ?? "production",
     maxCommunities: file.maxCommunities ?? DEFAULT_MAX_COMMUNITIES,
+    fileQuotaBytes: file.fileQuotaBytes ?? DEFAULT_FILE_QUOTA_BYTES,
     allowedCreators: [...(file.allowedCreators ?? [])],
     corsOrigins: [...(file.cors?.origins ?? [])],
     paymentsAdapter: "simulated",
@@ -233,6 +245,16 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
       );
     }
     merged.maxCommunities = parsed;
+  }
+  const envQuota = env["OCN_NODE_FILE_QUOTA_BYTES"];
+  if (envQuota) {
+    const parsed = /^\d+$/u.test(envQuota) ? Number(envQuota) : Number.NaN;
+    if (!(Number.isSafeInteger(parsed) && parsed >= 1)) {
+      throw new ConfigError(
+        "invalid environment variable OCN_NODE_FILE_QUOTA_BYTES: expected a whole number of bytes",
+      );
+    }
+    merged.fileQuotaBytes = parsed;
   }
   const envCreators = env["OCN_NODE_ALLOWED_CREATORS"];
   if (envCreators) {

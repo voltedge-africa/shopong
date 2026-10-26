@@ -5,6 +5,7 @@
 import { createContext } from "react";
 import type { Quote } from "@shopong/community";
 import type { PaymentView } from "./pay";
+import type { FileCheck, FilePurpose, FileRowView } from "./files";
 
 /**
  * The member's own pledge and its bank payment for one order (story 4.3). The app does the network and the browser;
@@ -22,6 +23,24 @@ export interface PaymentHost {
   pay(order: string): Promise<string | undefined>;
 }
 
+/**
+ * Files on an order (story 3.7): a price list or a delivery photo. The app picks the file, strips its metadata, keeps
+ * the bytes on the Node before the record names them, and checks them when they are shown. The screen only shows.
+ */
+export interface AttachmentHost {
+  /** Whether this person may attach a price list (the treasurer) and a delivery photo (a driver). */
+  readonly canAttachPriceList: boolean;
+  readonly canAttachPhoto: boolean;
+  /** The files for one order: this phone's own, and those the record holds. */
+  filesFor(order: string): readonly FileRowView[];
+  /** Picks a file and attaches it. Resolves with the plain reason it was refused, or `undefined` when it was started. */
+  attach(order: string, purpose: FilePurpose, supplier: string): Promise<string | undefined>;
+  /** Checks a recorded file's bytes against its hash. */
+  check(hash: string): Promise<FileCheck>;
+  /** Sends the files still waiting, for example after the phone is back online. */
+  retry(): Promise<void>;
+}
+
 export interface OrdersHost {
   /** Whether this person is the treasurer, so may add a quote. */
   readonly canAdd: boolean;
@@ -31,6 +50,8 @@ export interface OrdersHost {
   addQuote(input: unknown): Promise<string | undefined>;
   /** The pay card's host. Absent in a build without a payments host. */
   readonly payments?: PaymentHost;
+  /** The files host (story 3.7). Absent in a build without a file store. */
+  readonly attachments?: AttachmentHost;
 }
 
 export const OrdersHostContext = createContext<OrdersHost | null>(null);

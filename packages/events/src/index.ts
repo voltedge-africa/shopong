@@ -64,6 +64,23 @@ export {
   type Sha512,
 } from "./hash.js";
 export {
+  FILE_MESSAGES,
+  ATTACHMENT_PURPOSES,
+  ATTACHMENT_RULES,
+  ATTACHMENT_TYPES,
+  checkFileBytes,
+  detectType,
+  fileAttachedIssues,
+  RECORD_LABEL,
+  recordNameOf,
+  stripMetadata,
+  type AttachmentPurpose,
+  type AttachmentType,
+  type FileAttachedPayload,
+  type FileCheck,
+} from "./attachment.js";
+export { fromBase64, toBase64 } from "./base64.js";
+export {
   decodeBigInt,
   encodeBigInt,
   isDecimalIntegerString,

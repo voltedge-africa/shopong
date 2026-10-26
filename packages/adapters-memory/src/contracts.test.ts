@@ -9,6 +9,7 @@ import {
   runLedgerContract,
   runCommitmentsContract,
   runOcrContract,
+  runFileStoreContract,
   runPayInContract,
   runPayOutContract,
   runRoutingContract,
@@ -27,6 +28,7 @@ import {
   MemoryLedger,
   MemoryCommitments,
   MemoryOcr,
+  MemoryFileStore,
   MemoryPayIn,
   MemoryPayOut,
   MemoryRouting,
@@ -146,3 +148,8 @@ runCommitmentsContract(() => {
     unknown: "u".repeat(64),
   };
 });
+
+runFileStoreContract(() => ({
+  files: new MemoryFileStore(),
+  absent: asSha512Hex("cd".repeat(64)),
+}));

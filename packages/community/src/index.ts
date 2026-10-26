@@ -146,3 +146,10 @@ export {
   type PoolStatusKind,
   type PoolView,
 } from "./pool.js";
+export {
+  FILE_ROLE_MESSAGES,
+  fileOfOrderKey,
+  fileShapeProblem,
+  fileUploadProblem,
+  filesOf,
+} from "./files.js";
