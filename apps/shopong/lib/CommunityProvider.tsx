@@ -21,6 +21,7 @@ import {
   newCommunityKey,
   pledgeKey,
   tidy,
+  type OrderProgress,
   type ActionRequest,
   type CheckedInvitation,
   type HeldRole,
@@ -34,6 +35,7 @@ import {
   type RoleError,
   type RoleRecord,
 } from "@shopong/community";
+import type { EventEnvelope } from "@shopong/events";
 import type { Did, JsonValue, PortError, Result } from "@shopong/ports";
 import type { BankForm, PaymentRecord, PaymentView, PayoutsReading } from "@shopong/miniapp-orders";
 
@@ -42,6 +44,9 @@ import { paymentStatusOfFailure } from "./paymentStatus";
 import { quoteEventOf, quotesToShow, type SavedQuote } from "./quotes";
 import {
   approvalEvent,
+  collectionConfirmedEvent,
+  deliveryConfirmedEvent,
+  deliveryDisputedEvent,
   founderEvent,
   inviteEvent,
   joinEvent,
@@ -103,6 +108,8 @@ type CommunityContextValue = {
   quotesFor: (order: string) => Promise<readonly Quote[]>;
   /** The files on an order (story 3.7). Null until this phone has a Node session for the community. */
   files: FilesSurface | null;
+  /** The delivery of an order (story 7.6). Null until this phone has a Node session for the community. */
+  proof: ProofSurface | null;
   /** The last refusals on this phone, newest first (story 2.5). */
   refusals: readonly Refusal[];
   /** The Node sync: what was last tried, and what is waiting (story 3.4). */
@@ -191,6 +198,25 @@ export interface FilesSurface {
   readonly check: (hash: string) => Promise<Check>;
   readonly retry: () => Promise<void>;
 }
+
+/** What the Orders screen may do with an order's delivery (story 7.6): the arrival, a member's share, a dispute. */
+export interface ProofSurface {
+  /** This phone's person. */
+  readonly me: string;
+  readonly progressOf: (order: string) => Promise<OrderProgress>;
+  /** The driver's arrival: attaches the picked photo, then queues the confirmation with its SHA-512. */
+  readonly confirmArrival: (order: string, picked: PickedFile) => Promise<string | undefined>;
+  readonly collect: (order: string) => Promise<string | undefined>;
+  readonly dispute: (order: string, note: string) => Promise<string | undefined>;
+}
+
+const NO_PROGRESS: OrderProgress = {
+  arrived: false,
+  shares: [],
+  collected: 0,
+  of: 0,
+  disputes: [],
+};
 
 /** A community the Node knows: its key and creator, which `apply` needs to check invitations. */
 type NodeCommunity = { key: string; creator: Did };
@@ -596,6 +622,88 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       },
     };
   }, [nodeCommunity, roles, nodeFor]);
+
+  const proofSurface = useMemo<ProofSurface | null>(() => {
+    if (nodeCommunity === null || did === null) return null;
+    const key = nodeCommunity.key;
+    const me = did as Did;
+    /** Queues one proof event for the Node, as the pledge does. A refusal the Node gives later is not shown here yet. */
+    const queue = async (event: EventEnvelope, what: string): Promise<string | undefined> => {
+      const bundle = nodeFor();
+      if (bundle === null) return "Make or join a community on the OCN Node first, in Settings.";
+      const queued = await bundle.sync.enqueue(key, event);
+      setSync(bundle.sync.state());
+      if (!queued.ok) return unqueuedMessage(what, queued.reason);
+      void tick({ once: true });
+      return undefined;
+    };
+    /** The delivery the record holds for an order, or undefined when nothing has arrived yet. */
+    const arrivalOf = async (order: string) => {
+      const current = serviceFor().community();
+      if (current === null) return undefined;
+      return (await current.orderProgress(order)).delivered;
+    };
+    return {
+      me: did,
+      progressOf: async (order) => {
+        const current = serviceFor().community();
+        return current === null ? NO_PROGRESS : current.orderProgress(order);
+      },
+      confirmArrival: async (order, picked) => {
+        const bundle = nodeFor();
+        if (bundle === null) return "Make or join a community on the OCN Node first, in Settings.";
+        const wanted = tidy(order);
+        // The photo goes to the Node first (it is kept there, and checked against this hash); then the arrival is queued.
+        const made = await bundle.files.attach(key, wanted, "delivery-photo", picked);
+        setSync(bundle.sync.state());
+        if (!made.ok) return made.reason;
+        return queue(
+          deliveryConfirmedEvent({
+            community: key,
+            me,
+            now: Date.now(),
+            randomBytes: getRandomBytes,
+            order: wanted,
+            photoSha512: made.hash,
+          }),
+          "The arrival was recorded",
+        );
+      },
+      collect: async (order) => {
+        const wanted = tidy(order);
+        const delivered = await arrivalOf(wanted);
+        if (delivered === undefined) return "This order has not been delivered yet.";
+        return queue(
+          collectionConfirmedEvent({
+            community: key,
+            me,
+            now: Date.now(),
+            randomBytes: getRandomBytes,
+            order: wanted,
+            delivery: delivered.event,
+          }),
+          "Your collection was recorded",
+        );
+      },
+      dispute: async (order, note) => {
+        const wanted = tidy(order);
+        const delivered = await arrivalOf(wanted);
+        if (delivered === undefined) return "This order has not been delivered yet.";
+        return queue(
+          deliveryDisputedEvent({
+            community: key,
+            me,
+            now: Date.now(),
+            randomBytes: getRandomBytes,
+            order: wanted,
+            delivery: delivered.event,
+            ...(note === "" ? {} : { note }),
+          }),
+          "The dispute was recorded",
+        );
+      },
+    };
+  }, [nodeCommunity, did, nodeFor, serviceFor, tick]);
 
   const canAddQuotes =
     community !== null &&
@@ -1066,6 +1174,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       addQuote,
       quotesFor,
       files: filesSurface,
+      proof: proofSurface,
       refusals,
       sync,
       offlineHint,
@@ -1107,6 +1216,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       addQuote,
       quotesFor,
       filesSurface,
+      proofSurface,
       refusals,
       sync,
       offlineHint,

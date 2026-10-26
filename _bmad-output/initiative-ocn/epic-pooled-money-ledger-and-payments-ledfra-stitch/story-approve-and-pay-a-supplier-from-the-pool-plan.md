@@ -3,7 +3,7 @@ title: 'Approve and pay a supplier from the pool'
 type: 'feature'
 ticket: 7
 created: '2026-10-26'
-status: draft
+status: done
 baseline_revision: '788a54d8ab1c5cedcf4ab94ed00f62779eefa091'
 ---
 

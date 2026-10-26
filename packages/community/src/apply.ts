@@ -15,7 +15,10 @@
 //
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
 // `joined/<invitation id>` { member }, `roles/<did>/<role>` and `revoked/<grant id>` (see roles.ts),
-// `settings/approvals` (story 4.7), `community/name` and `community/rules` (story 8.1), `payouts/<payment id>` and `approvals/<payment id>/<approver>` (story 4.7), // `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
+// `delivered/<order>`, `collected/<order>/<member>` and `disputes/<order>/<event id>` (see delivery-proof.ts),
+// `settings/approvals` (story 4.7), `community/name` and `community/rules` (story 8.1), `payouts/<payment id>` and
+// `approvals/<payment id>/<approver>` (story 4.7),
+// `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
 // pledges.ts), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
@@ -50,6 +53,14 @@ import {
   placeRegistered,
   plannerProblem,
 } from "./delivery.js";
+import {
+  PROOF_MESSAGES,
+  collectedKey,
+  deliveredKey,
+  disputeKey,
+  hasShareIn,
+  plannedDriverOf,
+} from "./delivery-proof.js";
 import { verifyAuthority } from "./authority.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
 import {
@@ -81,6 +92,7 @@ import {
   isRevokedIn,
   recordRoleGrant,
   recordRoleRevocation,
+  roleProblemOf,
   type StandingContext,
 } from "./roles.js";
 import { spaceUri } from "./space.js";
@@ -150,6 +162,8 @@ const CHECKED: ReadonlySet<string> = new Set([
   "place.registered",
   "delivery.planned",
   "delivery.confirmed",
+  "collection.confirmed",
+  "delivery.disputed",
   PAYOUT_TYPE,
   APPROVAL_TYPE,
   NAMING_TYPE,
@@ -362,8 +376,9 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
   }
 
   /**
-   * A confirmation (patch of story 7.4): a driver's, with the order and the photo's SHA-512 and no coordinate. The
-   * record keeps the order's confirmation as `delivered/<order>`.
+   * An arrival (story 7.4, proof in story 7.6): the assigned driver's, with the photo's SHA-512 and an optional coarse
+   * place. The driver's role must stand at log time (a role that ended says the day it ended); the driver must be the one
+   * the route names; the delivery is confirmed once. The record keeps it as `delivered/<order>`.
    */
   async function deliveryConfirmedCheck(
     entry: RecordEntry<EventEnvelope>,
@@ -372,15 +387,95 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
   ): Promise<string | undefined> {
     const event = entry.event;
     if (!(await driverStands(standing, view, event.actor, at))) {
-      return DELIVERY_MESSAGES.confirm_not_permitted;
+      return (
+        (await roleProblemOf(standing, view, event.actor, "driver", at)) ??
+        DELIVERY_MESSAGES.confirm_not_permitted
+      );
     }
     if (PAYLOAD_VALIDATORS["delivery.confirmed"](event.payload).length > 0) {
       return DELIVERY_MESSAGES.confirm_unreadable;
     }
     const order = str(event.payload, "order") ?? "";
-    await view.put(`delivered/${encodeURIComponent(order)}`, {
+    const assigned = await plannedDriverOf(view, order);
+    if (assigned === undefined) return PROOF_MESSAGES.no_delivery;
+    if (assigned !== event.actor) return PROOF_MESSAGES.not_assigned;
+    if ((await view.get(deliveredKey(order))) !== undefined)
+      return PROOF_MESSAGES.already_delivered;
+    const lat = event.payload.lat;
+    const lng = event.payload.lng;
+    const place = str(event.payload, "place");
+    await view.put(deliveredKey(order), {
       event: entry.id,
+      driver: event.actor,
       photoSha512: str(event.payload, "photoSha512") ?? "",
+      claimedAt: event.claimedAt,
+      ...(typeof lat === "string" && typeof lng === "string" ? { lat, lng } : {}),
+      ...(place === undefined ? {} : { place }),
+    });
+    return undefined;
+  }
+
+  /**
+   * A member's own share (story 7.6): the signer is a member, names themself, and has a share (a pledge) in the order.
+   * The order's arrival must be recorded and the confirmation must name it. Once per member.
+   */
+  async function collectionConfirmedCheck(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if ((await view.get(`members/${event.actor}`)) === undefined) {
+      return PROOF_MESSAGES.collect_not_member;
+    }
+    if (PAYLOAD_VALIDATORS["collection.confirmed"](event.payload).length > 0) {
+      return PROOF_MESSAGES.unreadable;
+    }
+    if (str(event.payload, "member") !== event.actor) return PROOF_MESSAGES.collect_not_member;
+    const order = str(event.payload, "order") ?? "";
+    const delivered = (await view.get(deliveredKey(order))) as JsonObject | undefined;
+    if (delivered === undefined) return PROOF_MESSAGES.not_delivered;
+    if (str(delivered, "event") !== str(event.payload, "delivery")) {
+      return PROOF_MESSAGES.wrong_delivery;
+    }
+    if (!(await hasShareIn(view, order, event.actor))) return PROOF_MESSAGES.not_in_order;
+    if ((await view.get(collectedKey(order, event.actor))) !== undefined) {
+      return PROOF_MESSAGES.already_collected;
+    }
+    await view.put(collectedKey(order, event.actor), {
+      event: entry.id,
+      delivery: str(event.payload, "delivery") ?? "",
+      claimedAt: event.claimedAt,
+    });
+    return undefined;
+  }
+
+  /**
+   * A dispute (story 7.6): a member's, the treasurer included, about the order's arrival. It sits beside the confirmation,
+   * which is not changed. The named delivery must be the order's.
+   */
+  async function deliveryDisputedCheck(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if ((await view.get(`members/${event.actor}`)) === undefined) {
+      return PROOF_MESSAGES.dispute_not_member;
+    }
+    if (PAYLOAD_VALIDATORS["delivery.disputed"](event.payload).length > 0) {
+      return PROOF_MESSAGES.unreadable;
+    }
+    const order = str(event.payload, "order") ?? "";
+    const delivered = (await view.get(deliveredKey(order))) as JsonObject | undefined;
+    if (delivered === undefined) return PROOF_MESSAGES.not_delivered;
+    if (str(delivered, "event") !== str(event.payload, "delivery")) {
+      return PROOF_MESSAGES.wrong_delivery;
+    }
+    const note = str(event.payload, "note");
+    await view.put(disputeKey(order, entry.id), {
+      event: entry.id,
+      by: event.actor,
+      claimedAt: event.claimedAt,
+      ...(note === undefined ? {} : { note }),
     });
     return undefined;
   }
@@ -643,6 +738,10 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return deliveryPlannedCheck(entry, view, at);
       case "delivery.confirmed":
         return deliveryConfirmedCheck(entry, view, at);
+      case "collection.confirmed":
+        return collectionConfirmedCheck(entry, view);
+      case "delivery.disputed":
+        return deliveryDisputedCheck(entry, view);
       case PAYOUT_TYPE:
         return payoutRecorded(entry, view, at);
       case APPROVAL_TYPE:

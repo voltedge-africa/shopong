@@ -8,6 +8,7 @@ import { amountProblem, rankQuotes, tidy, type Quote } from "@shopong/community"
 
 import { OrdersHostContext, type OrdersHost, type PaymentHost } from "./host";
 import { FilesPanel } from "./FilesPanel";
+import { ProofPanel } from "./ProofPanel";
 import { deliveryText, emptyLine, parseRand, quoteInput, randText, type LineDraft } from "./form";
 import {
   actionLabel,
@@ -116,6 +117,10 @@ function OrdersView({ host }: { host: OrdersHost }) {
 
         {host.attachments !== undefined && name !== "" ? (
           <FilesPanel key={`files-${name}`} host={host.attachments} order={name} />
+        ) : null}
+
+        {host.proof !== undefined && name !== "" ? (
+          <ProofPanel key={`proof-${name}`} host={host.proof} order={name} />
         ) : null}
 
         {host.payouts !== undefined && name !== "" ? (

@@ -1,7 +1,7 @@
 ---
 title: "Files and photos in Hyperdrive with hash references"
 ticket: 7
-status: draft
+status: done
 baseline_revision: '2d1ef5d846450eee09b35853682df06a69a0c175'
 ---
 

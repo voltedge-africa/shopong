@@ -42,6 +42,45 @@ export interface AttachmentHost {
   retry(): Promise<void>;
 }
 
+/** One member's share of an order, as the record holds it. */
+export interface ShareView {
+  readonly member: string;
+  readonly collected: boolean;
+}
+
+/**
+ * What the record holds for an order's delivery (story 7.6): whether it arrived, the planned driver, the arrival, each
+ * share, and the disputes. Read from the phone's copy of the record, so it can be behind the Node.
+ */
+export interface ProofView {
+  readonly arrived: boolean;
+  readonly plannedDriver?: string;
+  readonly delivered?: {
+    readonly event: string;
+    readonly driver: string;
+    readonly photoSha512: string;
+    readonly claimedAt: number;
+  };
+  readonly shares: readonly ShareView[];
+  readonly disputes: readonly { readonly by: string; readonly note?: string }[];
+}
+
+/**
+ * Proof of delivery and of collection (story 7.6). The app does the photo, the queue and the record; the screen only
+ * shows what the record says and asks for the three things a person may do.
+ */
+export interface ProofHost {
+  /** This phone's person, so the screen can tell its own share and its own driving from the others'. */
+  readonly me: string;
+  progressOf(order: string): Promise<ProofView>;
+  /** The driver's arrival: picks a delivery photo, keeps it, and queues the confirmation. Resolves with a plain reason or undefined. */
+  confirmArrival(order: string): Promise<string | undefined>;
+  /** This member's own share of the delivery. Resolves with a plain reason or undefined when it is queued. */
+  collect(order: string): Promise<string | undefined>;
+  /** A dispute of the delivery, with the person's own short note. Resolves with a plain reason or undefined. */
+  dispute(order: string, note: string): Promise<string | undefined>;
+}
+
 export interface OrdersHost {
   /** Whether this person is the treasurer, so may add a quote. */
   readonly canAdd: boolean;
@@ -55,6 +94,8 @@ export interface OrdersHost {
   readonly payouts?: PayoutHost;
   /** The files host (story 3.7). Absent in a build without a file store. */
   readonly attachments?: AttachmentHost;
+  /** The delivery proof host (story 7.6). Absent in a build without a Node session. */
+  readonly proof?: ProofHost;
 }
 
 export const OrdersHostContext = createContext<OrdersHost | null>(null);
