@@ -231,3 +231,49 @@ describe("secrets (AC 1.5a)", () => {
     expect(String(JSON.stringify({ secrets }))).toContain("LLM_API_KEY");
   });
 });
+
+describe("CORS origins and environment (story 3.4)", () => {
+  it("allows no browser origin by default, and production by default", () => {
+    const { config } = loadConfig({ env: { ...RECORD } });
+    expect(config.corsOrigins).toEqual([]);
+    expect(config.environment).toBe("production");
+  });
+
+  it("refuses a wildcard origin in production, from the environment and from the file", () => {
+    const fromEnv = failure(() => loadConfig({ env: { ...RECORD, OCN_NODE_CORS_ORIGINS: "*" } }));
+    expect(fromEnv.message).toContain("wildcard CORS origin");
+    const readFile = files({ "/c.json": JSON.stringify({ cors: { origins: ["*"] } }) });
+    const fromFile = failure(() =>
+      loadConfig({ env: { ...RECORD, OCN_NODE_CONFIG: "/c.json" }, readFile }),
+    );
+    expect(fromFile.message).toContain("wildcard CORS origin");
+  });
+
+  it("allows a wildcard origin only in development", () => {
+    const { config } = loadConfig({
+      env: { ...RECORD, OCN_NODE_ENVIRONMENT: "development", OCN_NODE_CORS_ORIGINS: "*" },
+    });
+    expect(config.corsOrigins).toEqual(["*"]);
+  });
+
+  it("reads exact origins from the environment and the file, comma-separated", () => {
+    const { config } = loadConfig({
+      env: { ...RECORD, OCN_NODE_CORS_ORIGINS: "https://app.example, http://localhost:8081" },
+    });
+    expect(config.corsOrigins).toEqual(["https://app.example", "http://localhost:8081"]);
+  });
+
+  it("refuses an origin with a path or a bad scheme, without echoing it", () => {
+    const error = failure(() =>
+      loadConfig({ env: { ...RECORD, OCN_NODE_CORS_ORIGINS: "ftp://secret-host.example/x" } }),
+    );
+    expect(error.message).toContain("OCN_NODE_CORS_ORIGINS");
+    expect(error.message).not.toContain("secret-host");
+  });
+
+  it("refuses an unknown environment name", () => {
+    expect(
+      failure(() => loadConfig({ env: { ...RECORD, OCN_NODE_ENVIRONMENT: "staging" } })).message,
+    ).toContain("OCN_NODE_ENVIRONMENT");
+  });
+});

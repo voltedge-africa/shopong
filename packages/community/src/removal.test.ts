@@ -4,7 +4,10 @@ import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { createMemoryRecordNetwork, type MemoryRecordNetwork } from "@shopong/adapters-memory";
 import { createEvent, webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import type { ApplyHost, Did, EventId, RecordEntry, Space, ViewWriter } from "@shopong/ports";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+// Each case makes several identities and syncs several replicas; under the parallel CI run that takes longer than the default.
+vi.setConfig({ testTimeout: 30_000 });
 import {
   DAY_MS,
   INVITATION_MESSAGES,

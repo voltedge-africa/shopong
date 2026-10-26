@@ -103,3 +103,16 @@ describe("the phone's refusal log (story 2.5)", () => {
     expect(service.refusals()[0]?.action).toBe("Check an invitation");
   });
 });
+
+describe("community key (story 3.4)", () => {
+  it("makes the community under the key the caller gives, so the Node and the phone agree", async () => {
+    const treasurer = await person();
+    const key = "b".repeat(64);
+    const made = await createCommunityService(treasurer, {
+      randomBytes,
+      now: () => 1_793_000_000_000,
+    }).create("Ntombi Stokvel", key);
+    if (!made.ok) throw new Error(made.error.message);
+    expect(made.value.key).toBe(key);
+  });
+});
