@@ -13,6 +13,7 @@ import {
   type IssueRequest,
   type PortError,
   type Result,
+  type Signature,
   type VerifiedChain,
   type VerifyError,
   type VerifyRequest,
@@ -128,6 +129,22 @@ export class MemoryCapabilityAuth implements CapabilityAuth {
     return ok({ chain: chain.value, holder: leaf.value.audience });
   }
 
+  async sign(
+    identity: Did,
+    bytes: Uint8Array,
+  ): Promise<Result<Signature, PortError<"unknown_issuer">>> {
+    const secret = this.#keyring.get(identity);
+    if (!this.#own.has(identity) || secret === undefined) {
+      return err("unknown_issuer", `no signing key for ${identity}`);
+    }
+    return ok(fakeDigest(`${secret}|sig|${hexOf(bytes)}`) as Signature);
+  }
+
+  async verifySignature(did: Did, bytes: Uint8Array, signature: Signature): Promise<boolean> {
+    const secret = this.#keyring.get(did);
+    return secret !== undefined && signature === fakeDigest(`${secret}|sig|${hexOf(bytes)}`);
+  }
+
   async #check(
     token: CapabilityToken,
     need: Capability,
@@ -202,4 +219,8 @@ function decodeToken(token: string): Result<CapabilityPayload, PortError<"malfor
   } catch {
     return err("malformed", "payload is not JSON");
   }
+}
+
+function hexOf(bytes: Uint8Array): string {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }

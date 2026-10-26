@@ -20,6 +20,9 @@ export interface Capability {
   readonly ceiling?: Money;
 }
 
+/** A signature over some bytes, as base64url text. Opaque to callers. */
+export type Signature = Brand<string, "Signature">;
+
 /** An encoded, signed capability token (a UCAN JWT for the ts-ucan adapter). Opaque to callers. */
 export type CapabilityToken = Brand<string, "CapabilityToken">;
 
@@ -119,6 +122,16 @@ export interface CapabilityAuth {
     token: CapabilityToken,
     request: VerifyRequest,
   ): Promise<Result<VerifiedChain, VerifyError>>;
+  /**
+   * Sign bytes with the key of an identity this adapter holds. A signature proves the caller holds
+   * that key (story 2.5): a token copied from a record is useless without it.
+   */
+  sign(identity: Did, bytes: Uint8Array): Promise<Result<Signature, PortError<"unknown_issuer">>>;
+  /**
+   * Whether `signature` is `did`'s signature over `bytes`. Reads only its inputs: no clock, no
+   * network. A DID or signature that cannot be read is simply not valid.
+   */
+  verifySignature(did: Did, bytes: Uint8Array, signature: Signature): Promise<boolean>;
 }
 
 function resourceCovers(parent: ResourceUri, child: ResourceUri): boolean {

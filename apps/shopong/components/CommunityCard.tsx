@@ -54,8 +54,18 @@ function ErrorNote({ message }: { message: string }) {
 export function CommunityCard() {
   const router = useRouter();
   const { status } = useIdentity();
-  const { community, isCreator, members, invitations, roles, create, invite, grant, checkAction } =
-    useCommunity();
+  const {
+    community,
+    isCreator,
+    members,
+    invitations,
+    roles,
+    create,
+    invite,
+    grant,
+    checkAction,
+    refusals,
+  } = useCommunity();
   const [name, setName] = useState("");
   const [invitee, setInvitee] = useState("");
   const [error, setError] = useState<string | undefined>();
@@ -267,6 +277,17 @@ export function CommunityCard() {
             </View>
           ))}
         </>
+      ) : null}
+      {refusals.length > 0 ? (
+        <View className="gap-2 rounded-xl border border-border p-3">
+          <Text weight="bold">Recent refusals on this phone</Text>
+          {refusals.map((refusal, index) => (
+            <View key={`${refusal.at}-${String(index)}`} className="gap-1">
+              <Text muted>{`${refusal.action}, ${dateOf(refusal.at)}`}</Text>
+              <Text>{refusal.reason}</Text>
+            </View>
+          ))}
+        </View>
       ) : null}
       {error !== undefined ? <ErrorNote message={error} /> : null}
     </View>

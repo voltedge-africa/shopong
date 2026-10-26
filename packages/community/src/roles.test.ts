@@ -3,7 +3,7 @@
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { createMemoryRecordNetwork, type MemoryRecordNetwork } from "@shopong/adapters-memory";
 import { createEvent, webCryptoSha512, type EventEnvelope } from "@shopong/events";
-import type { CapabilityToken, Did, Space } from "@shopong/ports";
+import { money, type CapabilityToken, type Did, type Space } from "@shopong/ports";
 import { describe, expect, it } from "vite-plus/test";
 import {
   DAY_MS,
@@ -15,6 +15,7 @@ import {
   encodeProof,
   formatDay,
   joinCommunity,
+  ROLES,
   roleMessage,
   newCommunityKey,
   spaceUri,
@@ -22,7 +23,7 @@ import {
   type CommunityDeps,
   type RoleDraft,
 } from "./index.js";
-import { coTreasurerJoinRecorded } from "./roles.js";
+import { coTreasurerJoinRecorded, isCurrentGrantIn } from "./roles.js";
 
 const T0 = 1_793_000_000_000;
 const RAND = 100; // minor units per rand
@@ -78,6 +79,7 @@ async function town() {
       },
       mayPassOn: (inviter, parentId) =>
         coTreasurerJoinRecorded(space.view, inviter, parentId, now + DAY_MS),
+      isCurrentGrant: (holder, id) => isCurrentGrantIn(space.view, holder, id),
     });
     if (!checked.ok) throw new Error(checked.error.message);
     joinTokens.set(p.did, checked.value.token);
@@ -398,6 +400,7 @@ describe("invitations passed on by a co-treasurer", () => {
       now: T0 + DAYS(1),
       mayPassOn: (inviter, parentId) =>
         coTreasurerJoinRecorded(space.view, inviter, parentId, T0 + DAYS(1)),
+      isCurrentGrant: (holder, id) => isCurrentGrantIn(space.view, holder, id),
     });
     if (!checked.ok) throw new Error(checked.error.message);
     const joined = await joinCommunity(newcomer.deps, space, checked.value, T0 + DAYS(1));
@@ -432,6 +435,7 @@ describe("invitations passed on by a co-treasurer", () => {
       now: T0 + DAYS(2),
       mayPassOn: (inviter, parentId) =>
         coTreasurerJoinRecorded(memberSpace.view, inviter, parentId, T0 + DAYS(2)),
+      isCurrentGrant: (holder, id) => isCurrentGrantIn(memberSpace.view, holder, id),
     });
     expect(checked.ok).toBe(false);
     if (!checked.ok) expect(checked.error.message).toBe(INVITATION_MESSAGES.unreadable);
@@ -457,6 +461,7 @@ describe("invitations passed on by a co-treasurer", () => {
       now: T0 + DAYS(2),
       mayPassOn: (inviter, parentId) =>
         coTreasurerJoinRecorded(t.community.space.view, inviter, parentId, T0 + DAYS(2)),
+      isCurrentGrant: (holder, id) => isCurrentGrantIn(t.community.space.view, holder, id),
     });
     expect(checked.ok).toBe(false);
     if (!checked.ok) expect(checked.error.message).toBe(INVITATION_MESSAGES.unreadable);
@@ -692,5 +697,144 @@ describe("replicas agree on roles", () => {
     const creatorRoles = await t.community.space.view.list("roles/");
     expect(creatorRoles).toHaveLength(1);
     expect(await lateSpace.view.list("roles/")).toEqual(creatorRoles);
+  });
+});
+
+describe("who may replace a role, and proofs missing or changed in the record (story 2.5)", () => {
+  it("only the giver or the creator may replace a role; another co-treasurer is refused", async () => {
+    const t = await town();
+    const first = await t.admit(await phone());
+    const second = await t.admit(await phone());
+    const third = await t.admit(await phone());
+    await grant(t, t.community, first, "co-treasurer", { limit: rand(1000) }, T0);
+    await grant(t, t.community, second, "co-treasurer", { limit: rand(1000) }, T0);
+    await grant(t, first, third, "co-treasurer", { limit: rand(500), days: 7 }, T0 + DAYS(1));
+    const reason = await refusedGiving(
+      t,
+      second,
+      third,
+      "co-treasurer",
+      { limit: rand(400), days: 7 },
+      T0 + DAYS(2),
+    );
+    expect(reason).toBe("Only the person who gave this role, or the creator, can replace it.");
+    // The original giver may replace it, and then the creator may replace it (who gave it is now the creator).
+    await grant(t, first, third, "co-treasurer", { limit: rand(200), days: 7 }, T0 + DAYS(3));
+    await grant(t, t.community, third, "co-treasurer", { limit: rand(300), days: 7 }, T0 + DAYS(4));
+  });
+
+  it("refuses a role.granted with no tokens at all, and records nothing", async () => {
+    const t = await town();
+    const driver = await t.admit(await phone());
+    const reason = await raw(t.community.space, {
+      type: "role.granted",
+      actor: t.creator.did,
+      space: t.community.key,
+      payload: { role: "driver", grantee: driver.me, expiresAt: T0 + DAYS(30) },
+      proof: [],
+    });
+    expect(reason).toBe(roleMessage("unreadable"));
+    expect(await driver.roles()).toHaveLength(0);
+  });
+
+  it("refuses a join whose invitation proof was changed, and records the reason", async () => {
+    const t = await town();
+    const invitee = await phone();
+    const invited = await t.community.invite(invitee.did, T0);
+    if (!invited.ok) throw new Error(invited.error.message);
+    const space = await t.network
+      .peer<EventEnvelope>(invitee.did)
+      .open(
+        t.community.space.key,
+        communityDefinition(invitee.deps, t.creator.did, t.community.key),
+      );
+    await t.network.replicate<EventEnvelope>(t.community.space, space);
+    const token = invited.value.token;
+    const at = Math.floor(token.length / 2);
+    const tampered = `${token.slice(0, at)}${token[at] === "A" ? "B" : "A"}${token.slice(at + 1)}`;
+    const reason = await raw(space, {
+      type: "member.joined",
+      actor: invitee.did,
+      space: t.community.key,
+      payload: { invitation: invited.value.id },
+      proof: [encodeProof(tampered)],
+    });
+    expect(reason).toBe(INVITATION_MESSAGES.unreadable);
+  });
+});
+
+describe("a grant built on a grant the creator has since replaced (review finding 1)", () => {
+  it("is refused on the device and in apply, once the creator re-grants the ancestor", async () => {
+    const t = await town();
+    const g = await t.admit(await phone());
+    const a = await t.admit(await phone());
+    await grant(t, t.community, g, "co-treasurer", { limit: rand(10000), days: 90 }, T0);
+    const oldGrants = (await g.roles())[0]?.grants ?? [];
+    // G gives A R5,000 from the grant the creator gave G.
+    await grant(t, g, a, "co-treasurer", { limit: rand(5000), days: 7 }, T0 + DAYS(1));
+    const before = await a.checkAction(
+      { ability: "payment/approve", amount: rand(5000) },
+      T0 + DAYS(2),
+    );
+    expect(before.ok).toBe(true);
+
+    // The creator re-grants G at R100. The old grant is no longer in G's record.
+    await grant(t, t.community, g, "co-treasurer", { limit: rand(100), days: 90 }, T0 + DAYS(2));
+    const device = await a.checkAction(
+      { ability: "payment/approve", amount: rand(5000) },
+      T0 + DAYS(3),
+    );
+    expect(device.ok).toBe(false);
+    if (!device.ok) expect(device.error.message).toBe("Your role doesn't cover that.");
+
+    // Apply: G builds a co-treasurer role for B from the replaced grant, and the record must refuse it.
+    const b = await t.admit(await phone());
+    const from = authOf(t, g);
+    const tokens: CapabilityToken[] = [];
+    for (const ability of ROLES["co-treasurer"].abilities) {
+      const parent = oldGrants.find((grant) => grant.ability === ability);
+      if (parent === undefined) throw new Error("no old grant");
+      const issued = await from.issue({
+        issuer: g.me,
+        audience: b.me,
+        capabilities: [
+          {
+            with: spaceUri(t.community.key),
+            can: ability,
+            ...(ability === "payment/approve" ? { ceiling: money("ZAR", 5000_00) } : {}),
+          },
+        ],
+        notBefore: T0,
+        expiresAt: T0 + DAYS(10),
+        proofs: [parent.token],
+      });
+      if (!issued.ok) throw new Error(issued.error.message);
+      tokens.push(issued.value);
+    }
+    const reason = await raw(g.space, {
+      type: "role.granted",
+      actor: g.me,
+      space: t.community.key,
+      payload: { role: "co-treasurer", grantee: b.me, expiresAt: T0 + DAYS(10) },
+      proof: tokens.map((token) => encodeProof(token)),
+    });
+    expect(reason).toBe("You can't give more than you have.");
+  });
+
+  it("the device and apply checks run with the network trapped", async () => {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (() => {
+      throw new Error("network read during a record or device check");
+    }) as typeof fetch;
+    try {
+      const t = await town();
+      const driver = await t.admit(await phone());
+      await grant(t, t.community, driver, "driver", {}, T0);
+      expect((await driver.checkAction({ ability: "delivery/confirm" }, T0 + DAYS(1))).ok).toBe(
+        true,
+      );
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 });

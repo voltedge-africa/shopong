@@ -17,6 +17,7 @@ import {
   err,
   money,
   ok,
+  type Err,
   type Ability,
   type Capability,
   type CapabilityAuth,
@@ -27,14 +28,13 @@ import {
   type Money,
   type PortError,
   type Result,
-  type VerifyRequest,
   type ViewReader,
   type ViewWriter,
   isDid,
   isMoney,
 } from "@shopong/ports";
 import { decodeProof } from "./proof.js";
-import { chainOf } from "./chain.js";
+import { verifyAuthority, type AuthorityFailure } from "./authority.js";
 import { DAY_MS, INVITATION_MESSAGES } from "./invitation.js";
 import { spaceUri } from "./space.js";
 
@@ -102,7 +102,8 @@ export type RoleProblem =
   | "not_started"
   | "outside"
   | "over_limit"
-  | "no_amount";
+  | "no_amount"
+  | "not_original_giver";
 
 export type RoleError = PortError<RoleProblem>;
 
@@ -148,6 +149,7 @@ const FIXED_MESSAGES: { readonly [P in RoleProblem]?: string } = {
   not_yours: "This role isn't yours.",
   outside: "Your role doesn't cover that.",
   no_amount: "Say how much.",
+  not_original_giver: "Only the person who gave this role, or the creator, can replace it.",
 };
 
 /** The plain sentence for a refusal. `at` is the day for `ended` and `not_started`; `limit` for `over_limit`. */
@@ -232,6 +234,17 @@ function toJson(record: RoleRecord): JsonValue {
   };
 }
 
+/** Whether `tokenId` is a grant recorded for `holder` in the view as it stands (review finding 1). */
+export async function isCurrentGrantIn(
+  view: ViewReader,
+  holder: string,
+  tokenId: string,
+): Promise<boolean> {
+  return (await rolesOf(view, holder)).some((record) =>
+    record.grants.some((grant) => grant.id === tokenId),
+  );
+}
+
 export async function readRole(
   view: ViewReader,
   holder: string,
@@ -296,64 +309,54 @@ function capabilityFor(spaceKey: string, ability: Ability, limit?: Money): Capab
     : { with: spaceUri(spaceKey), can: ability, ceiling: limit };
 }
 
+/** The plain reason for a shared authority refusal, in the words of a role. */
+function roleFailure(failure: AuthorityFailure): Err<RoleError> {
+  // `missing_proof` cannot happen on the phone for a role: each grant is read from the record. If it ever
+  // did, it shares the "can't be checked" sentence on purpose, rather than a new one nobody sees.
+  switch (failure.code) {
+    case "ended":
+    case "not_started":
+      return fail(failure.code, { at: failure.at });
+    case "over_limit":
+      return fail("over_limit", failure.limit === undefined ? {} : { limit: failure.limit });
+    case "outside":
+    case "not_current":
+    case "not_yours":
+      return fail(failure.code === "not_current" ? "outside" : failure.code);
+    default:
+      return fail("unreadable");
+  }
+}
+
 /**
- * One token, checked for `holder` in the order the plain reasons follow: readable, theirs, not ended,
- * covers the ability, within the limit. `amount` is only given for the limited ability.
+ * One token, checked for `holder` in the order the plain reasons follow (see `verifyAuthority`).
+ * `amount` is only given for the limited ability.
  */
 async function checkToken(
   ctx: CheckContext,
+  view: ViewReader,
   holder: string,
   token: CapabilityToken,
   ability: Ability,
   now: EpochMs,
   amount?: Money,
 ): Promise<Result<{ readonly limit?: Money; readonly endsAt: EpochMs }, RoleError>> {
-  const chain = await chainOf(ctx.auth, token);
-  if (chain === undefined) return fail("unreadable");
-  const leaf = chain[0];
-  if (leaf === undefined) return fail("unreadable");
-  if (leaf.audience !== holder) return fail("not_yours");
-
-  const endsAt = Math.min(...chain.map((link) => link.expiresAt));
-  const ended = chain.filter((link) => now >= link.expiresAt);
-  if (ended.length > 0) {
-    return fail("ended", { at: Math.min(...ended.map((link) => link.expiresAt)) });
-  }
-  const notStarted = chain.filter((link) => now < link.notBefore);
-  if (notStarted.length > 0) {
-    return fail("not_started", { at: Math.max(...notStarted.map((link) => link.notBefore)) });
-  }
-
-  const limit = leaf.capabilities[0]?.ceiling;
-  const request = (ceiling?: Money): VerifyRequest => ({
+  const verified = await verifyAuthority(ctx.auth, token, {
+    holder: holder as Did,
+    rootIssuer: ctx.creator,
+    at: now,
+    isCurrentGrant: (who, id) => isCurrentGrantIn(view, who, id),
     required: {
       with: spaceUri(ctx.spaceKey),
       can: ability,
-      ...(ceiling === undefined ? {} : { ceiling }),
+      ...(amount === undefined ? {} : { ceiling: amount }),
     },
-    rootIssuer: ctx.creator,
-    logTime: now,
-    audience: holder as Did,
   });
-  const verified = await ctx.auth.verify(token, request(amount));
-  if (verified.ok) return ok({ ...(limit === undefined ? {} : { limit }), endsAt });
-
-  switch (verified.error.code) {
-    case "insufficient_capability": {
-      if (amount === undefined) return fail("outside");
-      // The ability is covered when a zero amount passes, so only the amount is too high.
-      const floor = await ctx.auth.verify(token, request(money(amount.currency, 0)));
-      return floor.ok && limit !== undefined ? fail("over_limit", { limit }) : fail("outside");
-    }
-    case "wrong_audience":
-      return fail("not_yours");
-    case "expired":
-      return fail("ended", { at: endsAt });
-    case "not_yet_valid":
-      return fail("not_started", { at: Math.max(...chain.map((link) => link.notBefore)) });
-    default:
-      return fail("unreadable");
-  }
+  if (!verified.ok) return roleFailure(verified.error);
+  return ok({
+    ...(verified.value.limit === undefined ? {} : { limit: verified.value.limit }),
+    endsAt: verified.value.endsAt,
+  });
 }
 
 export interface ActionRequest {
@@ -402,6 +405,7 @@ export async function checkAction(
   for (const candidate of candidates) {
     const checked = await checkToken(
       ctx,
+      ctx.view,
       holder,
       candidate.token,
       request.ability,
@@ -488,6 +492,7 @@ export async function issueRole(request: IssueRoleRequest): Promise<Result<RoleD
       for (const grant of grants) {
         const checked = await checkToken(
           { auth, creator, spaceKey },
+          view,
           grantor,
           grant.token,
           ability,
@@ -587,22 +592,21 @@ export async function recordRoleGrant(
       return roleMessage("unreadable");
     }
 
-    const verified = await auth.verify(token, {
-      required: capability,
+    const verified = await verifyAuthority(auth, token, {
+      holder: grantee as Did,
       rootIssuer: creator,
-      logTime: event.claimedAt,
-      audience: grantee as Did,
+      at: event.claimedAt,
+      required: capability,
+      isCurrentGrant: (who, id) => isCurrentGrantIn(view, who, id),
     });
     if (!verified.ok) {
       switch (verified.error.code) {
-        case "expired": {
-          const chain = await chainOf(auth, token);
-          const endsAt = Math.min(...(chain ?? []).map((link) => link.expiresAt));
-          return roleMessage("ended", { at: endsAt });
-        }
-        case "not_yet_valid":
-          return roleMessage("not_started", { at: decoded.value.notBefore });
-        case "insufficient_capability": {
+        case "ended":
+        case "not_started":
+          return roleMessage(verified.error.code, { at: verified.error.at });
+        case "outside":
+        case "not_current":
+        case "over_limit": {
           const held = (await rolesOf(view, event.actor)).some((record) =>
             record.grants.some((grant) => definition.abilities.includes(grant.ability)),
           );
@@ -618,6 +622,12 @@ export async function recordRoleGrant(
       id: await auth.tokenId(token),
       ...(capability.ceiling === undefined ? {} : { limit: capability.ceiling }),
     });
+  }
+
+  // Replacing a role someone else recorded is for its giver or the creator only (S-2.4-16).
+  const existing = await readRole(view, grantee, role);
+  if (existing !== undefined && event.actor !== creator && event.actor !== existing.grantor) {
+    return roleMessage("not_original_giver");
   }
 
   await view.put(

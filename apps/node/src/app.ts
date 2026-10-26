@@ -5,6 +5,9 @@ import {
   type ComponentName,
   type NodeComponent,
 } from "./components.ts";
+import { createAuthorityGuard, type AuthorityConfig } from "./authority.ts";
+import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
+import type { CapabilityAuth } from "@shopong/ports";
 
 export type OverallStatus = "ok" | "degraded";
 
@@ -18,6 +21,10 @@ export interface AppOptions {
   logger: FastifyBaseLogger;
   version: string;
   components: readonly NodeComponent[];
+  /** Verifies signatures and capability chains. Defaults to a fresh `IsoUcanCapabilityAuth`. */
+  auth?: CapabilityAuth;
+  /** The community the Node checks authority against. Without it, `/authority/check` answers 503. */
+  authority?: AuthorityConfig;
 }
 
 async function report(options: AppOptions): Promise<HealthReport> {
@@ -57,6 +64,11 @@ export function buildApp(options: AppOptions): FastifyInstance {
       .code(health.status === "ok" ? 200 : 503)
       .send({ ready: health.status === "ok", ...health });
   });
+
+  createAuthorityGuard({
+    auth: options.auth ?? new IsoUcanCapabilityAuth(),
+    config: options.authority,
+  }).register(app);
 
   app.setNotFoundHandler((_request, reply) => reply.code(404).send({ error: "not-found" }));
 

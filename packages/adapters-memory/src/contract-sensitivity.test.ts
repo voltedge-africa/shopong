@@ -62,11 +62,31 @@ describe("contract sensitivity", () => {
       decode: (t) => inner.decode(t),
       tokenId: (t) => inner.tokenId(t),
       verify: (t, r) => inner.verify(t, { ...r, logTime: Date.now() }),
+      sign: (d, b) => inner.sign(d, b),
+      verifySignature: (d, b, s) => inner.verifySignature(d, b, s),
     };
     await expectCaseFails(
       capabilityAuthContract,
       "validity uses the supplied log time, never the wall clock",
       wallClock,
+    );
+  });
+
+  it("CapabilityAuth: a verifySignature that accepts anything fails the signature case", async () => {
+    const inner = new MemoryCapabilityAuth();
+    const trusting: CapabilityAuth = {
+      createIdentity: () => inner.createIdentity(),
+      issue: (r) => inner.issue(r),
+      decode: (t) => inner.decode(t),
+      tokenId: (t) => inner.tokenId(t),
+      verify: (t, r) => inner.verify(t, r),
+      sign: (d, b) => inner.sign(d, b),
+      verifySignature: async () => true,
+    };
+    await expectCaseFails(
+      capabilityAuthContract,
+      "a signature verifies for its identity and those exact bytes only",
+      trusting,
     );
   });
 

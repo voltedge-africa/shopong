@@ -24,6 +24,7 @@ export {
   ROLE_NAMES,
   checkAction,
   coTreasurerJoinGrant,
+  isCurrentGrantIn,
   coTreasurerJoinRecorded,
   formatDay,
   formatRand,
@@ -62,3 +63,20 @@ export {
 } from "./invitation.js";
 export { decodeProof, encodeProof } from "./proof.js";
 export { isCommunityKey, newCommunityKey, spaceUri } from "./space.js";
+export {
+  verifyAuthority,
+  type AuthorityFailure,
+  type AuthorityProblem,
+  type AuthorityRequest,
+  type Authorised,
+} from "./authority.js";
+export {
+  REQUEST_SKEW_MS,
+  isRequestNonce,
+  requestBytes,
+  signRequest,
+  verifyRequestSignature,
+  type RequestHeaders,
+  type RequestParts,
+} from "./request-proof.js";
+export { REFUSAL_LOG_LIMIT, addRefusal, type Refusal } from "./refusals.js";

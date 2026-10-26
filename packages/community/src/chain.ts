@@ -14,12 +14,26 @@ export async function chainOf(
   auth: CapabilityAuth,
   token: CapabilityToken,
 ): Promise<readonly CapabilityPayload[] | undefined> {
-  const out: CapabilityPayload[] = [];
+  return (await chainLinks(auth, token))?.map((link) => link.payload);
+}
+
+/** One link of a chain: the token as it was given, and what it says. */
+export interface ChainLink {
+  readonly token: CapabilityToken;
+  readonly payload: CapabilityPayload;
+}
+
+/** The token and every token it was delegated from, leaf first, each with its own token. */
+export async function chainLinks(
+  auth: CapabilityAuth,
+  token: CapabilityToken,
+): Promise<readonly ChainLink[] | undefined> {
+  const out: ChainLink[] = [];
   const walk = async (current: CapabilityToken, depth: number): Promise<boolean> => {
     if (depth > MAX_CHAIN) return false;
     const decoded = await auth.decode(current);
     if (!decoded.ok) return false;
-    out.push(decoded.value);
+    out.push({ token: current, payload: decoded.value });
     for (const parent of decoded.value.proofs) {
       if (!(await walk(parent, depth + 1))) return false;
     }

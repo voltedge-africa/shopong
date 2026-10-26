@@ -25,11 +25,10 @@ export const MAX_DEPTH = 64;
 
 export class CanonicalizationError extends Error {
   override name = "CanonicalizationError";
-  constructor(
-    message: string,
-    readonly path: string,
-  ) {
+  readonly path: string;
+  constructor(message: string, path: string) {
     super(`${path}: ${message}`);
+    this.path = path;
   }
 }
 
