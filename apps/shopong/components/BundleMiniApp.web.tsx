@@ -18,11 +18,17 @@ export function BundleMiniApp({ asset, messages }: Props) {
   const theme = useUniwind().theme === "light" ? "light" : "dark";
   const [background] = useCSSVariable(["--color-background"]);
 
+  // The messages the page was last sent, as text: changed messages (a planned route) are sent again, once each.
+  const latest = useRef(messages);
+  latest.current = messages;
+  const sent = useRef("");
+
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== frame.current?.contentWindow || !isReadyMessage(event.data)) return;
-      for (const message of [themeMessage(theme), ...messages])
+      for (const message of [themeMessage(theme), ...latest.current])
         frame.current.contentWindow?.postMessage(JSON.stringify(message), "*");
+      sent.current = JSON.stringify(latest.current);
       setReady(true);
     };
     window.addEventListener("message", onMessage);
@@ -34,6 +40,15 @@ export function BundleMiniApp({ asset, messages }: Props) {
     if (!ready) return;
     frame.current?.contentWindow?.postMessage(JSON.stringify(themeMessage(theme)), "*");
   }, [theme, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const text = JSON.stringify(messages);
+    if (text === sent.current) return;
+    sent.current = text;
+    for (const message of messages)
+      frame.current?.contentWindow?.postMessage(JSON.stringify(message), "*");
+  }, [messages, ready]);
 
   return (
     <View className="flex-1 bg-background">

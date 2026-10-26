@@ -18,6 +18,7 @@ import {
 } from "@shopong/ports-contract";
 import { asSha512Hex, type CapabilityToken, type Clock } from "@shopong/ports";
 import { webCryptoHmac } from "./test-hmac.js";
+import { MemoryRouting } from "./routing.js";
 import {
   MemoryAgent,
   MemoryCapabilityAuth,
@@ -29,7 +30,6 @@ import {
   MemoryOcr,
   MemoryPayIn,
   MemoryPayOut,
-  MemoryRouting,
   MemoryStableRail,
   createMemoryRecordNetwork,
 } from "./index.js";

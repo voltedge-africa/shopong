@@ -12,7 +12,7 @@ import {
   type PortError,
   type Result,
 } from "@shopong/ports";
-import { haversineMeters } from "./routing.js";
+import { haversineMeters } from "./geometry.js";
 import { stableStringify } from "./support.js";
 
 const TABLE_NAME = /^[a-z_][a-z0-9_]*$/;

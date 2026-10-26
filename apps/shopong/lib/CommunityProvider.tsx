@@ -37,7 +37,14 @@ import { paymentStatusOfFailure } from "./paymentStatus";
 import { founderEvent, inviteEvent, joinEvent, pledgeEvent } from "./communityEvents";
 import { nodeFailureMessage, unqueuedMessage } from "./nodeMessages";
 import { NODE_ADDRESS } from "./nodeAddress";
-import { createNodeClient, type NodeClient } from "./nodeClient";
+import { createNodeClient, type NodeClient, type RouteAnswer } from "./nodeClient";
+import {
+  OFFLINE_PLAN_MESSAGE,
+  planFailureMessage,
+  routeScreenOf,
+  type RoutePlace,
+  type RouteScreen,
+} from "./route";
 import { cameBackOnline } from "./connectivity";
 import { createQueueStore } from "./queueStore";
 import { poolScreenOf, type PoolScreen } from "./pool";
@@ -99,7 +106,23 @@ type CommunityContextValue = {
   paymentOf: (order: string) => Promise<PaymentView>;
   /** Asks the Node for the bank request for this member's pledge. Resolves the bank page's address, or a plain reason. */
   payOrder: (order: string) => Promise<{ ok: true; url: string } | { ok: false; message: string }>;
+  /** The places this community registered, by id and label (story 7.4). Never a coordinate or an address. */
+  placesOf: () => Promise<readonly RoutePlace[]>;
+  /**
+   * Plans the route between two registered places on the Node, then records `delivery.planned` for the delivery. The
+   * Node refuses a plain member, and a plain sentence says so. Offline, nothing is planned.
+   */
+  planRoute: (
+    origin: string,
+    destination: string,
+  ) => Promise<{ ok: true; route: RouteAnswer } | { ok: false; message: string }>;
+  /** The community's planned route: its line and sentences from the Node, by the fingerprint the record holds. */
+  routeScreen: () => Promise<RouteScreen>;
 };
+
+/** The one delivery the community plans for now; orders are not yet in the record (see shortcuts S-7.4-8). */
+const DELIVERY_ORDER = "current";
+const DELIVERY_VIEW_KEY = `delivery/${encodeURIComponent(DELIVERY_ORDER)}`;
 
 /** What the session needs to talk to the Node: the client (absent without an address) and the sync service. */
 type NodeBundle = { did: string; client: NodeClient | undefined; sync: SyncService };
@@ -556,6 +579,78 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     [nodeFor, did, nodeCommunity],
   );
 
+  const placesOf = useCallback(async (): Promise<readonly RoutePlace[]> => {
+    const current = serviceFor().community();
+    if (current === null) return [];
+    await current.space.update();
+    const rows = await current.space.view.list("places/");
+    return rows.map((row) => {
+      const value = (row.value ?? {}) as { label?: unknown; area?: unknown };
+      return {
+        id: row.key.slice("places/".length),
+        label: typeof value.label === "string" ? value.label : "",
+        area: typeof value.area === "string" ? value.area : "",
+      };
+    });
+  }, [serviceFor]);
+
+  const planRoute = useCallback(
+    async (origin: string, destination: string) => {
+      const bundle = nodeFor();
+      const current = serviceFor().community();
+      if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
+        return { ok: false as const, message: OFFLINE_PLAN_MESSAGE };
+      }
+      if (current === null) return { ok: false as const, message: "Make a community first." };
+      await current.space.update();
+      const driver = await serviceFor().currentDriver(Date.now());
+      if (driver === undefined) {
+        return { ok: false as const, message: "Assign a driver before planning a route." };
+      }
+      const reply = await bundle.client.planRoute(nodeCommunity.key, {
+        order: DELIVERY_ORDER,
+        origin,
+        destination,
+      });
+      if (!reply.ok) return { ok: false as const, message: planFailureMessage(reply.failure) };
+      const route = reply.value;
+      const recorded = await serviceFor().planDelivery({
+        order: DELIVERY_ORDER,
+        driver,
+        origin,
+        destination,
+        route: {
+          costing: route.costing,
+          distanceMeters: route.distanceMeters,
+          durationSeconds: route.durationSeconds,
+          tileRelease: route.tileRelease,
+          fingerprint: route.fingerprint,
+        },
+      });
+      setRefusals(serviceFor().refusals());
+      if (!recorded.ok) return { ok: false as const, message: recorded.error.message };
+      return { ok: true as const, route };
+    },
+    [nodeFor, nodeCommunity, serviceFor],
+  );
+
+  const routeScreen = useCallback(async (): Promise<RouteScreen> => {
+    const current = serviceFor().community();
+    if (current === null) return { state: "none" };
+    await current.space.update();
+    const stored = (await current.space.view.get(DELIVERY_VIEW_KEY)) as
+      | { fingerprint?: unknown }
+      | undefined;
+    if (typeof stored?.fingerprint !== "string") return { state: "none" };
+    const bundle = nodeFor();
+    if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
+      return { state: "unreachable", message: OFFLINE_PLAN_MESSAGE };
+    }
+    return routeScreenOf(
+      await bundle.client.route(nodeCommunity.key, DELIVERY_ORDER, stored.fingerprint),
+    );
+  }, [nodeFor, nodeCommunity, serviceFor]);
+
   const shownMembers = nodeCommunity === null ? members : nodeMembers;
   const noNodeReason =
     did === null || auth === null || NODE_ADDRESS.ok ? undefined : NODE_ADDRESS.reason;
@@ -590,6 +685,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       pool: nodeCommunity === null ? null : pool,
       refreshPool,
       pledgeOrder,
+      placesOf,
+      planRoute,
+      routeScreen,
       paymentOf,
       payOrder,
     }),
@@ -621,6 +719,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       pool,
       refreshPool,
       pledgeOrder,
+      placesOf,
+      planRoute,
+      routeScreen,
       paymentOf,
       payOrder,
     ],

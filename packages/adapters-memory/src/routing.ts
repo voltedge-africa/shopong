@@ -1,3 +1,4 @@
+import { haversineMeters } from "./geometry.js";
 import {
   err,
   ok,
@@ -80,16 +81,6 @@ function validPoint(point: LatLng): boolean {
     Math.abs(point.lat) <= 90 &&
     Math.abs(point.lng) <= 180
   );
-}
-
-export function haversineMeters(a: LatLng, b: LatLng): number {
-  const rad = Math.PI / 180;
-  const dLat = (b.lat - a.lat) * rad;
-  const dLng = (b.lng - a.lng) * rad;
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
-  return 2 * 6_371_008.8 * Math.asin(Math.sqrt(h));
 }
 
 /** Google encoded-polyline algorithm at precision 6, as Valhalla returns. */

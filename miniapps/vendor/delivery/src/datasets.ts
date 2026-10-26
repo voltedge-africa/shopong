@@ -1,4 +1,5 @@
-import type { DeliveryMap, Stop } from "./protocol";
+import { decodePolyline6 } from "./polyline";
+import type { DeliveryMap } from "./protocol";
 
 /** The shape `addDataToMap` takes: a dataset is `fields` plus `rows` of values in field order. */
 export type KeplerDataset = {
@@ -15,7 +16,7 @@ const field = (name: string, type: "string" | "real") => ({ name, format: "", ty
  * Two datasets: the stops as points, and the route as one line per leg. Kepler draws a point
  * layer from `lat`/`lng` and a line layer from `lat0`/`lng0`/`lat1`/`lng1`.
  */
-export function toKeplerDatasets({ stops, legs }: DeliveryMap): KeplerDataset[] {
+export function toKeplerDatasets({ stops, legs, route }: DeliveryMap): KeplerDataset[] {
   const byId = new Map(stops.map((stop) => [stop.id, stop]));
 
   const legRows = legs.flatMap((leg) => {
@@ -24,7 +25,7 @@ export function toKeplerDatasets({ stops, legs }: DeliveryMap): KeplerDataset[] 
     return from && to ? [[from.name, to.name, from.lat, from.lng, to.lat, to.lng]] : [];
   });
 
-  return [
+  const datasets: KeplerDataset[] = [
     {
       info: { id: "stops", label: "Stops" },
       data: {
@@ -53,6 +54,35 @@ export function toKeplerDatasets({ stops, legs }: DeliveryMap): KeplerDataset[] 
       },
     },
   ];
+  if (route !== undefined) {
+    // The planned road route the Node sent: one line per piece of the decoded line (story 7.4).
+    const points = decodePolyline6(route.polyline6) ?? [];
+    const pieces = points
+      .slice(1)
+      .map((to, i) => [
+        "Planned route",
+        "Planned route",
+        points[i]!.lat,
+        points[i]!.lng,
+        to.lat,
+        to.lng,
+      ]);
+    datasets.push({
+      info: { id: "planned-route", label: "Planned route" },
+      data: {
+        fields: [
+          field("from", "string"),
+          field("to", "string"),
+          field("lat0", "real"),
+          field("lng0", "real"),
+          field("lat1", "real"),
+          field("lng1", "real"),
+        ],
+        rows: pieces,
+      },
+    });
+  }
+  return datasets;
 }
 
 /**
@@ -60,7 +90,7 @@ export function toKeplerDatasets({ stops, legs }: DeliveryMap): KeplerDataset[] 
  * every side. Kepler fits the map to exactly the box, which leaves the outer stops on the screen edge.
  */
 export function paddedBounds(
-  stops: readonly Stop[],
+  stops: readonly { readonly lat: number; readonly lng: number }[],
   ratio = 0.3,
 ): [number, number, number, number] {
   const lngs = stops.map((stop) => stop.lng);

@@ -1,3 +1,4 @@
+import { registerRouteRoutes, type RouteRouteOptions } from "./route-routes.ts";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import {
   COMPONENT_NAMES,
@@ -54,6 +55,8 @@ export interface AppOptions {
   communityNonces?: { readonly create?: number; readonly members?: number };
   /** The pool read (story 4.6). Without a ledger the route answers 503. */
   pool?: PoolRouteOptions;
+  /** Route planning and places (story 7.4). Without it, the route routes are not served. */
+  routes?: RouteRouteOptions;
   /** The simulated payments (story 4.4). Without it, the payment routes are not served. */
   payments?: SimulatedStitch;
   /** The member's pay routes for a pledge (story 4.3). Without it, they are not served. */
@@ -119,6 +122,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
   });
   registerSyncRoutes(app, auth, options.sync ?? {});
   registerPoolRoute(app, auth, options.pool ?? {});
+  if (options.routes !== undefined) registerRouteRoutes(app, auth, options.routes);
   if (options.tiles !== undefined) registerTileRoutes(app, options.tiles);
   if (options.payments !== undefined) {
     registerPaymentRoutes(app, options.payments, options.paymentConfirmation);
