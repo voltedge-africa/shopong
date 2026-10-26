@@ -3,7 +3,7 @@ title: 'Verify authority on device, in the record and at the Node'
 type: 'feature'
 ticket: 5
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: '5a80af041e7192fd3a26f605519e07315486f46b'
 route: 'full'
 route_source: 'auto'
