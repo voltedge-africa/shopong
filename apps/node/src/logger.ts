@@ -32,7 +32,29 @@ export function createLogger(options: LoggerOptions): Logger {
       sink.write(scrub(out));
     },
   };
-  return pino({ level: options.level, base: { service: "ocn-node" } }, stream);
+  return pino(
+    {
+      level: options.level,
+      base: { service: "ocn-node" },
+      // A simulated bank page's address is a capability (review item 1): its id never reaches a log line.
+      serializers: {
+        req: (req: {
+          method?: string;
+          url?: string;
+          host?: string;
+          remoteAddress?: string;
+          remotePort?: number;
+        }) => ({
+          method: req.method,
+          url: (req.url ?? "").replace(/^\/simulated-bank\/[^/?]+/u, "/simulated-bank/:id"),
+          host: req.host,
+          remoteAddress: req.remoteAddress,
+          remotePort: req.remotePort,
+        }),
+      },
+    },
+    stream,
+  );
 }
 
 /** Writes one fatal line before a logger exists (startup failures). Always scrubbed and redacted. */

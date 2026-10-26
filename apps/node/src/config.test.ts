@@ -132,14 +132,16 @@ describe("secrets (AC 1.5a)", () => {
       loadConfig({
         env: {
           ...allOn,
-          // STITCH_CLIENT_SECRET and LEDFRA_API_TOKEN are missing; the third is present.
+          // LEDFRA_API_TOKEN and SIMULATED_WEBHOOK_SECRET are missing. The Stitch secrets are not needed while
+          // the payments adapter is the simulation, so a value that is present here is not echoed.
           STITCH_CLIENT_ID: FAKE_SECRETS.STITCH_CLIENT_ID,
         },
       }),
     );
-    expect(error.keys).toEqual(["LEDFRA_API_TOKEN", "STITCH_CLIENT_SECRET"]);
-    expect(error.message).toContain("STITCH_CLIENT_SECRET");
+    expect(error.keys).toEqual(["LEDFRA_API_TOKEN", "SIMULATED_WEBHOOK_SECRET"]);
+    expect(error.message).toContain("SIMULATED_WEBHOOK_SECRET");
     expect(error.message).toContain("LEDFRA_API_TOKEN");
+    expect(error.message).not.toContain("STITCH_CLIENT_SECRET");
     expect(error.message).not.toContain(FAKE_SECRETS.STITCH_CLIENT_ID);
   });
 

@@ -110,3 +110,18 @@ baseline_revision: '788a54d8ab1c5cedcf4ab94ed00f62779eefa091'
 8. **Does the simulation implement `PayOut` too?**
    - A) (Recommended) Yes. The Payments suite covers both, and an unexercised `PayOut` is recorded as a shortcut until 4.7.
    - B) `PayIn` only, and register only that suite. Then the adapter does not pass the whole Payments contract.
+
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 2 high, 3 medium, 5 low. The orchestrator also ran the real Node and clicked the bank page in a real browser.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | The bank page's Approve and Cancel were unauthenticated and ids were sequential, so anyone on the network could approve a payment | high, real | patch | Ids are 128-bit random tokens and the page address is the capability; a guessed or sequential id gets the same 404 as an unknown one; production refuses to start with simulated payments unless `OCN_NODE_ALLOW_SIMULATED_PAYMENTS=true`; ids no longer appear in logs; tests failed first; checked with curl against the real Node |
+| 2 | The buttons returned 415 in a real browser (a plain HTML form post has no matching parser) | high, real | patch | A form-post parser on the bank routes only; test failed first; mutation-checked; clicked Approve in a real browser: pending became completed |
+| 3 | Cross-site forgery and framing of the bank page | medium, real | patch | The unguessable address stops forged requests; `X-Frame-Options: DENY`, a restrictive CSP, `Cache-Control: no-store` and `Referrer-Policy: no-referrer` on every response (seen with curl) |
+| 4 | Approving an expired request from the page wrote a fake late-completion flag | medium, real | patch | The page refuses with "This payment request has expired."; a late completion only comes from a signed webhook |
+| 5 | A failed state write left memory ahead of disk, so a restart could re-apply a completion | medium, real | patch | Applied, then written; on failure the state is rolled back and the routes answer 503; mutation-checked |
+| 6, 7 | No lock for two Nodes on one data folder; no directory fsync after rename | low | defer | S-4.4-18, S-4.4-19 |
+| 8, 9, 10 | Weak webhook key accepted; two banners; an out-of-range expiry crashed the page | low, real | patch | Tested |
+

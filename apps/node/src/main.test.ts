@@ -43,14 +43,14 @@ function run(env: Record<string, string>) {
 
 describe("ocn node process", () => {
   it("refuses to start when a required secret is missing, naming the key and no values (AC 1.5a)", async () => {
-    // STITCH_CLIENT_SECRET is missing; every other secret is present.
-    const { STITCH_CLIENT_SECRET: _omitted, ...present } = FAKE_SECRETS;
+    // SIMULATED_WEBHOOK_SECRET is missing; every other secret is present.
+    const { SIMULATED_WEBHOOK_SECRET: _omitted, ...present } = FAKE_SECRETS;
     const proc = run(present);
     const code = await proc.exit;
     const { stdout, stderr } = proc.out();
 
     expect(code).not.toBe(0);
-    expect(stderr).toContain("STITCH_CLIENT_SECRET");
+    expect(stderr).toContain("SIMULATED_WEBHOOK_SECRET");
     expect(stderr).toContain("refused to start");
     for (const value of Object.values(FAKE_SECRETS)) {
       expect(stdout).not.toContain(value);
@@ -63,13 +63,13 @@ describe("ocn node process", () => {
     const proc = run({});
     expect(await proc.exit).not.toBe(0);
     const { stderr } = proc.out();
-    for (const key of ["STITCH_CLIENT_ID", "STITCH_CLIENT_SECRET", "LEDFRA_API_TOKEN"]) {
+    for (const key of ["SIMULATED_WEBHOOK_SECRET", "LEDFRA_API_TOKEN"]) {
       expect(stderr).toContain(key);
     }
   });
 
   it("starts with all secrets, reports healthy, logs no secret value and stops cleanly on SIGTERM", async () => {
-    const proc = run({ ...FAKE_SECRETS });
+    const proc = run({ ...FAKE_SECRETS, OCN_NODE_ALLOW_SIMULATED_PAYMENTS: "true" });
     const port = await new Promise<number>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("node did not start in time")), 20_000);
       const poll = setInterval(() => {
