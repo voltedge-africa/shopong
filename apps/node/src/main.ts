@@ -5,7 +5,11 @@ import { parseArgs } from "node:util";
 import { writeSync } from "node:fs";
 import { writeFatal } from "./logger.ts";
 import { ConfigError } from "./secrets.ts";
-import { startNode } from "./node.ts";
+import { registerWorkspaceResolution } from "./workspace-resolve.ts";
+
+// Before any workspace package is imported: they use `.js` specifiers that Node cannot resolve to `.ts`.
+registerWorkspaceResolution();
+const { startNode } = await import("./node.ts");
 
 const stderr = { write: (line: string) => void writeSync(2, line) };
 

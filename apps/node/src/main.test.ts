@@ -19,6 +19,7 @@ beforeAll(() => {
   writeFileSync(
     configPath,
     JSON.stringify({
+      dataDir: join(dir, "data"),
       server: { host: "127.0.0.1", port: 0 },
       components: { ledger: { enabled: true }, payments: { enabled: true } },
     }),

@@ -13,6 +13,7 @@ export const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace", "
 
 export const DEFAULT_PORT = 8787;
 export const DEFAULT_HOST = "127.0.0.1";
+export const DEFAULT_DATA_DIR = "ocn-data";
 
 /** Defaults: record and queue run in memory; ledger and payments need secrets, so they start off. */
 const DEFAULT_ENABLED: Readonly<Record<ComponentName, boolean>> = {
@@ -28,6 +29,7 @@ const logLevelSchema = z.enum(LOG_LEVELS);
 const componentFileSchema = z.strictObject({ enabled: z.boolean().optional() });
 
 const fileSchema = z.strictObject({
+  dataDir: z.string().min(1).optional(),
   server: z.strictObject({ host: hostSchema.optional(), port: portSchema.optional() }).optional(),
   logLevel: logLevelSchema.optional(),
   components: z
@@ -41,6 +43,8 @@ const fileSchema = z.strictObject({
 });
 
 export interface NodeConfig {
+  /** The Node's data folder. Everything the Node stores on disk goes under it. */
+  dataDir: string;
   server: { host: string; port: number };
   logLevel: (typeof LOG_LEVELS)[number];
   components: Record<ComponentName, { enabled: boolean }>;
@@ -140,6 +144,7 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
   const file = configFile ? readConfigFile(configFile, readFile) : {};
 
   const merged: NodeConfig = {
+    dataDir: file.dataDir ?? DEFAULT_DATA_DIR,
     server: {
       host: file.server?.host ?? DEFAULT_HOST,
       port: file.server?.port ?? DEFAULT_PORT,
@@ -154,6 +159,8 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
   };
 
   // Environment wins over the file.
+  const envDataDir = env["OCN_NODE_DATA_DIR"];
+  if (envDataDir) merged.dataDir = envDataDir;
   const envHost = env["OCN_NODE_HOST"];
   if (envHost) merged.server.host = envHost;
   const envPort = env["OCN_NODE_PORT"];

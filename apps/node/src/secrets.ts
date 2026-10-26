@@ -21,6 +21,12 @@ export interface SecretDefinition {
 
 export const SECRET_DEFINITIONS: readonly SecretDefinition[] = [
   {
+    key: "RECORD_MASTER_KEY",
+    owner: "record",
+    required: true,
+    description: "32-byte master key (64 hex characters) for the shared record's keys and storage",
+  },
+  {
     key: "STITCH_CLIENT_ID",
     owner: "payments",
     required: true,

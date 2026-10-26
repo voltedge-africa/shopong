@@ -1,6 +1,6 @@
 # @shopong/node
 
-The **OCN Node**: the always-on service that holds service secrets and, in later stories, seeds the shared record, talks to the ledger and payment providers, and verifies capabilities. This package is the skeleton: typed configuration, a secret registry, structured logging with redaction, and `/health` and `/ready`. The four components (`record`, `ledger`, `payments`, `queue`) are in-memory stubs for now.
+The **OCN Node**: the always-on service that holds service secrets and, in later stories, seeds the shared record, talks to the ledger and payment providers, and verifies capabilities. This package is the skeleton: typed configuration, a secret registry, structured logging with redaction, and `/health` and `/ready`. The `record` component is the shared community record on Autobase and Hyperbee, kept on disk under the data folder (story 3.2). The other three components (`ledger`, `payments`, `queue`) are in-memory stubs for now.
 
 ## Run
 
@@ -23,12 +23,15 @@ Precedence, lowest to highest: defaults, JSON config file, environment variables
 
 | Setting          | Config file                   | Environment               | Default     |
 | ---------------- | ----------------------------- | ------------------------- | ----------- |
+| Data folder      | `dataDir`                     | `OCN_NODE_DATA_DIR`       | `ocn-data`  |
 | Listen host      | `server.host`                 | `OCN_NODE_HOST`           | `127.0.0.1` |
 | Listen port      | `server.port` (0 = ephemeral) | `OCN_NODE_PORT`           | `8787`      |
 | Log level        | `logLevel`                    | `OCN_NODE_LOG_LEVEL`      | `info`      |
 | Component on/off | `components.<name>.enabled`   | `OCN_NODE_<NAME>_ENABLED` | see below   |
 
-Components: `record` (on), `queue` (on), `ledger` (off), `payments` (off). Ledger and payments default to off because they need secrets.
+Components: `record` (on), `queue` (on), `ledger` (off), `payments` (off). Ledger and payments default to off because they need secrets. The record is on by default, so the Node needs `RECORD_MASTER_KEY` to start (or switch the record off).
+
+`RECORD_MASTER_KEY` must be 64 hex characters that are not one repeated digit, so the `.env.example` placeholder and an all-zero key are refused at start. The record keeps its files under `<dataDir>/record`; the data folder is created with mode `0700` and `spaces.json` with `0600` (set when created, not changed on an existing folder). Only the Node holds its master key and its data folder; the record's log is not encrypted on disk (a recorded shortcut, see `_bmad-output/initiative-ocn/shortcuts.md`).
 
 ## Secrets
 
@@ -36,6 +39,7 @@ Declared in code in `src/secrets.ts`. A secret is read **only** from the environ
 
 | Key                      | Needed when           |
 | ------------------------ | --------------------- |
+| `RECORD_MASTER_KEY`      | `record` is enabled   |
 | `STITCH_CLIENT_ID`       | `payments` is enabled |
 | `STITCH_CLIENT_SECRET`   | `payments` is enabled |
 | `LEDFRA_API_TOKEN`       | `ledger` is enabled   |
@@ -55,7 +59,7 @@ Logging (pino, JSON lines on stdout) redacts the value of any key that looks lik
   "status": "ok",
   "version": "0.0.0",
   "components": {
-    "record": { "status": "ok", "mode": "in-memory" },
+    "record": { "status": "ok", "mode": "autobase" },
     "ledger": { "status": "disabled" },
     "payments": { "status": "disabled" },
     "queue": { "status": "ok", "mode": "in-memory" }
