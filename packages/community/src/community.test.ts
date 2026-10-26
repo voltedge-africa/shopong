@@ -225,19 +225,14 @@ describe("invite and join", () => {
       encodeURIComponent(parts.creator),
       encodeURIComponent(w.newcomer.did),
     );
-    for (const text of [
-      tampered,
-      otherKey,
-      otherCreator,
-      "hello",
-      "",
-      "shopong://join?space=1",
-      "?%E0%A4%A",
-    ]) {
+    for (const text of [tampered, otherKey, otherCreator, "hello", "", "?%E0%A4%A"]) {
       const result = await check(text);
       expect(result.ok, text).toBe(false);
       if (!result.ok) expect(result.error.message, text).toBe(INVITATION_MESSAGES.unreadable);
     }
+    // A link that names the community but has no proof in it is a missing proof.
+    const noProof = await check("shopong://join?space=1");
+    expect(noProof.ok ? undefined : noProof.error.message).toBe(INVITATION_MESSAGES.missing_proof);
   });
 
   it("asks for an identity first", async () => {

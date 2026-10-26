@@ -188,8 +188,10 @@ export type EventFields<T extends EventType> = Omit<EventEnvelope<T, PayloadMap[
 
 export class InvalidEventError extends Error {
   override name = "InvalidEventError";
-  constructor(readonly issues: readonly Issue[]) {
+  readonly issues: readonly Issue[];
+  constructor(issues: readonly Issue[]) {
     super(issues.map((i) => `${i.path}: ${i.message}`).join("; "));
+    this.issues = issues;
   }
 }
 

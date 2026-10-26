@@ -5,7 +5,7 @@
 export const REDACTED = "[REDACTED]";
 
 const SECRET_KEY =
-  /secret|token|passw|credential|authoriz|cookie|session|signing|private|api[-_]?key|client[-_]?id|key$/iu;
+  /secret|token|passw|credential|authoriz|cookie|session|signing|signature|private|api[-_]?key|client[-_]?id|key$/iu;
 
 /** Whether a property name looks like it holds a secret. Over-redacts on purpose. */
 export function looksLikeSecretKey(key: string): boolean {

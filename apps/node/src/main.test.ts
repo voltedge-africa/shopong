@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { FAKE_SECRETS } from "./testing/capture.ts";
 
 const MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
+const REGISTER = fileURLToPath(new URL("./register.mjs", import.meta.url));
 let dir: string;
 let configPath: string;
 
@@ -27,7 +28,7 @@ beforeAll(() => {
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 function run(env: Record<string, string>) {
-  const child = spawn(process.execPath, [MAIN, "--config", configPath], {
+  const child = spawn(process.execPath, ["--import", REGISTER, MAIN, "--config", configPath], {
     env: { PATH: process.env["PATH"] ?? "", ...env },
     stdio: ["ignore", "pipe", "pipe"],
   });

@@ -29,7 +29,7 @@ import { validate as policyAllows } from "iso-ucan/policy";
 import { EdDSASigner } from "iso-signatures/signers/eddsa.js";
 import { verifier as eddsaVerifier } from "iso-signatures/verifiers/eddsa.js";
 import { Resolver as VerifierResolver } from "iso-signatures/verifiers/resolver.js";
-import { Resolver as DidResolver } from "iso-did";
+import { DID as ParsedDid, Resolver as DidResolver } from "iso-did";
 import { resolver as didKeyResolver } from "iso-did/key";
 import {
   err,
@@ -46,6 +46,7 @@ import {
   type JsonValue,
   type PortError,
   type Result,
+  type Signature,
   type VerifiedChain,
   type VerifyError,
   type VerifyRequest,
@@ -208,6 +209,30 @@ export class IsoUcanCapabilityAuth implements CapabilityAuth {
       return err("not_attenuated", message);
     }
     return ok({ chain: chain.map((c) => c.payload), holder: leaf.value.payload.audience });
+  }
+
+  async sign(
+    identity: Did,
+    bytes: Uint8Array,
+  ): Promise<Result<Signature, PortError<"unknown_issuer">>> {
+    const signer = this.#signers.get(identity);
+    if (signer === undefined) return err("unknown_issuer", `no signing key for ${identity}`);
+    return ok(base64urlnopad.encode(await signer.sign(bytes)) as Signature);
+  }
+
+  async verifySignature(did: Did, bytes: Uint8Array, signature: Signature): Promise<boolean> {
+    // Only `did:key` resolves, locally, as in `verify`: no network.
+    try {
+      const signer = await ParsedDid.fromString(did, didResolver);
+      return await verifierResolver.verify({
+        type: "Ed25519",
+        did: signer,
+        message: bytes,
+        signature: base64urlnopad.decode(signature),
+      });
+    } catch {
+      return false;
+    }
   }
 
   async #search(
