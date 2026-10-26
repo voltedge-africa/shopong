@@ -340,16 +340,19 @@ function wrap(
   };
 }
 
-/** Make a community with me as its creator and only member. */
+/**
+ * Make a community with me as its creator and only member. `key` is the community key; pass one when the Node
+ * must hold the same key (story 3.4), otherwise a new random key is made.
+ */
 export async function createCommunity(
   deps: CommunityDeps,
   record: SharedRecord<EventEnvelope>,
   name: string,
   now: EpochMs,
+  key: string = newCommunityKey(deps.randomBytes),
 ): Promise<Result<Community, CommunityError>> {
   const trimmed = name.trim();
   if (trimmed === "") return err("empty_name", EMPTY_NAME_MESSAGE);
-  const key = newCommunityKey(deps.randomBytes);
   const creator = record.local;
   const space = await record.create(communityDefinition(deps, creator, key));
   const founded = await append(

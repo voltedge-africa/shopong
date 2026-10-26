@@ -46,7 +46,8 @@ export type CommunityServiceOptions = {
 
 export type CommunityService = {
   community: () => Community | null;
-  create: (name: string) => Promise<Result<Community, CommunityError>>;
+  /** `key` is the community key; the app passes the key the Node registered (story 3.4). */
+  create: (name: string, key?: string) => Promise<Result<Community, CommunityError>>;
   invite: (invitee: string) => Promise<Result<Invitation, InvitationError | CommunityError>>;
   /** Check pasted text on this phone with no network. Joining for real waits for epic 3. */
   check: (text: string) => Promise<Result<CheckedInvitation, InvitationError>>;
@@ -93,7 +94,7 @@ export function createCommunityService(
 
   return {
     community: () => current,
-    async create(name) {
+    async create(name, key) {
       if (identity === null)
         return logged("Make a community", err("refused", "Make your identity first."));
       const made = await createCommunity(
@@ -101,6 +102,7 @@ export function createCommunityService(
         network.peer<EventEnvelope>(identity.did),
         name,
         now(),
+        key,
       );
       if (made.ok) current = made.value;
       return logged("Make a community", made);

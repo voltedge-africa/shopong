@@ -11,6 +11,13 @@ import { looksLikeSecretKey } from "./redact.ts";
 
 export const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace", "silent"] as const;
 
+/**
+ * `production` is the default and refuses a wildcard CORS origin. `development` lets `*` through, so a web
+ * build on another port can reach a local Node. Exact origins are allowed in both.
+ */
+export const ENVIRONMENTS = ["production", "development"] as const;
+export type Environment = (typeof ENVIRONMENTS)[number];
+
 export const DEFAULT_PORT = 8787;
 export const DEFAULT_HOST = "127.0.0.1";
 export const DEFAULT_DATA_DIR = "ocn-data";
@@ -26,12 +33,25 @@ const DEFAULT_ENABLED: Readonly<Record<ComponentName, boolean>> = {
 const portSchema = z.number().int().min(0).max(65535);
 const hostSchema = z.string().min(1);
 const logLevelSchema = z.enum(LOG_LEVELS);
+const environmentSchema = z.enum(ENVIRONMENTS);
+const corsOriginSchema = z
+  .string()
+  .refine((v) => v === "*" || /^https?:\/\/[^/\s?#]+$/u.test(v), "origin");
 const componentFileSchema = z.strictObject({ enabled: z.boolean().optional() });
+
+const didSchema = z.string().regex(/^did:key:z[1-9A-HJ-NP-Za-km-z]+$/u, "did");
+export const DEFAULT_MAX_COMMUNITIES = 50;
 
 const fileSchema = z.strictObject({
   dataDir: z.string().min(1).optional(),
+  /** The most communities this Node will host, in all (review N1). Default 50. */
+  maxCommunities: z.number().int().min(1).max(100_000).optional(),
+  /** DIDs allowed to create communities. Empty (the default) means open: for local development only. */
+  allowedCreators: z.array(didSchema).optional(),
   server: z.strictObject({ host: hostSchema.optional(), port: portSchema.optional() }).optional(),
   logLevel: logLevelSchema.optional(),
+  environment: environmentSchema.optional(),
+  cors: z.strictObject({ origins: z.array(corsOriginSchema).optional() }).optional(),
   components: z
     .strictObject({
       record: componentFileSchema.optional(),
@@ -48,6 +68,13 @@ export interface NodeConfig {
   server: { host: string; port: number };
   logLevel: (typeof LOG_LEVELS)[number];
   components: Record<ComponentName, { enabled: boolean }>;
+  environment: Environment;
+  /** The most communities hosted on this Node, all creators together. */
+  maxCommunities: number;
+  /** DIDs allowed to create communities. Empty means open (local development only). */
+  allowedCreators: string[];
+  /** Browser origins allowed to call the Node's routes (exact, for example `https://app.example`). Empty by default. */
+  corsOrigins: string[];
 }
 
 export interface LoadedConfig {
@@ -150,6 +177,10 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
       port: file.server?.port ?? DEFAULT_PORT,
     },
     logLevel: file.logLevel ?? "info",
+    environment: file.environment ?? "production",
+    maxCommunities: file.maxCommunities ?? DEFAULT_MAX_COMMUNITIES,
+    allowedCreators: [...(file.allowedCreators ?? [])],
+    corsOrigins: [...(file.cors?.origins ?? [])],
     components: Object.fromEntries(
       COMPONENT_NAMES.map((name) => [
         name,
@@ -171,6 +202,52 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
     }
     merged.server.port = port.data;
   }
+  const envEnvironment = env["OCN_NODE_ENVIRONMENT"];
+  if (envEnvironment) {
+    const parsed = environmentSchema.safeParse(envEnvironment);
+    if (!parsed.success) {
+      throw new ConfigError(
+        `invalid environment variable OCN_NODE_ENVIRONMENT: expected one of ${ENVIRONMENTS.join(", ")}`,
+      );
+    }
+    merged.environment = parsed.data;
+  }
+  const envMax = env["OCN_NODE_MAX_COMMUNITIES"];
+  if (envMax) {
+    const parsed = /^\d+$/u.test(envMax) ? Number(envMax) : Number.NaN;
+    if (!(Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 100_000)) {
+      throw new ConfigError(
+        "invalid environment variable OCN_NODE_MAX_COMMUNITIES: expected 1 to 100000",
+      );
+    }
+    merged.maxCommunities = parsed;
+  }
+  const envCreators = env["OCN_NODE_ALLOWED_CREATORS"];
+  if (envCreators) {
+    const dids = envCreators
+      .split(",")
+      .map((d) => d.trim())
+      .filter((d) => d !== "");
+    if (!dids.every((d) => didSchema.safeParse(d).success)) {
+      throw new ConfigError(
+        "invalid environment variable OCN_NODE_ALLOWED_CREATORS: expected comma-separated did:key identities",
+      );
+    }
+    merged.allowedCreators = dids;
+  }
+  const envOrigins = env["OCN_NODE_CORS_ORIGINS"];
+  if (envOrigins) {
+    const origins = envOrigins
+      .split(",")
+      .map((o) => o.trim())
+      .filter((o) => o !== "");
+    if (!origins.every((o) => corsOriginSchema.safeParse(o).success)) {
+      throw new ConfigError(
+        "invalid environment variable OCN_NODE_CORS_ORIGINS: expected comma-separated origins such as https://app.example",
+      );
+    }
+    merged.corsOrigins = origins;
+  }
   const envLevel = env["OCN_NODE_LOG_LEVEL"];
   if (envLevel) {
     const level = logLevelSchema.safeParse(envLevel);
@@ -185,6 +262,13 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
     const varName = `OCN_NODE_${name.toUpperCase()}_ENABLED`;
     const raw = env[varName];
     if (raw) merged.components[name].enabled = parseEnvBoolean(varName, raw);
+  }
+
+  // A wildcard origin is refused outside development, whether it came from the file or the environment.
+  if (merged.environment !== "development" && merged.corsOrigins.includes("*")) {
+    throw new ConfigError(
+      "a wildcard CORS origin (*) is allowed only when the environment is development (OCN_NODE_ENVIRONMENT)",
+    );
   }
 
   const enabled = Object.fromEntries(

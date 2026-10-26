@@ -21,13 +21,19 @@ Requires Node 24 or later (it runs the TypeScript sources directly). `src/regist
 
 Precedence, lowest to highest: defaults, JSON config file, environment variables. The config file is `--config <path>` or `OCN_NODE_CONFIG`; see `ocn-node.config.example.json`. Unknown keys and bad values are refused.
 
-| Setting          | Config file                   | Environment               | Default     |
-| ---------------- | ----------------------------- | ------------------------- | ----------- |
-| Data folder      | `dataDir`                     | `OCN_NODE_DATA_DIR`       | `ocn-data`  |
-| Listen host      | `server.host`                 | `OCN_NODE_HOST`           | `127.0.0.1` |
-| Listen port      | `server.port` (0 = ephemeral) | `OCN_NODE_PORT`           | `8787`      |
-| Log level        | `logLevel`                    | `OCN_NODE_LOG_LEVEL`      | `info`      |
-| Component on/off | `components.<name>.enabled`   | `OCN_NODE_<NAME>_ENABLED` | see below   |
+| Setting            | Config file                                   | Environment                               | Default      |
+| ------------------ | --------------------------------------------- | ----------------------------------------- | ------------ |
+| Data folder        | `dataDir`                                     | `OCN_NODE_DATA_DIR`                       | `ocn-data`   |
+| Listen host        | `server.host`                                 | `OCN_NODE_HOST`                           | `127.0.0.1`  |
+| Listen port        | `server.port` (0 = ephemeral)                 | `OCN_NODE_PORT`                           | `8787`       |
+| Log level          | `logLevel`                                    | `OCN_NODE_LOG_LEVEL`                      | `info`       |
+| Component on/off   | `components.<name>.enabled`                   | `OCN_NODE_<NAME>_ENABLED`                 | see below    |
+| Browser origins    | `cors.origins` (exact origins)                | `OCN_NODE_CORS_ORIGINS` (comma-separated) | none         |
+| Environment        | `environment` (`production` or `development`) | `OCN_NODE_ENVIRONMENT`                    | `production` |
+| Communities hosted | `maxCommunities`                              | `OCN_NODE_MAX_COMMUNITIES`                | `50`         |
+| Who may create     | `allowedCreators` (did:key list)              | `OCN_NODE_ALLOWED_CREATORS`               | empty = open |
+
+`allowedCreators` empty means anyone with an identity may create a community. That is for local development only: a shared Node must list its creators. A `*` origin is refused unless the environment is `development`.
 
 Components: `record` (on), `queue` (on), `ledger` (off), `payments` (off). Ledger and payments default to off because they need secrets. The record is on by default, so the Node needs `RECORD_MASTER_KEY` to start (or switch the record off).
 

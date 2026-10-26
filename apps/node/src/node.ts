@@ -81,6 +81,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
             masterKey: masterKeyOf(secrets),
             indexer: opened.record,
             auth,
+            maxCommunities: config.maxCommunities,
           });
     app = buildApp({
       logger,
@@ -88,6 +89,9 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       components,
       auth,
       sync: hub === undefined ? {} : { hub },
+      ...(hub === undefined ? {} : { communities: hub }),
+      allowedCreators: config.allowedCreators,
+      cors: { origins: config.corsOrigins, environment: config.environment },
     });
     await app.listen({ host: config.server.host, port: config.server.port });
   } catch (error) {

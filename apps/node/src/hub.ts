@@ -38,7 +38,14 @@ import {
   type ConnectOptions,
   type JournalEntry,
 } from "@shopong/record-autobase";
-import type { CapabilityAuth, Did, Space, Unsubscribe, ViewChange } from "@shopong/ports";
+import type {
+  CapabilityAuth,
+  Did,
+  Space,
+  Unsubscribe,
+  ViewChange,
+  ViewReader,
+} from "@shopong/ports";
 import type { ReadResult, SyncHub } from "./sync.ts";
 
 const MEMBERS_DIR = "members";
@@ -58,6 +65,12 @@ interface Registration {
 }
 
 type Registry = Record<string, Registration>;
+
+/** `reserved`: the key is taken for the caller. `duplicate`: the caller already registered it. */
+export type CommunityReservation = "reserved" | "duplicate" | "taken" | "limit" | "node_full";
+
+/** The default cap on communities hosted on one Node (config `maxCommunities`). */
+export const DEFAULT_MAX_COMMUNITIES = 50;
 
 /** A member's space for one community, and the pipe joining it to the indexer. */
 interface MemberSpace {
@@ -89,6 +102,8 @@ export interface ReplicaHubOptions {
     options?: ConnectOptions,
   ) => () => void;
   readonly connectOptions?: ConnectOptions;
+  /** The most communities this Node hosts, all creators together (review N1). Default 50. */
+  readonly maxCommunities?: number;
 }
 
 /** Reads and checks the registry once. A file that cannot be read is refused by name. */
@@ -129,6 +144,8 @@ export class ReplicaHub implements SyncHub {
   /** Acknowledged appends a member has not yet seen in the indexer, by member and community. */
   readonly #pending = new Map<string, Set<string>>();
   readonly #registry: Registry;
+  /** Community keys taken by a request that has not finished making its space: key to creator. */
+  readonly #reserved = new Map<string, Did>();
 
   constructor(options: ReplicaHubOptions) {
     this.#options = options;
@@ -169,7 +186,7 @@ export class ReplicaHub implements SyncHub {
    * Records a community the creator made on `recordOf(creator)`, and keeps the creator's own space. Registering
    * again merges the members: nobody already on the list is dropped.
    */
-  async register(community: Community): Promise<void> {
+  async register(community: Pick<Community, "key" | "creator" | "space">): Promise<void> {
     const existing = this.#registry[community.key];
     const members = [...new Set([...(existing?.members ?? []), community.creator])];
     this.#registry[community.key] = {
@@ -177,8 +194,68 @@ export class ReplicaHub implements SyncHub {
       creator: community.creator,
       members,
     };
+    this.#reserved.delete(community.key);
     this.#saveRegistry();
     await this.#slot(community.creator, community.key, community.space);
+  }
+
+  /**
+   * Takes a community key for `creator` before the space is made, synchronously, so two requests in flight cannot
+   * both pass the per-creator cap. Refused when the key is held, or when the creator is at the cap.
+   */
+  reserveCommunity(creator: Did, communityKey: string, limit: number): CommunityReservation {
+    const held = this.#registry[communityKey];
+    if (held !== undefined) return held.creator === creator ? "duplicate" : "taken";
+    if (this.#reserved.has(communityKey)) return "taken";
+    if (this.countCreated(creator) >= limit) return "limit";
+    const hosted = Object.keys(this.#registry).length + this.#reserved.size;
+    if (hosted >= (this.#options.maxCommunities ?? DEFAULT_MAX_COMMUNITIES)) return "node_full";
+    this.#reserved.set(communityKey, creator);
+    return "reserved";
+  }
+
+  /** Gives back a key taken by `reserveCommunity` when the space could not be made. */
+  releaseCommunity(communityKey: string): void {
+    this.#reserved.delete(communityKey);
+  }
+
+  /** Makes the space on the creator's replica and registers it. The key must have been reserved. */
+  async createCommunity(communityKey: string, creator: Did): Promise<string> {
+    try {
+      const record = await this.recordOf(creator);
+      const space = await record.create(this.#definition(communityKey, creator));
+      await this.register({ key: communityKey, creator, space });
+      return space.key;
+    } catch (error) {
+      this.releaseCommunity(communityKey);
+      throw error;
+    }
+  }
+
+  /** The Autobase key of a registered community, its creator, or undefined when the Node does not hold it. */
+  registrationOf(communityKey: string): { spaceKey: string; creator: Did } | undefined {
+    const entry = this.#registry[communityKey];
+    return entry === undefined ? undefined : { spaceKey: entry.spaceKey, creator: entry.creator };
+  }
+
+  /** How many communities `creator` has registered or has reserved. */
+  countCreated(creator: Did): number {
+    let count = 0;
+    for (const entry of Object.values(this.#registry)) if (entry.creator === creator) count += 1;
+    for (const reserved of this.#reserved.values()) if (reserved === creator) count += 1;
+    return count;
+  }
+
+  /**
+   * The indexer's view of a community, caught up with what the indexer holds, for checks the Node makes itself
+   * (the invitation check). Undefined when the Node does not hold the community.
+   */
+  async indexedView(communityKey: string): Promise<ViewReader | undefined> {
+    const indexed = this.#indexedOf(communityKey);
+    if (indexed === undefined) return undefined;
+    const space = await indexed;
+    await space.update();
+    return space.view;
   }
 
   /** The member's record: a replica in its own store, opened once and shared. */
