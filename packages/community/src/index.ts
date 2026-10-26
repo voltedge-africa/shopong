@@ -21,7 +21,8 @@ export {
   type QuoteReceipt,
 } from "./community.js";
 export { DELIVERY_MESSAGES, plannerProblem } from "./delivery.js";
-export { isRoleStanding } from "./roles.js";
+export { holdersOf, isRoleStanding, type HeldRole } from "./roles.js";
+export { NAMING_MESSAGES, namingProblem } from "./naming.js";
 export {
   PAYMENT_TYPE_MESSAGE,
   PLEDGE_LIMITS,

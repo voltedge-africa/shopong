@@ -41,6 +41,7 @@ export const EVENT_TYPES = [
   "solution.shared",
   "agent.action",
   "file.attached",
+  "community.named",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -91,6 +92,15 @@ export interface RoleGrantedPayload extends JsonObject {
 }
 
 /**
+ * `community.named` (story 8.1): the community's name and a short rules note, both plain text. The creator writes it on
+ * creation; every member sees the same words. Neither field may hold an identity or an address (AGENTS rule 6).
+ */
+export interface CommunityNamedPayload extends JsonObject {
+  readonly name: string;
+  readonly rules: string;
+}
+
+/**
  * `place.registered` (story 7.4): a place the community routes to. `place` is an opaque id the Node made; the
  * coordinates stay on the Node. `addressCommitment` is the keyed commitment of the exact address (AGENTS rule 6).
  */
@@ -133,6 +143,7 @@ export type PayloadMap = { [T in EventType]: JsonObject } & {
   "member.joined": MemberJoinedPayload;
   "role.granted": RoleGrantedPayload;
   "member.removed": MemberRemovedPayload;
+  "community.named": CommunityNamedPayload;
 };
 
 export interface Issue {
@@ -347,6 +358,27 @@ const deliveryPlanned: PayloadValidator = (payload) => {
  * `delivery.confirmed` (patch of story 7.4): the order, the SHA-512 of the delivery photo, and optionally the place it
  * was confirmed at (an opaque id, not a coordinate). No coordinate of any kind is accepted (AGENTS rule 6).
  */
+/** The longest name and rules note a community can carry (story 8.1). */
+export const COMMUNITY_NAME_MAX = 80;
+export const COMMUNITY_RULES_MAX = 500;
+
+/** `community.named` (story 8.1): a name of 1 to 80 characters and rules of up to 500, one line each, no address. */
+const communityNamed: PayloadValidator = (payload) => [
+  ...onlyKeys(payload, ["name", "rules"]),
+  ...requireString(
+    payload,
+    "name",
+    placeName(COMMUNITY_NAME_MAX),
+    "must be a community name of 1 to 80 characters, not an address",
+  ),
+  ...requireString(
+    payload,
+    "rules",
+    boundedText(0, COMMUNITY_RULES_MAX),
+    "must be a rules note of up to 500 characters, on one line",
+  ),
+];
+
 const deliveryConfirmed: PayloadValidator = (payload) => [
   ...onlyKeys(payload, ["order", "photoSha512", "place"]),
   ...requireString(payload, "order", nonEmpty, "must be a non-empty order id"),
@@ -438,4 +470,5 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "place.registered": placeRegistered,
   "delivery.planned": deliveryPlanned,
   "delivery.confirmed": deliveryConfirmed,
+  "community.named": communityNamed,
 };

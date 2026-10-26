@@ -15,7 +15,7 @@
 //
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
 // `joined/<invitation id>` { member }, `roles/<did>/<role>` and `revoked/<grant id>` (see roles.ts),
-// `settings/approvals` (story 4.7), `payouts/<payment id>` and `approvals/<payment id>/<approver>` (story 4.7), // `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
+// `settings/approvals` (story 4.7), `community/name` and `community/rules` (story 8.1), `payouts/<payment id>` and `approvals/<payment id>/<approver>` (story 4.7), // `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
 // pledges.ts), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
@@ -60,6 +60,7 @@ import {
   logTimeOf,
 } from "./log-time.js";
 import { decodeProof } from "./proof.js";
+import { NAMING_MESSAGES, NAMING_TYPE } from "./naming.js";
 import { QUOTE_MESSAGES, checkQuote, isTreasurer, quoteJson, quoteKey } from "./quotes.js";
 import {
   PAYMENT_REQUEST_KEYS,
@@ -151,6 +152,7 @@ const CHECKED: ReadonlySet<string> = new Set([
   "delivery.confirmed",
   PAYOUT_TYPE,
   APPROVAL_TYPE,
+  NAMING_TYPE,
 ]);
 
 export function createCommunityApply(env: CommunityApplyEnvironment): Apply<EventEnvelope> {
@@ -507,6 +509,28 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /**
+   * The community's name and rules note (story 8.1). Only the treasurer may name it: the creator, or a co-treasurer whose
+   * role stands at log time. The payload must be in the strict form. A later naming replaces the earlier one.
+   */
+  async function communityNamed(
+    event: EventEnvelope,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    if (!(await isTreasurer(standing, view, event.actor, at))) {
+      return (
+        (await coTreasurerProblem(standing, view, event.actor, at)) ?? NAMING_MESSAGES.not_permitted
+      );
+    }
+    if (PAYLOAD_VALIDATORS[NAMING_TYPE](event.payload).length > 0) {
+      return NAMING_MESSAGES.unreadable;
+    }
+    await view.put("community/name", str(event.payload, "name") ?? "");
+    await view.put("community/rules", str(event.payload, "rules") ?? "");
+    return undefined;
+  }
+
   /** A quote is the treasurer's: the creator or a co-treasurer. Its shape is checked as in the form. */
   async function quoteAdded(
     event: EventEnvelope,
@@ -623,6 +647,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return payoutRecorded(entry, view, at);
       case APPROVAL_TYPE:
         return approvalRecorded(entry, view, at);
+      case NAMING_TYPE:
+        return communityNamed(event, view, at);
       default:
         return quoteAdded(event, view, at);
     }
