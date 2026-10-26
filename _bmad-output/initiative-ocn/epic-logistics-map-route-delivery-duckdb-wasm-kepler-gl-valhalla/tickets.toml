@@ -62,7 +62,7 @@ title = "Proof of delivery and proof of collection"
 description = "A driver with delivery/confirm records a signed arrival with time, coarse location and a SHA-512-referenced photo, and each member's collection is recorded as collection.confirmed, both showing progress on the order."
 verify = "A driver's signed delivery event with a photo referenced by SHA-512 is recorded, each member's confirmation is recorded as collection.confirmed, and the order shows progress."
 covers = ["FR16", "AR4"]
-after = [4, "3.7", "4.7"]
+after = [4, "3.7"]
 hitl = true
 risk = "high"
 
