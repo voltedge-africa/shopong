@@ -3,7 +3,7 @@ title: 'Typed supplier quotes'
 type: 'feature'
 ticket: 8
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: 'bc9526b'
 route: 'full'
 route_source: 'auto'
