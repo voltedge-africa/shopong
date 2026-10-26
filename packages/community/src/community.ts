@@ -5,6 +5,7 @@ import {
   PERSONAL_DATA_MESSAGE,
   PersonalDataError,
   assertNoPersonalData,
+  coarseArea,
   createEvent,
   encodeUtf8,
   eventIdOf,
@@ -320,6 +321,11 @@ export interface Community {
   /** Record a place the Node made (story 7.4). Only the treasurer may. */
   registerPlace(place: PlaceRecord, now: EpochMs): Promise<Result<EventEnvelope, PlanError>>;
   /**
+   * Record my suburb or town (story 7.3). The name is coarsened here as the phone does (`coarseArea`); a street, a
+   * number or an erf is refused with the plain sentence and nothing is written.
+   */
+  setMemberArea(area: string, now: EpochMs): Promise<Result<EventEnvelope, PlanError>>;
+  /**
    * Record an order's route between two registered places (story 7.4). The treasurer, or a driver whose role stands
    * at log time, may plan it. Refused with the plain reason otherwise.
    */
@@ -463,6 +469,12 @@ function wrap(
         }),
       };
       return append(deps, space, key, "place.registered", payload, [], now);
+    },
+    async setMemberArea(area, now) {
+      const coarse = coarseArea(area);
+      if (!coarse.ok) return err("refused", coarse.reason);
+      await space.update();
+      return append(deps, space, key, "member.area", { area: coarse.area }, [], now);
     },
     async planDelivery(plan, now) {
       await space.update();

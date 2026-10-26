@@ -21,7 +21,8 @@
 // `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
 // pledges.ts), `orders/<order>` (the proposal and its status) and `order-ids/<event id>` { name } (see orders.ts, story 8.2), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
-// fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
+// fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }, `areas/<did>` { area } (a member's
+// suburb or town, story 7.3; see areas.ts).
 
 import {
   PAYLOAD_VALIDATORS,
@@ -62,6 +63,7 @@ import {
   plannedDriverOf,
 } from "./delivery-proof.js";
 import { verifyAuthority } from "./authority.js";
+import { MEMBER_AREA_MESSAGES, memberAreaKey } from "./areas.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
 import {
   CLAIM_MESSAGE,
@@ -173,6 +175,7 @@ const CHECKED: ReadonlySet<string> = new Set([
   "place.registered",
   "delivery.planned",
   "delivery.confirmed",
+  "member.area",
   "collection.confirmed",
   "delivery.disputed",
   PAYOUT_TYPE,
@@ -396,6 +399,25 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /**
+   * A member's area (story 7.3): the writer must be a member now (`members/<did>`, which a removal deletes), and the
+   * name must be a suburb or town (the shape). The record keeps the name only.
+   */
+  async function memberAreaRecorded(
+    event: EventEnvelope,
+    view: ViewWriter,
+  ): Promise<string | undefined> {
+    if ((await view.get(`members/${event.actor}`)) === undefined) {
+      return MEMBER_AREA_MESSAGES.not_a_member;
+    }
+    if (PAYLOAD_VALIDATORS["member.area"](event.payload).length > 0) {
+      return MEMBER_AREA_MESSAGES.unreadable;
+    }
+    await view.put(memberAreaKey(event.actor), { area: str(event.payload, "area") ?? "" });
+    return undefined;
+  }
+
+  /**
   /**
    * An arrival (story 7.4, proof in story 7.6): the assigned driver's, with the photo's SHA-512 and an optional coarse
    * place. The driver's role must stand at log time (a role that ended says the day it ended); the driver must be the one
@@ -827,6 +849,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return deliveryPlannedCheck(entry, view, at);
       case "delivery.confirmed":
         return deliveryConfirmedCheck(entry, view, at);
+      case "member.area":
+        return memberAreaRecorded(event, view);
       case "collection.confirmed":
         return collectionConfirmedCheck(entry, view);
       case "delivery.disputed":

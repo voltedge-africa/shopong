@@ -194,6 +194,7 @@ async function community(node: RunningNode) {
 /** The Node registers a place; the treasurer's phone then records its id, label, area and commitment (as the app does). */
 async function registerPlace(node: RunningNode, who: Phone, key: string, place: typeof DEPOT) {
   const made = await call(node, who, "POST", `/communities/${key}/places`, {
+    request: randomHex(16),
     label: place.label,
     area: place.area,
     lat: place.lat,
@@ -547,6 +548,7 @@ describe("patch: removed people, addresses, files, limits", () => {
     await grantRoleOn(node, creator, key, member, "co-treasurer");
     await removeMember(node, creator, key, member);
     const made = await call(node, member, "POST", `/communities/${key}/places`, {
+      request: randomHex(16),
       label: DEPOT.label,
       area: DEPOT.area,
       lat: DEPOT.lat,
@@ -562,6 +564,7 @@ describe("patch: removed people, addresses, files, limits", () => {
     const first = await community(node);
     const second = await community(node);
     const a = await call(node, first.creator, "POST", `/communities/${first.key}/places`, {
+      request: randomHex(16),
       label: DEPOT.label,
       area: DEPOT.area,
       lat: DEPOT.lat,
@@ -569,6 +572,7 @@ describe("patch: removed people, addresses, files, limits", () => {
       address: "0821234567",
     });
     const b = await call(node, second.creator, "POST", `/communities/${second.key}/places`, {
+      request: randomHex(16),
       label: DEPOT.label,
       area: DEPOT.area,
       lat: DEPOT.lat,
@@ -667,7 +671,7 @@ describe("patch: removed people, addresses, files, limits", () => {
     mkdirSync(join(blocked, "places.json.tmp"));
     const stuck = new PlaceRegistry(blocked, () => undefined);
     expect(() =>
-      stuck.add("c", {
+      stuck.put("c", "a".repeat(64), {
         label: "Depot",
         area: "Soweto",
         lat: 1,
@@ -713,6 +717,7 @@ describe("patch: a place is named, never addressed (the Node's own check)", () =
     const node = await start();
     const { creator, key } = await community(node);
     const made = await call(node, creator, "POST", `/communities/${key}/places`, {
+      request: randomHex(16),
       label: "14 Mkhize Street",
       area: "Mamelodi",
       lat: DEPOT.lat,
@@ -721,5 +726,82 @@ describe("patch: a place is named, never addressed (the Node's own check)", () =
     });
     expect(made.reply.status).toBe(400);
     expect(made.reply.json.problem).toBe("invalid_place");
+  });
+});
+
+describe("story 7.3: a registration retried after a lost answer is one place (S-7.4-15)", () => {
+  it("gives the same id when the same registration is sent again, and lists one place", async () => {
+    const node = await start();
+    const { creator, key } = await community(node);
+    const request = randomHex(16);
+    const body = {
+      request,
+      label: DEPOT.label,
+      area: DEPOT.area,
+      lat: DEPOT.lat,
+      lng: DEPOT.lng,
+      address: ADDRESS,
+    };
+    const first = await call(node, creator, "POST", `/communities/${key}/places`, body);
+    const again = await call(node, creator, "POST", `/communities/${key}/places`, body);
+    expect(first.reply.status).toBe(200);
+    expect(again.reply.status).toBe(200);
+    expect(again.reply.json.id).toBe(first.reply.json.id);
+    expect(again.reply.json.addressCommitment).toBe(first.reply.json.addressCommitment);
+    const listed = await call(node, creator, "GET", `/communities/${key}/places`);
+    expect((listed.reply.json.places as unknown[]).length).toBe(1);
+  });
+
+  it("gives two different registrations two different places", async () => {
+    const node = await start();
+    const { creator, key } = await community(node);
+    const a = await registerPlace(node, creator, key, DEPOT);
+    const b = await registerPlace(node, creator, key, HALL);
+    expect(a.reply.json.id).not.toBe(b.reply.json.id);
+  });
+
+  it("requires the registration key, so an unkeyed registration is refused", async () => {
+    const node = await start();
+    const { creator, key } = await community(node);
+    const made = await call(node, creator, "POST", `/communities/${key}/places`, {
+      label: DEPOT.label,
+      area: DEPOT.area,
+      lat: DEPOT.lat,
+      lng: DEPOT.lng,
+      address: ADDRESS,
+    });
+    expect(made.reply.status).toBe(400);
+    expect(made.reply.json.problem).toBe("invalid_place");
+  });
+});
+
+describe("story 7.3: members read the collection points, and never an address", () => {
+  it("lets a member read the places with their coordinates, and refuses a stranger", async () => {
+    const node = await start();
+    const { creator, member, key } = await community(node);
+    await registerPlace(node, creator, key, DEPOT);
+    const listed = await call(node, member, "GET", `/communities/${key}/places`);
+    expect(listed.reply.status).toBe(200);
+    const [place] = listed.reply.json.places as Array<Record<string, unknown>>;
+    expect(place).toEqual({
+      id: expect.stringMatching(/^[0-9a-f]{64}$/),
+      label: DEPOT.label,
+      area: DEPOT.area,
+      lat: DEPOT.lat,
+      lng: DEPOT.lng,
+    });
+    const stranger = await phone();
+    const refused = await call(node, stranger, "GET", `/communities/${key}/places`);
+    expect(refused.reply.status).not.toBe(200);
+    expect(JSON.stringify(refused.reply.json)).not.toContain(String(DEPOT.lat));
+  });
+
+  it("never shows the address in the list, only its commitment", async () => {
+    const node = await start();
+    const { creator, member, key } = await community(node);
+    await registerPlace(node, creator, key, DEPOT);
+    const listed = await call(node, member, "GET", `/communities/${key}/places`);
+    expect(JSON.stringify(listed.reply.json)).not.toContain("Church");
+    expect(JSON.stringify(listed.reply.json)).not.toContain("addressCommitment");
   });
 });

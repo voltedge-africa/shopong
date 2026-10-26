@@ -84,6 +84,33 @@ export interface RouteAnswer {
   readonly sentences: readonly string[];
 }
 
+/** A place the treasurer registers on the Node (story 7.3). `request` is the phone's registration key (S-7.4-15). */
+export interface NodePlaceRegistration {
+  readonly request: string;
+  readonly label: string;
+  readonly area: string;
+  readonly lat: number;
+  readonly lng: number;
+  readonly address: string;
+}
+
+/** The Node's answer for a registered place: its id and the record's copy (no coordinate, no address). */
+export interface NodePlaceAnswer {
+  readonly id: string;
+  readonly label: string;
+  readonly area: string;
+  readonly addressCommitment: string;
+}
+
+/** A community's place as the Node shows it to members: the coordinates the Node keeps, and never an address. */
+export interface NodePlace {
+  readonly id: string;
+  readonly label: string;
+  readonly area: string;
+  readonly lat: number;
+  readonly lng: number;
+}
+
 export interface NodeClient {
   createCommunity(key: string): Promise<NodeReply<CommunityCreated>>;
   admitMember(key: string, invitation: string): Promise<NodeReply<{ admitted: boolean }>>;
@@ -113,6 +140,10 @@ export interface NodeClient {
   ): Promise<NodeReply<RouteAnswer>>;
   /** A planned route, read by its fingerprint. Members only (story 7.4). */
   route(key: string, order: string, fingerprint: string): Promise<NodeReply<RouteAnswer>>;
+  /** Registers a collection point on the Node. The treasurer only; a retry with the same key is the same place (story 7.3). */
+  registerPlace(key: string, place: NodePlaceRegistration): Promise<NodeReply<NodePlaceAnswer>>;
+  /** The community's places, with the coordinates the Node keeps. Members only (story 7.3). */
+  places(key: string): Promise<NodeReply<NodePlace[]>>;
   /** Asks the Node to make the bank request for the member's own pledge (story 4.3). The phone sends only the id. */
   payPledge(key: string, pledge: string): Promise<NodeReply<PledgeRequested>>;
   /** The status of the request for the member's own pledge, as the Node's record and payments hold it. */
@@ -302,6 +333,26 @@ export function createNodeClient(options: NodeClientOptions): NodeClient {
         `/communities/${key}/route?order=${encodeURIComponent(order)}&fingerprint=${encodeURIComponent(fingerprint)}`,
         undefined,
         (j) => readRoute(j),
+      ),
+    registerPlace: (key, place) =>
+      request("POST", `/communities/${key}/places`, place, (j) => ({
+        id: String(j.id),
+        label: String(j.label),
+        area: String(j.area),
+        addressCommitment: String(j.addressCommitment),
+      })),
+    places: (key) =>
+      request("GET", `/communities/${key}/places`, undefined, (j) =>
+        (Array.isArray(j.places) ? j.places : []).map((p) => {
+          const place = p as Record<string, unknown>;
+          return {
+            id: String(place.id),
+            label: String(place.label),
+            area: String(place.area),
+            lat: Number(place.lat),
+            lng: Number(place.lng),
+          };
+        }),
       ),
     pool: (key) =>
       request("GET", `/communities/${key}/pool`, undefined, (j) => j as unknown as PoolView),

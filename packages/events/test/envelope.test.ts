@@ -169,8 +169,9 @@ describe("event type registry", () => {
     );
     // The first-release types, plus `payment.payout` and `payment.approved` (story 4.7), the types main added
     // (`file.attached` story 3.7, `place.registered`, `delivery.planned`, `delivery.confirmed`, stories 7.4),
-    // `delivery.disputed` and `collection.confirmed` (story 7.6), and `community.named` (story 8.1).
-    expect(EVENT_TYPES).toHaveLength(34);
+    // `member.area` (story 7.3), `delivery.disputed` and `collection.confirmed` (story 7.6), and `community.named`
+    // (story 8.1).
+    expect(EVENT_TYPES).toHaveLength(35);
     expect(new Set(EVENT_TYPES).size).toBe(EVENT_TYPES.length);
   });
 

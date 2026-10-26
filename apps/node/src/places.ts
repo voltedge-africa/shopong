@@ -6,7 +6,6 @@
 // succeeded. A file that cannot be read is moved aside to `<name>.bad` with one plain log line, and the Node starts with
 // that store empty rather than stopping.
 
-import { randomBytes } from "node:crypto";
 import {
   closeSync,
   existsSync,
@@ -68,6 +67,11 @@ class DurableJson<T> {
     return this.#data.get(community)?.get(id);
   }
 
+  /** Every entry of one community, in the order they were first kept. */
+  entries(community: string): [string, T][] {
+    return [...(this.#data.get(community) ?? new Map<string, T>()).entries()];
+  }
+
   /** Writes the whole table first; memory changes only once the file is on disk. Throws when the write fails. */
   put(community: string, id: string, entry: T): void {
     const next: Table<T> = new Map(
@@ -122,14 +126,18 @@ export class PlaceRegistry {
     );
   }
 
-  add(community: string, entry: PlaceEntry): string {
-    const id = randomBytes(32).toString("hex");
+  /** Keeps a place under its id. The caller derives the id from the registration (see `placeIdOf`), so a retry is the same place. */
+  put(community: string, id: string, entry: PlaceEntry): void {
     this.#store.put(community, id, entry);
-    return id;
   }
 
   get(community: string, id: string): PlaceEntry | undefined {
     return /^[0-9a-f]{64}$/.test(id) ? this.#store.get(community, id) : undefined;
+  }
+
+  /** The places of one community, with their ids. Members read them; the coordinates are the Node's own. */
+  list(community: string): [string, PlaceEntry][] {
+    return this.#store.entries(community);
   }
 }
 
