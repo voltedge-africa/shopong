@@ -12,8 +12,8 @@
 // choosing a supplier (`quote.selected`).
 
 import { hasIdNumberShape, hasPhoneNumberShape, type JsonObject } from "@shopong/events";
-import type { Did, EpochMs, ViewReader } from "@shopong/ports";
-import { isCoTreasurer } from "./roles.js";
+import type { EpochMs, ViewReader } from "@shopong/ports";
+import { isCoTreasurer, type StandingContext } from "./roles.js";
 
 /** The most any quote may hold. A quote over a limit is refused by `checkQuote`, so `apply` refuses it too. */
 export const QUOTE_LIMITS = {
@@ -257,12 +257,12 @@ export async function quotesOf(view: ViewReader, order: string): Promise<readonl
   return out;
 }
 
-/** The treasurer is the creator, or a co-treasurer whose role has not ended at `at`. */
+/** The treasurer is the creator, or a co-treasurer whose role stands at `at` (see `coTreasurerProblem`). */
 export async function isTreasurer(
+  ctx: StandingContext,
   view: ViewReader,
-  creator: Did,
   who: string,
   at: EpochMs,
 ): Promise<boolean> {
-  return who === creator || (await isCoTreasurer(view, who, at));
+  return who === ctx.creator || (await isCoTreasurer(ctx, view, who, at));
 }

@@ -1,7 +1,14 @@
 // The Node's check of authority (story 2.5), with a real community on the in-memory record: members join,
 // hold roles, and present signed requests to `POST /authority/check`. Each refusal is tested with its reason.
-import { DAY_MS, formatDay, signRequest, spaceUri, type RequestParts } from "@shopong/community";
-import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
+import {
+  DAY_MS,
+  formatDay,
+  signRequest,
+  spaceUri,
+  type Community,
+  type RequestParts,
+} from "@shopong/community";
+import { createEvent, webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import type { CapabilityToken, Did } from "@shopong/ports";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { FastifyInstance } from "fastify";
@@ -412,5 +419,58 @@ describe("POST /authority/check (AC 2.5)", () => {
       allowed.headers["x-ocn-signature"] ?? "no-signature-echoed",
     );
     expect(n.sink.text()).not.toMatch(/signature/);
+  });
+
+  /** Moves the record's log time to `at` with the founder's own quotes, one day at a time (the cap, story 3.6). */
+  async function recordAt(w: Awaited<ReturnType<typeof community>>, at: number, from: number) {
+    let step = 0;
+    for (let t = from + DAY_MS; t < at; t += DAY_MS) {
+      await addQuoteAt(w.founder, t, step++);
+    }
+    await addQuoteAt(w.founder, at, step);
+  }
+
+  async function addQuoteAt(founder: Community, at: number, step: number) {
+    const added = await founder.addQuote(
+      {
+        supplier: "Thandi Wholesale",
+        order: `Log ${step}`,
+        lines: [{ item: "Sugar", unit: "bag", packSize: 1, pricePerPackCents: 12500 }],
+        delivery: { feeCents: 0, days: 0 },
+      },
+      at,
+    );
+    if (!added.ok) throw new Error(added.error.message);
+  }
+
+  it("refuses a role the record's log time has ended, even when the Node's clock has not", async () => {
+    // The Node's clock says day 2; the record has moved on to the day after the role ends.
+    const n = await node(T0 + 2 * DAY_MS);
+    await recordAt(n, n.record.expiresAt + DAY_MS, T0 + 2 * DAY_MS);
+    const res = await send(n.app, n.driver, { token: n.token, required: n.required });
+    expect(res.statusCode).not.toBe(200);
+    expect(res.json()).toMatchObject({
+      allowed: false,
+      reason: `Your role ended on ${formatDay(n.record.expiresAt)}.`,
+    });
+  });
+
+  it("refuses a role that has been taken back in the record", async () => {
+    const n = await node(T0 + 2 * DAY_MS);
+    const built = createEvent({
+      type: "role.revoked",
+      space: n.founder.key,
+      actor: n.creator.did,
+      proof: [],
+      claimedAt: T0 + 3 * DAY_MS,
+      nonce: randomHex(16),
+      payload: { role: "driver", grantee: n.driver.did },
+    } as never) as EventEnvelope;
+    const receipt = await n.founder.space.append(built);
+    if (!receipt.ok) throw new Error(receipt.error.message);
+    await n.founder.space.update();
+    const res = await send(n.app, n.driver, { token: n.token, required: n.required });
+    expect(res.statusCode).not.toBe(200);
+    expect(res.json()).toMatchObject({ allowed: false, reason: "This role has been taken back." });
   });
 });

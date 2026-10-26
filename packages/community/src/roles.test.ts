@@ -10,6 +10,7 @@ import {
   INVITATION_MESSAGES,
   NOT_THE_WRITER,
   checkInvitation,
+  logTimeOf,
   communityDefinition,
   createCommunity,
   encodeProof,
@@ -17,6 +18,7 @@ import {
   joinCommunity,
   ROLES,
   roleMessage,
+  type ActionRequest,
   newCommunityKey,
   spaceUri,
   type Community,
@@ -104,6 +106,36 @@ async function town() {
 
 type Town = Awaited<ReturnType<typeof town>>;
 
+/**
+ * Brings the record's log time up to `at`, as real days would: the creator's own accepted quotes, one day
+ * at a time (the per-event cap, story 3.6). Log time never moves back, so an `at` already passed does nothing.
+ */
+async function recordAt(t: Town, at: number): Promise<void> {
+  for (let step = 0; step < 400; step++) {
+    await t.community.space.update();
+    const logTime = (await logTimeOf(t.community.space.view)) ?? T0;
+    if (logTime >= at) break;
+    const next = Math.min(at, logTime + DAY_MS);
+    const added = await t.community.addQuote(
+      {
+        supplier: "Thandi Wholesale",
+        order: `Log ${step}`,
+        lines: [{ item: "Sugar", unit: "bag", packSize: 1, pricePerPackCents: 12500 }],
+        delivery: { feeCents: 0, days: 0 },
+      },
+      next,
+    );
+    if (!added.ok) throw new Error(added.error.message);
+  }
+  await t.sync();
+}
+
+/** "What can I do?" at log time `at`: the record is brought to `at` first, then `who`'s copy is synced. */
+async function checkAt(t: Town, who: Community, request: ActionRequest, at: number) {
+  await recordAt(t, at);
+  return who.checkAction(request);
+}
+
 /** Give a role on `giver`'s phone, then sync, so `grantee` and the creator see it. */
 async function grant(
   t: Town,
@@ -113,6 +145,7 @@ async function grant(
   options: { limit?: ReturnType<typeof rand>; days?: number } = {},
   now = T0 + DAYS(2),
 ): Promise<RoleDraft> {
+  await recordAt(t, now);
   const granted = await giver.grantRole(grantee.me, role, options, now);
   if (!granted.ok) throw new Error(granted.error.message);
   await t.sync();
@@ -128,7 +161,7 @@ async function refusedGiving(
   options: { limit?: ReturnType<typeof rand>; days?: number } = {},
   now = T0 + DAYS(3),
 ): Promise<string> {
-  await t.sync();
+  await recordAt(t, now);
   const who = typeof grantee === "string" ? grantee : grantee.me;
   const result = await giver.grantRole(who, role, options, now);
   if (result.ok) throw new Error("expected a refusal");
@@ -233,9 +266,9 @@ describe("what can I do?", () => {
     await grant(t, t.community, cotr, "co-treasurer", { limit: rand(1000) }, T0);
     const now = T0 + DAYS(3);
     expect(
-      (await cotr.checkAction({ ability: "payment/approve", amount: rand(800) }, now)).ok,
+      (await checkAt(t, cotr, { ability: "payment/approve", amount: rand(800) }, now)).ok,
     ).toBe(true);
-    const above = await cotr.checkAction({ ability: "payment/approve", amount: rand(1500) }, now);
+    const above = await checkAt(t, cotr, { ability: "payment/approve", amount: rand(1500) }, now);
     expect(above.ok).toBe(false);
     if (!above.ok) expect(above.error.message).toBe("That is above your limit of R1000.");
   });
@@ -245,10 +278,10 @@ describe("what can I do?", () => {
     const driver = await t.admit(await phone());
     await grant(t, t.community, driver, "driver", {}, T0);
     const now = T0 + DAYS(3);
-    const paying = await driver.checkAction({ ability: "payment/approve", amount: rand(1) }, now);
+    const paying = await checkAt(t, driver, { ability: "payment/approve", amount: rand(1) }, now);
     expect(paying.ok).toBe(false);
     if (!paying.ok) expect(paying.error.message).toBe("Your role doesn't cover that.");
-    expect((await driver.checkAction({ ability: "delivery/confirm" }, now)).ok).toBe(true);
+    expect((await checkAt(t, driver, { ability: "delivery/confirm" }, now)).ok).toBe(true);
   });
 
   it("refuses once the role has ended, and names the day", async () => {
@@ -256,9 +289,9 @@ describe("what can I do?", () => {
     const driver = await t.admit(await phone());
     const granted = await grant(t, t.community, driver, "driver", { days: 7 }, T0);
     expect(
-      (await driver.checkAction({ ability: "delivery/confirm" }, granted.expiresAt - 1)).ok,
+      (await checkAt(t, driver, { ability: "delivery/confirm" }, granted.expiresAt - 1)).ok,
     ).toBe(true);
-    const after = await driver.checkAction({ ability: "delivery/confirm" }, granted.expiresAt);
+    const after = await checkAt(t, driver, { ability: "delivery/confirm" }, granted.expiresAt);
     expect(after.ok).toBe(false);
     if (!after.ok)
       expect(after.error.message).toBe(`Your role ended on ${formatDay(granted.expiresAt)}.`);
@@ -268,7 +301,7 @@ describe("what can I do?", () => {
     const t = await town();
     const cotr = await t.admit(await phone());
     await grant(t, t.community, cotr, "co-treasurer", { limit: rand(1000) }, T0);
-    const none = await cotr.checkAction({ ability: "payment/approve" }, T0 + DAYS(3));
+    const none = await checkAt(t, cotr, { ability: "payment/approve" }, T0 + DAYS(3));
     expect(none.ok).toBe(false);
     if (!none.ok) expect(none.error.message).toBe("Say how much.");
   });
@@ -280,9 +313,9 @@ describe("inviting through a co-treasurer", () => {
     const first = await t.admit(await phone());
     const second = await t.admit(await phone());
     await grant(t, t.community, first, "co-treasurer", { limit: rand(1000) }, T0);
-    expect((await first.checkAction({ ability: "member/invite" }, T0 + DAYS(3))).ok).toBe(true);
+    expect((await checkAt(t, first, { ability: "member/invite" }, T0 + DAYS(3))).ok).toBe(true);
     await grant(t, first, second, "co-treasurer", { limit: rand(500), days: 7 }, T0 + DAYS(3));
-    const refused = await second.checkAction({ ability: "member/invite" }, T0 + DAYS(4));
+    const refused = await checkAt(t, second, { ability: "member/invite" }, T0 + DAYS(4));
     expect(refused.ok).toBe(false);
     if (!refused.ok) expect(refused.error.message).toBe("Your role doesn't cover that.");
   });
@@ -296,11 +329,11 @@ describe("passing a role on", () => {
     await grant(t, t.community, first, "co-treasurer", { limit: rand(1000) }, T0);
     await grant(t, first, second, "co-treasurer", { limit: rand(500), days: 7 }, T0 + DAYS(3));
     const now = T0 + DAYS(4);
-    const over = await second.checkAction({ ability: "payment/approve", amount: rand(600) }, now);
+    const over = await checkAt(t, second, { ability: "payment/approve", amount: rand(600) }, now);
     expect(over.ok).toBe(false);
     if (!over.ok) expect(over.error.message).toBe("That is above your limit of R500.");
     expect(
-      (await second.checkAction({ ability: "payment/approve", amount: rand(400) }, now)).ok,
+      (await checkAt(t, second, { ability: "payment/approve", amount: rand(400) }, now)).ok,
     ).toBe(true);
   });
 
@@ -721,7 +754,7 @@ describe("who may replace a role, and proofs missing or changed in the record (s
     // The original giver may replace it, and then the creator may replace it (who gave it is now the creator).
     await grant(t, first, third, "co-treasurer", { limit: rand(200), days: 7 }, T0 + DAYS(3));
     await grant(t, t.community, third, "co-treasurer", { limit: rand(300), days: 7 }, T0 + DAYS(4));
-  });
+  }, 30_000);
 
   it("refuses a role.granted with no tokens at all, and records nothing", async () => {
     const t = await town();
@@ -772,7 +805,9 @@ describe("a grant built on a grant the creator has since replaced (review findin
     const oldGrants = (await g.roles())[0]?.grants ?? [];
     // G gives A R5,000 from the grant the creator gave G.
     await grant(t, g, a, "co-treasurer", { limit: rand(5000), days: 7 }, T0 + DAYS(1));
-    const before = await a.checkAction(
+    const before = await checkAt(
+      t,
+      a,
       { ability: "payment/approve", amount: rand(5000) },
       T0 + DAYS(2),
     );
@@ -780,7 +815,9 @@ describe("a grant built on a grant the creator has since replaced (review findin
 
     // The creator re-grants G at R100. The old grant is no longer in G's record.
     await grant(t, t.community, g, "co-treasurer", { limit: rand(100), days: 90 }, T0 + DAYS(2));
-    const device = await a.checkAction(
+    const device = await checkAt(
+      t,
+      a,
       { ability: "payment/approve", amount: rand(5000) },
       T0 + DAYS(3),
     );
@@ -794,6 +831,9 @@ describe("a grant built on a grant the creator has since replaced (review findin
     for (const ability of ROLES["co-treasurer"].abilities) {
       const parent = oldGrants.find((grant) => grant.ability === ability);
       if (parent === undefined) throw new Error("no old grant");
+      // A delegation cannot start before its parent does; the parent starts at the log time it was given at.
+      const parentPayload = await from.decode(parent.token);
+      if (!parentPayload.ok) throw new Error("parent does not decode");
       const issued = await from.issue({
         issuer: g.me,
         audience: b.me,
@@ -804,7 +844,7 @@ describe("a grant built on a grant the creator has since replaced (review findin
             ...(ability === "payment/approve" ? { ceiling: money("ZAR", 5000_00) } : {}),
           },
         ],
-        notBefore: T0,
+        notBefore: parentPayload.value.notBefore,
         expiresAt: T0 + DAYS(10),
         proofs: [parent.token],
       });
@@ -830,7 +870,7 @@ describe("a grant built on a grant the creator has since replaced (review findin
       const t = await town();
       const driver = await t.admit(await phone());
       await grant(t, t.community, driver, "driver", {}, T0);
-      expect((await driver.checkAction({ ability: "delivery/confirm" }, T0 + DAYS(1))).ok).toBe(
+      expect((await checkAt(t, driver, { ability: "delivery/confirm" }, T0 + DAYS(1))).ok).toBe(
         true,
       );
     } finally {

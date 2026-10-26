@@ -14,6 +14,8 @@ import {
   formatDay,
   formatRand,
   isCurrentGrantIn,
+  isRevokedIn,
+  logTimeOf,
   rolesOf,
   verifyAuthority,
   type AuthorityProblem,
@@ -175,11 +177,15 @@ export function createAuthorityGuard(options: {
             ? {}
             : { ceiling: parsed.data.required.ceiling }),
         };
+        // Judged at the later of the record's log time and the Node's own clock (story 3.6): a role that has
+        // ended by either one is refused, so a stale view cannot grant a role the Node's clock says has ended.
+        const logTime = (await logTimeOf(config.view)) ?? 0;
         const verified = await verifyAuthority(auth, token, {
           holder: actor as Did,
           rootIssuer: config.creator,
-          at: now,
+          at: Math.max(now, logTime),
           required,
+          isRevoked: (id) => isRevokedIn(config.view, id),
           isCurrentGrant: (who, id) => isCurrentGrantIn(config.view, who, id),
         });
         if (!verified.ok) {
