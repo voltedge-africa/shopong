@@ -3,7 +3,7 @@ title: 'Create a community and join by invitation'
 type: 'feature'
 ticket: 3
 created: '2026-10-26'
-status: 'built'
+status: done
 baseline_revision: '613a996a7368c862dbedd6e956321291d05c2420'
 route: 'full'
 route_source: 'auto'

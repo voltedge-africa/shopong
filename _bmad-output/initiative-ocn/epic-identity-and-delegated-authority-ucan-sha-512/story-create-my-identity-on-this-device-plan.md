@@ -3,7 +3,7 @@ title: 'Create my identity on this device'
 type: 'feature'
 ticket: 2
 created: '2026-10-26'
-status: 'built'
+status: done
 baseline_revision: 'd904351297102d17c2812110deeab2ea143b0baf'
 route: 'full'
 route_source: 'auto'
