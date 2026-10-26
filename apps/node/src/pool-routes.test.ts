@@ -635,3 +635,29 @@ describe("GET /communities/:key/pool", () => {
     expect(await rebuilt.trialBalance()).toEqual(await ledger.trialBalance());
   });
 });
+
+describe("health with payments on and a ledger injected (merge of 4.4 and 4.6)", () => {
+  it("reports the injected ledger as ok, the simulated payments as ok, and /ready as 200", async () => {
+    const folder = freshFolder();
+    running = await startNode({
+      env: {
+        OCN_NODE_PORT: "0",
+        OCN_NODE_DATA_DIR: folder,
+        RECORD_MASTER_KEY: FAKE_SECRETS.RECORD_MASTER_KEY,
+        OCN_NODE_PAYMENTS_ENABLED: "true",
+        SIMULATED_WEBHOOK_SECRET: FAKE_SECRETS.SIMULATED_WEBHOOK_SECRET,
+        OCN_NODE_ALLOW_SIMULATED_PAYMENTS: "true",
+      },
+      sink: captureSink(),
+      ledger: await books(),
+    });
+    const health = (await (await fetch(`${running.url}/health`)).json()) as {
+      components: Record<string, unknown>;
+    };
+    expect(health.components["ledger"]).toEqual({ status: "ok", mode: "in-memory" });
+    expect(health.components["payments"]).toEqual({ status: "ok", mode: "simulated-stitch" });
+    const ready = await fetch(`${running.url}/ready`);
+    expect(ready.status).toBe(200);
+    expect(running.payments).toBeDefined();
+  });
+});
