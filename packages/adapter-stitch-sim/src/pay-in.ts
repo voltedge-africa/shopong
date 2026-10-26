@@ -4,13 +4,15 @@ import {
   PAYER_REFERENCE_MAX,
   err,
   isEventId,
-  type EventId,
   isMoney,
   ok,
   type CreateErrorCode,
+  type EventId,
+  type Money,
   type PayIn,
   type PaymentRequest,
   type PaymentRequestInput,
+  type PaymentStatus,
   type PortError,
   type Result,
   type WebhookDelivery,
@@ -21,6 +23,7 @@ import { stitchAmount } from "./amount.js";
 import { SIGNATURE_HEADER } from "./signature.js";
 import { parseEvent, type TerminalOutcome } from "./stitch-shape.js";
 import { requestRef, SIMULATED_MODE, type SimulatedStore, type StoredPayment } from "./store.js";
+export type { TerminalOutcome } from "./stitch-shape.js";
 
 /** The page a simulated request points at. `.invalid` never resolves, so it cannot be mistaken for Stitch. */
 const PAGE_BASE = "https://simulated-stitch.invalid/payment-requests";
@@ -31,6 +34,20 @@ const MAX_DATE_MS = 8.64e15;
 /** A webhook outcome, plus whether the completion was a late one that was flagged rather than applied. */
 export interface SimulatedWebhookOutcome<P> extends WebhookOutcome<P> {
   readonly lateCompletion: boolean;
+}
+
+/**
+ * A verified webhook, read without changing anything. The Node decides what to do with it, then applies it with
+ * `ingestWebhook`. `status` is the request's status now, with expiry judged at this moment.
+ */
+export interface WebhookReading {
+  readonly paymentId: string;
+  readonly externalReference: EventId;
+  readonly outcome: TerminalOutcome;
+  readonly status: PaymentStatus;
+  readonly requested: Money;
+  /** False when the delivered amount or currency differs from the request (OCN rule, shortcut S-4.4-16). */
+  readonly amountMatches: boolean;
 }
 
 /** What a bank-page action can answer: the webhook codes, plus refusal of an expired request. */
@@ -154,6 +171,50 @@ export class SimulatedPayIn implements PayIn {
     this.#expireIfDue(record);
     if (record.status === "pending") this.#store.setStatus(record, "cancelled");
     return ok(view(record));
+  }
+
+  /** Every pay-in request the simulation holds, with expiry judged now as `getRequest` judges it. For the reconciler. */
+  requests(): PaymentRequest[] {
+    return this.#store.all("pay_in").map((record) => {
+      this.#expireIfDue(record);
+      return view(record);
+    });
+  }
+
+  /**
+   * Verifies a webhook and reads it, changing nothing. Signature first, as `ingestWebhook`. `malformed` means the body
+   * is not a pay-in event (a disbursement, for example), so the caller may try the pay-out side.
+   */
+  async inspectWebhook(
+    delivery: WebhookDelivery,
+  ): Promise<
+    Result<WebhookReading, PortError<"invalid_signature" | "malformed" | "unknown_payment">>
+  > {
+    if (!(await this.#store.verify(delivery.headers, delivery.body))) {
+      return err("invalid_signature", "simulated Stitch: webhook signature does not verify");
+    }
+    const parsed = parseEvent(delivery.body, "pay_in");
+    if (parsed === undefined) {
+      return err("malformed", "simulated Stitch: webhook is not a payment request event");
+    }
+    const record = this.#store.get(parsed.id, "pay_in");
+    if (record === undefined) {
+      return err("unknown_payment", "simulated Stitch: no payment request for that id");
+    }
+    const expired =
+      record.status === "pending" &&
+      record.expireAt !== undefined &&
+      this.#store.now() >= record.expireAt;
+    return ok({
+      paymentId: record.id,
+      externalReference: record.externalReference,
+      outcome: parsed.outcome,
+      status: expired ? "expired" : record.status,
+      requested: record.amount,
+      amountMatches:
+        parsed.quantity === stitchAmount(record.amount.minor) &&
+        parsed.currency === record.amount.currency,
+    });
   }
 
   /** A verified webhook from the processor. A completion after expiry is flagged, never applied. */

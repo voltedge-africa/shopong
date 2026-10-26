@@ -9,7 +9,12 @@ import { LOG_TAG, SIMULATED_MODE, SimulatedStore, type LateCompletion } from "./
 
 export { SIGNATURE_HEADER, signBody, signatureValid } from "./signature.js";
 export { stitchAmount } from "./amount.js";
-export { SimulatedPayIn, type SimulatedWebhookOutcome } from "./pay-in.js";
+export {
+  SimulatedPayIn,
+  type SimulatedWebhookOutcome,
+  type TerminalOutcome,
+  type WebhookReading,
+} from "./pay-in.js";
 export { SimulatedPayOut } from "./pay-out.js";
 export { LOG_TAG, SIMULATED_MODE, requestRef, type LateCompletion } from "./store.js";
 

@@ -118,3 +118,18 @@ Not found, to be created: a webhook route in `apps/node`, any `payment.completed
    - B. A treasurer's DID. Makes a person appear to have confirmed money the Node confirmed.
 
 Refunds, reversals and shortfalls are left to story 4.8. The ledger plan's Never row names story 4.6 for refunds; reconcile that with the epic.
+
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 1 high, 5 medium, 5 low. The orchestrator also ran a real Node with the SQLite ledger and simulated payments, and checked the pool card on web and the Android emulator.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | Nothing in the pool figures a member sees said "simulated" | high, real | patch | The pool answer carries `simulated: true` and a plain sentence, shown first on the pool card; mutation-checked on the Node and the phone; seen on web and emulator |
+| 2, 3, 4 | Races: a completed and a failed webhook together, a cancel or expiry between the check and the posting, and a failure written to the record before the provider status | medium, real | patch | A per-payment lock covers check, books, record and provider; the status is re-read inside it and before posting; the provider status is applied first; anything unpreventable is flagged at write time; tests with an interleaving; mutation-checked |
+| 5 | The Node's own SQLite books demanded a `LEDFRA_API_TOKEN` | medium, real | patch | Removed (Ledfra was dropped, AD-22); a Node with the ledger enabled and no token starts and opens `ledger.sqlite` (seen for real); S-4.5-9 closed |
+| 6 | The 503 text said "Nothing was applied" when money had moved | medium, real | patch | True state in the message and distinct codes (`books_written`, `record_written`, `status_written`, `state_unwritten`) |
+| 7, 8, 9, 10 | A corrupt flags file stopped the Node; the flags file write was not fully checked; refusal texts lacked "simulated"; the route revealed which communities the Node holds | low, real | patch | Set aside and logged; every byte checked and the directory synced; wording; one answer for unknown community and stranger |
+| 11 | The record's `apply` accepts `payment.*` from any admitted writer | low | defer | S-4.5-20 (the Node's reads require the creator's replica and the Node identity) |
+| gaps | (mutation check) a failing record write had no test; failure with no pledge; out-of-order webhook | real | patch | Tests added; mutation-checked |
+

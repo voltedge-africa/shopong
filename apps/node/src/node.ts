@@ -1,6 +1,9 @@
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { SIMULATED_MODE, type SimulatedStitch } from "@shopong/adapter-stitch-sim";
+import { configureChart, openSqliteLedger } from "@shopong/ledger-sqlite";
 import type { AutobaseSharedRecord } from "@shopong/record-autobase";
 import type { Did, Ledger } from "@shopong/ports";
 import { buildApp } from "./app.ts";
@@ -9,12 +12,16 @@ import { loadConfig, type LoadOptions } from "./config.ts";
 import { ReplicaHub } from "./hub.ts";
 import { createLogger, type LogSink } from "./logger.ts";
 import { masterKeyOf, nodeIdentityOf, openRecordComponent } from "./record.ts";
-import { missingRequiredFor, type ResolvedSecrets } from "./secrets.ts";
+import { ConfigError, missingRequiredFor, type ResolvedSecrets } from "./secrets.ts";
 import { openSimulatedPayments, paymentsComponent } from "./payments.ts";
 import { communitySecretFromHex, nodeHmacSha512 } from "./commitments.ts";
-
 import { payerCommitmentOf, type PaymentRequestOptions } from "./payment-request-route.ts";
+import { openCheckingStore, type ConfirmationDeps } from "./payment-confirmation.ts";
+import { startChecking, type RunningChecking } from "./reconciler.ts";
 import { readVersion } from "./version.ts";
+
+/** The books' file in the data folder (story 4.5): the SQLite ledger the Node runs in production. */
+export const LEDGER_FILE = "ledger.sqlite";
 
 export interface RunningNode {
   app: FastifyInstance;
@@ -29,6 +36,10 @@ export interface RunningNode {
   nodeIdentity: Did | undefined;
   /** The simulated payments (story 4.4), or undefined when the payments component is off. */
   payments: SimulatedStitch | undefined;
+  /** The books in use (the injected ledger, or the SQLite file), or undefined when the books are off. */
+  ledger: Ledger | undefined;
+  /** The reconciler (story 4.5), or undefined unless payments, the record and the books are all on. */
+  checking: RunningChecking | undefined;
   close(): Promise<void>;
 }
 
@@ -36,10 +47,15 @@ export interface StartOptions extends LoadOptions {
   /** Where log lines go. Defaults to standard output. */
   sink?: LogSink;
   /**
-   * The books the pool read uses (story 4.6). Absent, the pool route answers 503 "The books can't be read right now.".
-   * Configured by the caller; the ledger's own file and its wiring are not part of this story.
+   * The books the pool read uses (story 4.6). Absent, the Node opens its SQLite ledger when the ledger component is on,
+   * and the pool route answers 503 when it is off.
    */
   ledger?: Ledger;
+  /** Test seams for the confirmation's crash points (story 4.5). Never set in production. */
+  faults?: {
+    readonly beforeRecord?: (eventType: string) => void;
+    readonly failRecordWrite?: (eventType: string) => boolean;
+  };
 }
 
 /**
@@ -101,6 +117,13 @@ export function paymentRequestOptionsOf(options: {
 export async function startNode(options: StartOptions): Promise<RunningNode> {
   const { config, secrets, configFile } = loadConfig(options);
 
+  // A payment is confirmed into the shared record (story 4.5), so payments cannot run without it.
+  if (config.components.payments.enabled && !config.components.record.enabled) {
+    throw new ConfigError(
+      "payments need the record: payments are confirmed into the shared record, so enable the record component too",
+    );
+  }
+
   const logger = createLogger({
     level: config.logLevel,
     secretValues: secrets.values(),
@@ -113,6 +136,10 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
   const auth = new IsoUcanCapabilityAuth();
   let hub: ReplicaHub | undefined;
   let payments: SimulatedStitch | undefined;
+  let books: Ledger | undefined;
+  // The SQLite books this Node opened (not an injected ledger): closed with the Node.
+  let ownedBooks: { close(): void } | undefined;
+  let checking: RunningChecking | undefined;
   let app: FastifyInstance;
   const identity = opened === undefined ? undefined : await nodeIdentityOf(masterKeyOf(secrets));
   try {
@@ -123,12 +150,27 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
           log: (line) => logger.warn({ simulated: true, mode: SIMULATED_MODE }, line),
         })
       : undefined;
+    // The books: an injected ledger (tests), or the SQLite file in the data folder when the ledger component is on.
+    if (options.ledger !== undefined) {
+      books = options.ledger;
+    } else if (config.components.ledger.enabled) {
+      mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
+      const sqlite = openSqliteLedger({
+        path: join(config.dataDir, LEDGER_FILE),
+        clock: { now: Date.now },
+      });
+      books = sqlite;
+      ownedBooks = sqlite;
+    }
     const components: NodeComponent[] = COMPONENT_NAMES.map((name) => {
       if (name === "record" && opened !== undefined) return opened.component;
       if (name === "payments") return paymentsComponent(config.components.payments.enabled);
       // An injected ledger (story 4.6) is the books in use: health says so, rather than reading the config switch.
       if (name === "ledger" && options.ledger !== undefined)
         return createStubComponent(name, { enabled: true, secretsPresent: true });
+      if (name === "ledger" && ownedBooks !== undefined) {
+        return { name, check: async () => ({ status: "ok", mode: "sqlite" }) };
+      }
       return createStubComponent(name, {
         enabled: config.components[name].enabled,
         secretsPresent: missingRequiredFor(name, secrets, config.paymentsAdapter).length === 0,
@@ -145,6 +187,29 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
             maxCommunities: config.maxCommunities,
           });
     const paymentRequests = paymentRequestOptionsOf({ auth, hub, payments, secrets, identity });
+
+    // Confirmation of simulated payments (story 4.5): the books, the record and the status, in order.
+    const confirmation: ConfirmationDeps | undefined =
+      payments === undefined || hub === undefined || identity === undefined
+        ? undefined
+        : {
+            simulated: payments,
+            ledger: books,
+            hub,
+            masterKey: masterKeyOf(secrets),
+            nodeIdentity: identity,
+            store: openCheckingStore(config.dataDir, (message) =>
+              logger.warn({ simulated: true, mode: SIMULATED_MODE }, message),
+            ),
+            now: Date.now,
+            ...(options.faults?.beforeRecord === undefined
+              ? {}
+              : { beforeRecord: options.faults.beforeRecord }),
+            ...(options.faults?.failRecordWrite === undefined
+              ? {}
+              : { failRecordWrite: options.faults.failRecordWrite }),
+          };
+
     app = buildApp({
       logger,
       version: readVersion(),
@@ -154,7 +219,8 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       ...(hub === undefined ? {} : { communities: hub }),
       pool: {
         ...(hub === undefined ? {} : { hub }),
-        ...(options.ledger === undefined ? {} : { ledger: options.ledger }),
+        simulated: payments !== undefined,
+        ...(books === undefined ? {} : { ledger: books }),
         ...(identity === undefined
           ? {}
           : { masterKey: masterKeyOf(secrets), nodeIdentity: identity }),
@@ -163,11 +229,50 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       cors: { origins: config.corsOrigins, environment: config.environment },
       ...(payments === undefined ? {} : { payments }),
       ...(paymentRequests === undefined ? {} : { paymentRequests }),
+      ...(confirmation === undefined ? {} : { paymentConfirmation: confirmation }),
+      ...(confirmation === undefined || hub === undefined
+        ? {}
+        : { checking: { hub, store: confirmation.store } }),
+      ...(books === undefined
+        ? {}
+        : {
+            books: {
+              configureCommunity: async (communityKey: string) => {
+                const chart = await configureChart(books!, communityKey);
+                if (!chart.ok) throw new Error(chart.error.message);
+              },
+            },
+          }),
     });
     await app.listen({ host: config.server.host, port: config.server.port });
+
+    // The reconciler runs once now and then every 15 minutes (story 4.5). It needs all three readings to compare.
+    if (confirmation !== undefined && books !== undefined && payments !== undefined) {
+      checking = startChecking({
+        simulated: payments,
+        ledger: books,
+        hub: confirmation.hub,
+        masterKey: confirmation.masterKey,
+        nodeIdentity: confirmation.nodeIdentity,
+        store: confirmation.store,
+        now: confirmation.now,
+        log: (message, fields) => logger.info(fields, message),
+      });
+      checking.lastRun.catch(() => undefined);
+    } else if (payments !== undefined) {
+      logger.warn(
+        { simulated: true, mode: SIMULATED_MODE },
+        "payment check not running: it needs the books (ledger) on (simulated)",
+      );
+    }
   } catch (error) {
     // Nothing else owns the record yet, so a failed start must not leave its files locked.
-    await closeInOrder([() => hub?.close(), () => opened?.record.close()]);
+    checking?.close();
+    await closeInOrder([
+      () => hub?.close(),
+      () => opened?.record.close(),
+      () => ownedBooks?.close(),
+    ]);
     throw error;
   }
   const address = app.server.address();
@@ -201,7 +306,15 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
     hub,
     nodeIdentity: identity,
     payments,
+    ledger: books,
+    checking,
     close: () =>
-      closeInOrder([() => app.close(), () => hub?.close(), () => opened?.record.close()]),
+      closeInOrder([
+        () => checking?.close(),
+        () => app.close(),
+        () => hub?.close(),
+        () => opened?.record.close(),
+        () => ownedBooks?.close(),
+      ]),
   };
 }

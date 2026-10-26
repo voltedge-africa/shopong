@@ -56,6 +56,8 @@ export interface CommunityRouteOptions {
   readonly allowedCreators?: readonly string[];
   /** Each route's own one-time-number table size (review N2). */
   readonly nonces?: { readonly create?: number; readonly members?: number };
+  /** Called after a community is made (story 4.5: its books' chart is configured then). A failure is logged, not fatal. */
+  readonly onCreated?: (communityKey: string) => Promise<void>;
 }
 
 const COUNT_WORDS = ["none", "one", "two", "three", "four", "five"];
@@ -190,6 +192,19 @@ export function registerCommunityRoutes(
     }
 
     const spaceKey = await hub.createCommunity(key, actor);
+    if (options.onCreated !== undefined) {
+      await options.onCreated(key).catch((error: unknown) => {
+        request.log.warn(
+          {
+            audit: "community",
+            action: "books",
+            name: (error as Error).name,
+            requestId: request.id,
+          },
+          "the books' chart could not be set up for a new community; postings set it up before they post",
+        );
+      });
+    }
     request.log.info(
       { audit: "community", outcome: "accepted", action: "create", actor, requestId: request.id },
       "community created",

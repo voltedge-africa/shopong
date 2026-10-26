@@ -49,7 +49,6 @@ Declared in code in `src/secrets.ts`. A secret is read **only** from the environ
 | `SIMULATED_WEBHOOK_SECRET` | `payments` is enabled and `PAYMENTS_ADAPTER` is `simulated` (the default): the key that signs simulated webhooks (story 4.4). Not a Stitch credential                              |
 | `STITCH_CLIENT_ID`         | a real Stitch adapter is selected (none exists: `PAYMENTS_ADAPTER=stitch` is refused)                                                                                              |
 | `STITCH_CLIENT_SECRET`     | a real Stitch adapter is selected (none exists: `PAYMENTS_ADAPTER=stitch` is refused)                                                                                              |
-| `LEDFRA_API_TOKEN`         | `ledger` is enabled                                                                                                                                                                |
 | `STABLECOIN_SIGNING_KEY`   | optional placeholder                                                                                                                                                               |
 | `LLM_API_KEY`              | optional placeholder                                                                                                                                                               |
 | `COMMUNITY_SECRET`         | `POST /commitments` (story 2.7): treasurer only, 30 requests per ten minutes each. Not yet passed to the route by `startNode`, so it answers 503 until the community is configured |

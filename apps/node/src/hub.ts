@@ -509,6 +509,11 @@ export class ReplicaHub implements SyncHub {
     return (await indexed.view.get(`${REMOVED_PREFIX}${did}`)) === undefined;
   }
 
+  /** Every community the Node holds, in registration order (story 4.5: the confirmation and the reconciler scan them). */
+  heldCommunities(): readonly string[] {
+    return Object.keys(this.#registry);
+  }
+
   /** The creator of a community the Node holds, or undefined. */
   creatorOf(communityKey: string): Did | undefined {
     return this.#registry[communityKey]?.creator;
