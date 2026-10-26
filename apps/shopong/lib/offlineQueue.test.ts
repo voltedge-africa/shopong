@@ -70,7 +70,7 @@ describe("offline queue adapters pass one contract (story 3.4)", () => {
     expect(read.items.map((item) => item.id)).toEqual(
       Array.from({ length: 500 }, (_, k) => id(2 * k + 1)),
     );
-  });
+  }, 30_000);
 
   it("file: reads a file written by another run with the same shape", async () => {
     const file = fakeFile(

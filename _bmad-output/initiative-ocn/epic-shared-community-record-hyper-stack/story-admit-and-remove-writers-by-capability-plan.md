@@ -3,7 +3,7 @@ title: 'Admit and remove writers by capability'
 type: 'feature'
 ticket: 3
 created: '2026-10-26'
-status: draft
+status: done
 baseline_revision: '26c417cdcc44d355a2be80aa0cc66a977dc31da8'
 route: 'full'
 ---
