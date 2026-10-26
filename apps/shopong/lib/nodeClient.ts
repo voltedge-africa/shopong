@@ -4,7 +4,7 @@
 // `waiting` (the Node may take it later: too many requests, or the writer is not yet admitted), or `refused`
 // (a plain refusal: park it and show the reason).
 
-import { signRequest, type PoolView, type RequestParts } from "@shopong/community";
+import { signRequest, type PoolView, type RequestParts, type Timeline } from "@shopong/community";
 import { toBase64, webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import type { CapabilityAuth, Did } from "@shopong/ports";
 
@@ -148,6 +148,8 @@ export interface NodeClient {
   payPledge(key: string, pledge: string): Promise<NodeReply<PledgeRequested>>;
   /** The status of the request for the member's own pledge, as the Node's record and payments hold it. */
   paymentStatus(key: string, pledge: string): Promise<NodeReply<PaymentStatusReply>>;
+  /** The timeline of one of this member's payments: every step, joined by event id (story 10.2). The payer only. */
+  timeline(key: string, pledge: string): Promise<NodeReply<TimelineReply>>;
   /** Pays a supplier for one recorded payment (story 4.7). The Node checks every approval and the pool itself. */
   payOut(key: string, payment: string): Promise<NodeReply<PayoutSent>>;
   /** The keyed commitment of a supplier's bank details, as the Node holds them (story 4.7). Members only. */
@@ -158,6 +160,13 @@ export interface NodeClient {
     supplier: string,
     bank: SupplierBankDetails,
   ): Promise<NodeReply<{ saved: boolean }>>;
+}
+
+/** One payment's timeline as the Node answers it: the steps and the agreement, and any note about the books or the simulation. */
+export interface TimelineReply {
+  readonly timeline: Timeline;
+  readonly booksNote?: string;
+  readonly simulatedNote?: string;
 }
 
 /** What the Node says after it sends a payment to the (simulated) bank. */
@@ -373,6 +382,17 @@ export function createNodeClient(options: NodeClientOptions): NodeClient {
           amountMinor: Number(j.amountMinor),
           windowOpen: j.windowOpen !== false,
           ...(typeof j.bankPath === "string" ? { bankPath: j.bankPath } : {}),
+        }),
+      ),
+    timeline: (key, pledge) =>
+      request(
+        "GET",
+        `/communities/${key}/transactions/${encodeURIComponent(pledge)}/timeline`,
+        undefined,
+        (j) => ({
+          timeline: j.timeline as unknown as Timeline,
+          ...(typeof j.booksNote === "string" ? { booksNote: j.booksNote } : {}),
+          ...(typeof j.simulatedNote === "string" ? { simulatedNote: j.simulatedNote } : {}),
         }),
       ),
     payOut: (key, payment) =>

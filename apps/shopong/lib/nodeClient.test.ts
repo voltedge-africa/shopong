@@ -492,3 +492,49 @@ describe("the phone's place calls (story 7.3)", () => {
     if (!reply.ok) expect(reply.failure.reason).toBe("Only the treasurer can add a place.");
   });
 });
+
+describe("the phone's timeline call (story 10.2)", () => {
+  const PLEDGE = "a".repeat(128);
+  const timelineBody = {
+    timeline: {
+      pledgeId: PLEDGE,
+      steps: [{ kind: "pledged", label: "Pledged", words: "You pledged R150.00." }],
+      agreement: { state: "waiting", words: "Nothing to compare yet." },
+    },
+    requestId: "r2",
+  };
+
+  it("sends a signed GET for one of the member's own payments, with no body", async () => {
+    const phone = await phoneWith(() => ({ status: 200, body: timelineBody }));
+    await phone.client.timeline(KEY, PLEDGE);
+    const [sent] = phone.sent;
+    expect(sent!.method).toBe("GET");
+    expect(sent!.url).toBe(
+      `https://node.example/communities/${KEY}/transactions/${PLEDGE}/timeline`,
+    );
+    expect(sent!.body).toBeUndefined();
+    expect(sent!.headers["x-ocn-signature"]).toBeDefined();
+  });
+
+  it("answers ok with the Node's steps and agreement", async () => {
+    const phone = await phoneWith(() => ({ status: 200, body: timelineBody }));
+    const reply = await phone.client.timeline(KEY, PLEDGE);
+    expect(reply.ok).toBe(true);
+    if (reply.ok) {
+      expect(reply.value.timeline.steps[0]?.words).toBe("You pledged R150.00.");
+      expect(reply.value.timeline.agreement.state).toBe("waiting");
+      expect(reply.value.booksNote).toBeUndefined();
+    }
+  });
+
+  it("shows the Node's refusal for someone else's payment as a plain reason", async () => {
+    const phone = await phoneWith(() => ({
+      status: 403,
+      body: { problem: "not_yours", reason: "You can only see the timeline of your own payment." },
+    }));
+    const reply = await phone.client.timeline(KEY, PLEDGE);
+    expect(reply.ok).toBe(false);
+    if (!reply.ok)
+      expect(reply.failure.reason).toBe("You can only see the timeline of your own payment.");
+  });
+});

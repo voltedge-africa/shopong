@@ -7,6 +7,7 @@ import { DeliveryScreen } from "../../components/DeliveryScreen";
 import { MiniAppView } from "../../components/MiniAppView";
 import { NativeMiniApp } from "../../components/NativeMiniApp";
 import { OrdersHostProvider } from "../../components/OrdersHost";
+import { TimelineHostProvider } from "../../components/TimelineHost";
 import { useAllMiniApps } from "../../components/publishedMiniApps";
 
 // One generic activity for every mini app: it looks the app up by id and renders its content,
@@ -27,7 +28,13 @@ export default function MiniAppActivity() {
           <NativeMiniApp load={content.load} />
         </OrdersHostProvider>
       ) : null}
-      {content?.kind === "native" && app?.id !== "orders" ? (
+      {content?.kind === "native" && app?.id === "timeline" ? (
+        // The payment timeline reads this member's own payments and the Node's timeline of one (story 10.2).
+        <TimelineHostProvider>
+          <NativeMiniApp load={content.load} />
+        </TimelineHostProvider>
+      ) : null}
+      {content?.kind === "native" && app?.id !== "orders" && app?.id !== "timeline" ? (
         <NativeMiniApp load={content.load} />
       ) : null}
       {content?.kind === "bundle" && app?.id === "delivery" ? (
