@@ -9,12 +9,16 @@ import type { Environment } from "./config.ts";
 /** The request headers a browser may send to the Node: the signed-request headers and a JSON body. */
 export const ALLOWED_HEADERS = [
   "content-type",
+  // Byte-range reads of map files (story 7.2) are not CORS-safelisted, so the browser asks first.
+  "range",
   "x-ocn-actor",
   "x-ocn-nonce",
   "x-ocn-signature",
   "x-ocn-time",
 ];
 export const ALLOWED_METHODS = ["GET", "POST", "OPTIONS"];
+/** The response headers a browser page may read: the byte-range answers of map files (story 7.2). */
+export const EXPOSED_HEADERS = ["Accept-Ranges", "Content-Length", "Content-Range", "ETag"];
 /** How long a browser may cache a preflight answer. */
 export const PREFLIGHT_MAX_AGE_SECONDS = 600;
 
@@ -46,6 +50,7 @@ export function registerCors(app: FastifyInstance, options: CorsOptions): void {
       return;
     }
     reply.header("access-control-allow-origin", allowed);
+    reply.header("access-control-expose-headers", EXPOSED_HEADERS.join(", "));
     if (request.method === "OPTIONS") {
       reply.header("access-control-allow-methods", ALLOWED_METHODS.join(", "));
       reply.header("access-control-allow-headers", ALLOWED_HEADERS.join(", "));

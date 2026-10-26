@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { FastifyInstance } from "fastify";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { SIMULATED_MODE, type SimulatedStitch } from "@shopong/adapter-stitch-sim";
@@ -227,6 +227,14 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       },
       allowedCreators: config.allowedCreators,
       cors: { origins: config.corsOrigins, environment: config.environment },
+      ...(config.tiles.releasesDir === undefined
+        ? {}
+        : {
+            tiles: {
+              releasesDir: resolve(config.tiles.releasesDir),
+              activeRelease: config.tiles.activeRelease,
+            },
+          }),
       ...(payments === undefined ? {} : { payments }),
       ...(paymentRequests === undefined ? {} : { paymentRequests }),
       ...(confirmation === undefined ? {} : { paymentConfirmation: confirmation }),
