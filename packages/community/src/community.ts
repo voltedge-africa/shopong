@@ -72,11 +72,20 @@ import { EMPTY_NAME_MESSAGE, NAMING_TYPE, namingProblem } from "./naming.js";
 import {
   ORDER_MESSAGES,
   checkOrder,
+  orderKey,
   orderPayloadOf,
   ordersOf,
   proposalProblem,
+  storedOrderOf,
   type StoredOrder,
 } from "./orders.js";
+import {
+  SELECTION_MESSAGES,
+  selectionOf,
+  selectionPayloadOf,
+  supplierTotalOf,
+  type Selection,
+} from "./selection.js";
 import { newCommunityKey, toHex } from "./space.js";
 
 export interface CommunityDeps {
@@ -316,6 +325,17 @@ export interface Community {
   approveOrder(id: string, now: EpochMs): Promise<Result<OrderReceipt, OrderError>>;
   /** Every order on the record, as this phone's copy of the view holds it. */
   orders(): Promise<readonly StoredOrder[]>;
+  /**
+   * Choose a supplier for an approved order (story 8.3). Only the treasurer may. The total is the one the ranking shows for
+   * that supplier's complete quote; `apply` recomputes it and keeps the latest choice.
+   */
+  chooseSupplier(
+    order: string,
+    supplier: string,
+    now: EpochMs,
+  ): Promise<Result<QuoteReceipt, QuoteError>>;
+  /** The latest choice of a supplier for an order, as the view holds it now. */
+  selectionOf(order: string): Promise<Selection | undefined>;
   /** The driver whose role stands at log time, judged as `apply` judges a driver (patch of story 7.4). */
   currentDriver(now: EpochMs): Promise<string | undefined>;
   /** Record a place the Node made (story 7.4). Only the treasurer may. */
@@ -624,6 +644,61 @@ function wrap(
     async orders() {
       await space.update();
       return ordersOf(space.view);
+    },
+    async chooseSupplier(order, supplier, now) {
+      await space.update();
+      const at = await logAt(space);
+      if (!(await isTreasurer(standingOf(), space.view, me, at))) {
+        const problem = await coTreasurerProblem(standingOf(), space.view, me, at);
+        return err("not_permitted", problem ?? SELECTION_MESSAGES.not_permitted);
+      }
+      const stored = storedOrderOf(await space.view.get(orderKey(order)));
+      if (stored === undefined) return err("refused", ORDER_MESSAGES.unknown_order);
+      if (stored.status !== "open") return err("refused", SELECTION_MESSAGES.not_approved);
+      const priced = supplierTotalOf(
+        await quotesOf(space.view, stored.name),
+        stored.items,
+        supplier,
+      );
+      if (!priced.ok) return err("refused", priced.problem);
+      let event: EventEnvelope;
+      try {
+        event = createEvent({
+          type: "quote.selected",
+          space: key,
+          actor: space.local,
+          proof: [],
+          claimedAt: now,
+          nonce: toHex(deps.randomBytes(16)),
+          payload: selectionPayloadOf({
+            order: stored.name,
+            supplier,
+            totalMinor: priced.totalMinor,
+          }),
+        } as never) as EventEnvelope;
+      } catch {
+        return err("refused", SELECTION_MESSAGES.save_failed);
+      }
+      const receipt = await appendChecked(space, event);
+      if (!receipt.ok) {
+        return err(
+          "refused",
+          receipt.error.code === "personal_data"
+            ? receipt.error.message
+            : SELECTION_MESSAGES.not_writable,
+        );
+      }
+      await space.update();
+      const rejected = await space.view.get(`rejected/${receipt.value.id}`);
+      if (rejected !== undefined) {
+        const reason = field(rejected, "reason");
+        return err("refused", typeof reason === "string" ? reason : SELECTION_MESSAGES.unreadable);
+      }
+      return ok({ id: receipt.value.id, duplicate: receipt.value.duplicate });
+    },
+    async selectionOf(order) {
+      await space.update();
+      return selectionOf(space.view, order);
     },
     async members() {
       await space.update();

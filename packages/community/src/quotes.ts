@@ -9,7 +9,7 @@
 // Phone numbers are refused in supplier and item names, because the log cannot be edited (AGENTS rule 6).
 //
 // Not here: OCR or photos (the `Ocr` port, later), ranking (story 6.9), editing or deleting a quote, and
-// choosing a supplier (`quote.selected`).
+// choosing a supplier (`quote.selected`, see selection.ts).
 
 import { hasIdNumberShape, hasPhoneNumberShape, type JsonObject } from "@shopong/events";
 import type { EpochMs, ViewReader } from "@shopong/ports";

@@ -5,7 +5,14 @@ import { orderKey, orderIdKey, type StoredOrder } from "@shopong/community";
 import { parseEvent } from "@shopong/events";
 import type { Did, JsonValue } from "@shopong/ports";
 import { describe, expect, it } from "vite-plus/test";
-import { approveEventOf, gateProblemIn, memberCountIn, orderEventOf, ordersInView } from "./orders";
+import {
+  approveEventOf,
+  chooseEventOf,
+  gateProblemIn,
+  memberCountIn,
+  orderEventOf,
+  ordersInView,
+} from "./orders";
 
 const ME = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK" as Did;
 const MEMBER = "did:key:z6MkmtmqQWNzwamfa7QWkNU3Sk2qHpuXK4VrfMXXqVouVZtL";
@@ -102,6 +109,71 @@ describe("the approval the phone sends", () => {
     expect(event.type).toBe("order.approved");
     expect(event.payload).toEqual({ order: ID });
     expect(parseEvent(event).ok).toBe(true);
+  });
+});
+
+describe("the choice of a supplier the phone sends (story 8.3)", () => {
+  const quote = {
+    supplier: "Shop Two",
+    order: "April groceries",
+    lines: [{ item: "Cooking oil", unit: "bottle", packSize: 12, pricePerPackCents: 30_000 }],
+    delivery: { feeCents: 0, days: 5 },
+  };
+  /** An approved order with one complete quote: 12 bottles from packs of 12 is one pack, 30,000 cents. */
+  const approvedView = (status: "open" | "proposed" = "open") =>
+    viewWith({
+      [`orders/${encodeURIComponent("April groceries")}`]: {
+        ...(stored as unknown as Record<string, JsonValue>),
+        status,
+      },
+      [`quotes/${encodeURIComponent("April groceries")}/${encodeURIComponent("Shop Two")}`]: quote,
+    });
+
+  it("is a quote.selected event with the total the ranking shows, and the record accepts it", () => {
+    const built = chooseEventOf({
+      community: COMMUNITY,
+      me: ME,
+      now: T0,
+      randomBytes,
+      order: "April groceries",
+      supplier: "Shop Two",
+      view: approvedView(),
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.value.type).toBe("quote.selected");
+    expect(built.value.payload).toEqual({
+      order: "April groceries",
+      supplier: "Shop Two",
+      totalMinor: 30_000,
+    });
+    expect(() => parseEvent(built.value)).not.toThrow();
+  });
+
+  it("names the reason and sends nothing for an order that is not approved, or has no such quote", () => {
+    const notApproved = chooseEventOf({
+      community: COMMUNITY,
+      me: ME,
+      now: T0,
+      randomBytes,
+      order: "April groceries",
+      supplier: "Shop Two",
+      view: approvedView("proposed"),
+    });
+    expect(notApproved).toEqual({ ok: false, problems: ["Approve the order first."] });
+    const noQuote = chooseEventOf({
+      community: COMMUNITY,
+      me: ME,
+      now: T0,
+      randomBytes,
+      order: "April groceries",
+      supplier: "Nobody Ltd",
+      view: approvedView(),
+    });
+    expect(noQuote).toEqual({
+      ok: false,
+      problems: ["No quote from that supplier for this order."],
+    });
   });
 });
 

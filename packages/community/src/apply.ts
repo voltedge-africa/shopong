@@ -19,7 +19,7 @@
 // `settings/approvals` (story 4.7), `community/name` and `community/rules` (story 8.1), `payouts/<payment id>` and
 // `approvals/<payment id>/<approver>` (story 4.7),
 // `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
-// pledges.ts), `orders/<order>` (the proposal and its status) and `order-ids/<event id>` { name } (see orders.ts, story 8.2), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
+// pledges.ts), `orders/<order>` (the proposal and its status) and `order-ids/<event id>` { name } (see orders.ts, story 8.2), `selections/<order>` (the latest choice of a supplier, see selection.ts, story 8.3), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }, `areas/<did>` { area } (a member's
 // suburb or town, story 7.3; see areas.ts).
@@ -85,7 +85,16 @@ import {
   proposalProblem,
   storedOrderOf,
 } from "./orders.js";
-import { QUOTE_MESSAGES, checkQuote, isTreasurer, quoteJson, quoteKey } from "./quotes.js";
+import {
+  QUOTE_MESSAGES,
+  checkQuote,
+  isTreasurer,
+  quoteJson,
+  quoteKey,
+  quotesOf,
+  tidy,
+} from "./quotes.js";
+import { SELECTION_MESSAGES, selectionJson, selectionKey, supplierTotalOf } from "./selection.js";
 import {
   PAYMENT_REQUEST_KEYS,
   PAYMENT_TYPE_MESSAGE,
@@ -183,6 +192,7 @@ const CHECKED: ReadonlySet<string> = new Set([
   NAMING_TYPE,
   "order.proposed",
   "order.approved",
+  "quote.selected",
 ]);
 
 export function createCommunityApply(env: CommunityApplyEnvironment): Apply<EventEnvelope> {
@@ -749,6 +759,45 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
   }
 
   /**
+   * The treasurer's choice of a supplier (story 8.3): the creator, or a co-treasurer whose role stands at log time. The order
+   * must be approved and on the record, and the supplier must have a complete quote for its wanted items. The total is
+   * recomputed from that quote; a total claimed in the event is ignored when it differs. The latest accepted choice stands.
+   */
+  async function supplierSelected(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if (!(await isTreasurer(standing, view, event.actor, at))) {
+      return (
+        (await coTreasurerProblem(standing, view, event.actor, at)) ??
+        SELECTION_MESSAGES.not_permitted
+      );
+    }
+    if (PAYLOAD_VALIDATORS["quote.selected"](event.payload).length > 0) {
+      return SELECTION_MESSAGES.unreadable;
+    }
+    const order = storedOrderOf(await view.get(orderKey(str(event.payload, "order") ?? "")));
+    if (order === undefined) return ORDER_MESSAGES.unknown_order;
+    if (order.status !== "open") return SELECTION_MESSAGES.not_approved;
+    const supplier = str(event.payload, "supplier") ?? "";
+    const priced = supplierTotalOf(await quotesOf(view, order.name), order.items, supplier);
+    if (!priced.ok) return priced.problem;
+    await view.put(
+      selectionKey(order.name),
+      selectionJson({
+        order: order.name,
+        supplier: tidy(supplier),
+        totalMinor: priced.totalMinor,
+        by: event.actor,
+        eventId: entry.id,
+      }),
+    );
+    return undefined;
+  }
+
+  /**
    * A file is named by its event only when the event is in the strict form, its sender may attach that purpose at log
    * time, and the file is recorded under its order (story 3.7). The bytes are the Node's; the record holds the reference.
    */
@@ -839,6 +888,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return orderProposed(entry, view, at);
       case "order.approved":
         return orderApproved(entry, view, at);
+      case "quote.selected":
+        return supplierSelected(entry, view, at);
       case "payment.requested":
         return paymentRequested(entry, view);
       case "file.attached":
