@@ -13,6 +13,11 @@
 //
 // The community's registry (community key, Autobase key, creator, admitted members) is kept in `communities.json`
 // in the data folder, checked when the hub is made, and written with an fsync before its rename.
+//
+// A removal is read from the record, not from this registry (story 3.3): when the indexer's view shows
+// `removed/<did>`, the member is not a member for the Node (no pull, no append, no replica), and the Node closes
+// that member's replica for the community. A fresh invitation clears the marker, and the member's replica opens
+// again on their next call. The registry keeps the admission list the Node was given.
 
 import { createHash } from "node:crypto";
 import {
@@ -49,6 +54,8 @@ import type {
 import type { ReadResult, SyncHub } from "./sync.ts";
 
 const MEMBERS_DIR = "members";
+/** The record's marker for a removed member, cleared by a fresh invitation (story 3.3). */
+const REMOVED_PREFIX = "removed/";
 const REGISTRY_FILE = "communities.json";
 const POLL_MS = 10;
 const SETTLE_ROUNDS = 4;
@@ -197,6 +204,17 @@ export class ReplicaHub implements SyncHub {
     this.#reserved.delete(community.key);
     this.#saveRegistry();
     await this.#slot(community.creator, community.key, community.space);
+  }
+
+  /** Whether the member has an open replica of the community (true from the first call until a removal closes it). */
+  async holdsReplica(did: Did, communityKey: string): Promise<boolean> {
+    const pending = this.#members.get(did);
+    if (pending === undefined) return false;
+    try {
+      return (await pending).spaces.has(communityKey);
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -357,11 +375,54 @@ export class ReplicaHub implements SyncHub {
     );
   }
 
-  /** Every admitted member's replica of a community, opened (once) and joined. */
+  /**
+   * Closes the replica of each member the indexer's record shows as removed, and forgets it for that community. A
+   * member's replica that serves no other community is closed with it.
+   */
+  async #releaseRemoved(communityKey: string): Promise<void> {
+    const indexed = this.#indexedOf(communityKey);
+    if (indexed === undefined) return;
+    const space = await indexed;
+    for (const row of await space.view.list(REMOVED_PREFIX)) {
+      const did = row.key.slice(REMOVED_PREFIX.length) as Did;
+      // Read again just before releasing: a fresh invitation may have cleared the mark since the list was read.
+      if ((await space.view.get(row.key)) === undefined) continue;
+      await this.#releaseSlot(did, communityKey);
+    }
+  }
+
+  async #releaseSlot(did: Did, communityKey: string): Promise<void> {
+    const pending = this.#members.get(did);
+    if (pending === undefined) return;
+    let member: MemberReplica;
+    try {
+      member = await pending;
+    } catch {
+      return;
+    }
+    const slot = member.spaces.get(communityKey);
+    if (slot === undefined) return;
+    member.spaces.delete(communityKey);
+    try {
+      const { space, disconnect } = await slot;
+      disconnect();
+      // The space is closed as well as disconnected, so no instance of it stays open after a removal (story 3.3).
+      await space.close();
+    } catch {
+      // A slot that never joined has nothing to close.
+    }
+    if (member.spaces.size === 0) await this.releaseReplica(did);
+  }
+
+  /** Every member's replica of a community that the record does not show as removed, opened (once) and joined. */
   async #replicasOf(communityKey: string): Promise<Space<EventEnvelope>[]> {
     const entry = this.#registry[communityKey];
     if (entry === undefined) return [];
-    const slots = await Promise.all(entry.members.map((did) => this.#slot(did, communityKey)));
+    const current: Did[] = [];
+    for (const did of entry.members) {
+      if (await this.isMember(did, communityKey)) current.push(did);
+    }
+    const slots = await Promise.all(current.map((did) => this.#slot(did, communityKey)));
     return slots.map((slot) => slot.space);
   }
 
@@ -386,6 +447,8 @@ export class ReplicaHub implements SyncHub {
         await new Promise((resolve) => setTimeout(resolve, POLL_MS));
       }
     }
+    // Only once the indexer holds every removal that has replicated, so a removed member's replica closes here.
+    await this.#releaseRemoved(communityKey);
   }
 
   acknowledge(did: Did, communityKey: string, id: string): void {
@@ -404,9 +467,8 @@ export class ReplicaHub implements SyncHub {
     after: number,
     limit: number,
   ): Promise<ReadResult> {
-    const entry = this.#registry[communityKey];
-    if (entry === undefined) return { ok: false, problem: "not_held" };
-    if (!entry.members.includes(did)) return { ok: false, problem: "not_member" };
+    if (this.#registry[communityKey] === undefined) return { ok: false, problem: "not_held" };
+    if (!(await this.isMember(did, communityKey))) return { ok: false, problem: "not_member" };
 
     const indexed = await this.#indexedOf(communityKey)!;
     await this.#replicasOf(communityKey);
@@ -435,10 +497,16 @@ export class ReplicaHub implements SyncHub {
     return { ok: true, entries, head: await journalHead(indexed), behind };
   }
 
+  /**
+   * Admitted by the Node's list and not removed in the record. A removal wins until a fresh invitation clears it.
+   */
   async isMember(did: Did, communityKey: string): Promise<boolean | undefined> {
     const entry = this.#registry[communityKey];
     if (entry === undefined) return undefined;
-    return entry.members.includes(did);
+    if (!entry.members.includes(did)) return false;
+    const indexed = await this.#indexedOf(communityKey)!;
+    await indexed.update();
+    return (await indexed.view.get(`${REMOVED_PREFIX}${did}`)) === undefined;
   }
 
   /** The creator of a community the Node holds, or undefined. */

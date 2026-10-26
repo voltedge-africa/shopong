@@ -230,6 +230,32 @@ describe("the Node's signed sync routes (AC 3.5)", () => {
     expect(held.appends()).toBe(0);
   });
 
+  it("answers 403 not_member, not 500, when the replica is closed during the request (a removal, story 3.3)", async () => {
+    const w = await community();
+    // The replica is closed while the request is in flight: its append answers `closed`.
+    const closed = new Proxy(w.driverCommunity.space, {
+      get(target, property) {
+        if (property === "append") {
+          return async () => ({ ok: false, error: { code: "closed", message: "space is closed" } });
+        }
+        const value = Reflect.get(target, property, target) as unknown;
+        return typeof value === "function"
+          ? (value as (...a: unknown[]) => unknown).bind(target)
+          : value;
+      },
+    }) as Space<EventEnvelope>;
+    running = buildApp({
+      logger: createLogger({ level: "info", sink: captureSink() }),
+      version: "test",
+      components: [],
+      sync: { hub: fakeHub(() => closed), now: () => NOW },
+    });
+    const key = w.driverCommunity.key;
+    const res = await send(running, w.driver, key, eventFor(key, w.driver.did));
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ problem: "not_member" });
+  });
+
   it("refuses an append the held replica would make as someone else", async () => {
     // The replica the Node holds writes as `other`; a validly signed event by `driver` must not go through it.
     const w = await community();

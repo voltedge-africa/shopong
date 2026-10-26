@@ -67,6 +67,7 @@ const COMMUNITY_MESSAGES = {
   not_allowed: "This Node is not open to new communities from this account.",
   node_full: "This Node has reached the most communities it will host.",
   not_held: "This Node does not hold that community.",
+  removed: "You were taken out of this community. Ask the treasurer for a new invitation.",
 } as const;
 
 /** The invitation text the phone sends: the link or code it was given. */
@@ -236,6 +237,11 @@ export function registerCommunityRoutes(
     }
     if (checked.value.spaceKey !== key || checked.value.creator !== registered.creator) {
       return refuse(request, reply, 403, "bad_invitation", INVITATION_MESSAGES.unreadable, actor);
+    }
+    // A person the record shows as removed is not admitted again by an old invitation: only a fresh invitation clears
+    // the mark (story 3.3). It is read from the same view as the invitation, so both see the same record.
+    if ((await view.get(`removed/${actor}`)) !== undefined) {
+      return refuse(request, reply, 403, "removed", COMMUNITY_MESSAGES.removed, actor);
     }
 
     const used = claimNonce(memberNonces, verdict);

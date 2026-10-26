@@ -104,3 +104,20 @@ route: 'full'
 - `pnpm --filter @shopong/community test` -- expected: join-admission and `member.removed` tests pass.
 
 **Not verified in drafting:** no `node_modules` in the worktree or the main checkout, so the Autobase `removeable` behaviour and the existing test outcomes were read from source, not run.
+
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26): no high findings, 2 medium, 7 low. The builder also reported that plan Q1-A could not be built.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| Q1 | Admission at a verified `member.joined` cannot be built: the joiner cannot write before being a writer, and the record skips entries from an unadmitted key | real design limit | **product owner chose B (2026-10-26)**: keep admission at invitation, with the inviter's full role chain checked at log time (story 3.6) | S-3.3-1; the proper fix is story 3.11 |
+| 1 | An acknowledged append can be dropped in a narrow removal window | medium | defer | S-3.3-13 |
+| 2 | An expired co-treasurer could remove by backdating | medium, real | closed by story 3.6 | Removal is judged at log time with the whole role chain; test failed first; mutation-checked; S-3.3-12 closed |
+| 3, 4, 9 | Replica reopened after release; stale snapshot in the release; concurrent store on one folder | low | defer | S-3.3-14, S-3.3-15, S-3.3-17 |
+| 5 | Release during an in-flight append returned 500 | low, real | patch | Clean 403 `not_member`; test failed first |
+| 6 | Releasing a slot did not close the member's space | low, real | patch | Closed; test failed first |
+| 7 | View and Autobase disagree if `removeable` is false | low, latent | defer | S-3.3-18 |
+| 8 | Removal cannot cancel an unused invitation | low | defer | S-3.3-16 |
+| 10 | (builder) an invited person who has not joined can append any event; `apply` refuses the effect but adds a `rejected/` entry | medium, real | defer to story 3.11 | S-3.3-19; documented by a Node test and an `it.todo` |
+
