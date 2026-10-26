@@ -11,6 +11,52 @@ const map: DeliveryMap = {
   legs: [{ from: "a", to: "b" }],
 };
 
+describe("toKeplerDatasets with a planned route", () => {
+  const encoded = (() => {
+    // Three points, precision 6, encoded by the reference algorithm (see polyline.test.ts).
+    const points = [
+      { lat: -25.7079, lng: 28.4004 },
+      { lat: -25.9, lng: 28.2 },
+      { lat: -26.2395, lng: 27.9094 },
+    ];
+    let out = "";
+    let lastLat = 0;
+    let lastLng = 0;
+    const signed = (value: number) => {
+      let rest = value < 0 ? ~(value * 2) : value * 2;
+      let s = "";
+      while (rest >= 0x20) {
+        s += String.fromCharCode((0x20 | (rest & 0x1f)) + 63);
+        rest = Math.floor(rest / 32);
+      }
+      return s + String.fromCharCode(rest + 63);
+    };
+    for (const p of points) {
+      const lat = Math.round(p.lat * 1e6);
+      const lng = Math.round(p.lng * 1e6);
+      out += signed(lat - lastLat) + signed(lng - lastLng);
+      lastLat = lat;
+      lastLng = lng;
+    }
+    return out;
+  })();
+
+  it("adds a planned-route dataset: one row per piece of the line", () => {
+    const datasets = toKeplerDatasets({
+      ...map,
+      route: { polyline6: encoded, sentences: ["a", "b", "c"] },
+    });
+    expect(datasets.map((d) => d.info.id)).toEqual(["stops", "route", "planned-route"]);
+    const line = datasets[2]!;
+    expect(line.data.rows).toHaveLength(2);
+    expect(line.data.rows[0]![2]).toBeCloseTo(-25.7079, 6);
+  });
+
+  it("adds no planned-route dataset when there is no route", () => {
+    expect(toKeplerDatasets(map).map((d) => d.info.id)).toEqual(["stops", "route"]);
+  });
+});
+
 describe("toKeplerDatasets", () => {
   it("makes a point dataset with one row per stop, in field order", () => {
     const [stops] = toKeplerDatasets(map);

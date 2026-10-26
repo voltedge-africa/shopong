@@ -5,7 +5,7 @@
 // (a plain refusal: park it and show the reason).
 
 import { signRequest, type PoolView, type RequestParts } from "@shopong/community";
-import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
+import { toBase64, webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import type { CapabilityAuth, Did } from "@shopong/ports";
 
 export type NodeFailure =
@@ -69,6 +69,21 @@ export interface PulledPage {
   readonly behind: boolean;
 }
 
+/** A planned route as the Node answers it (story 7.4): the summary, the line and the three sentences it wrote. */
+export interface RouteAnswer {
+  readonly fingerprint: string;
+  readonly origin: { readonly id: string; readonly label: string; readonly area: string };
+  readonly destination: { readonly id: string; readonly label: string; readonly area: string };
+  readonly costing: string;
+  readonly distanceMeters: number;
+  readonly durationSeconds: number;
+  readonly tileRelease: string;
+  /** True when the route is a straight line, not a road route (the fallback until the tiles are released). */
+  readonly straightLine: boolean;
+  readonly polyline6: string;
+  readonly sentences: readonly string[];
+}
+
 export interface NodeClient {
   createCommunity(key: string): Promise<NodeReply<CommunityCreated>>;
   admitMember(key: string, invitation: string): Promise<NodeReply<{ admitted: boolean }>>;
@@ -77,8 +92,27 @@ export interface NodeClient {
     event: EventEnvelope,
   ): Promise<NodeReply<{ id: string; duplicate: boolean }>>;
   pull(key: string, after: string, limit?: number): Promise<NodeReply<PulledPage>>;
+  /** Keeps one file on the Node (story 3.7). The Node checks the role, size, type and hash before it keeps anything. */
+  uploadFile(
+    key: string,
+    file: {
+      readonly sha512: string;
+      readonly purpose: string;
+      readonly type: string;
+      readonly bytes: Uint8Array;
+    },
+  ): Promise<NodeReply<{ readonly sha512: string; readonly duplicate: boolean }>>;
+  /** The bytes of one file the Node holds, as base64 (story 3.7). Members only. */
+  readFile(key: string, hash: string): Promise<NodeReply<{ readonly bytes: string }>>;
   /** The pool as the Node reads the books and the record (story 4.6). Members only. */
   pool(key: string): Promise<NodeReply<PoolView>>;
+  /** Plans a route between two places the community registered (story 7.4). The treasurer or a current driver. */
+  planRoute(
+    key: string,
+    plan: { readonly order: string; readonly origin: string; readonly destination: string },
+  ): Promise<NodeReply<RouteAnswer>>;
+  /** A planned route, read by its fingerprint. Members only (story 7.4). */
+  route(key: string, order: string, fingerprint: string): Promise<NodeReply<RouteAnswer>>;
   /** Asks the Node to make the bank request for the member's own pledge (story 4.3). The phone sends only the id. */
   payPledge(key: string, pledge: string): Promise<NodeReply<PledgeRequested>>;
   /** The status of the request for the member's own pledge, as the Node's record and payments hold it. */
@@ -136,6 +170,22 @@ export interface PaymentStatusReply {
 }
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+
+/** Reads a route answer; the Node has already checked it, so the phone only takes the fields it shows. */
+function readRoute(j: Record<string, unknown>): RouteAnswer {
+  return {
+    fingerprint: String(j.fingerprint),
+    origin: j.origin as RouteAnswer["origin"],
+    destination: j.destination as RouteAnswer["destination"],
+    costing: String(j.costing),
+    distanceMeters: Number(j.distanceMeters),
+    durationSeconds: Number(j.durationSeconds),
+    tileRelease: String(j.tileRelease),
+    straightLine: j.straightLine === true,
+    polyline6: String(j.polyline6),
+    sentences: Array.isArray(j.sentences) ? j.sentences.map(String) : [],
+  };
+}
 
 const hex = (bytes: Uint8Array) =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -244,6 +294,15 @@ export function createNodeClient(options: NodeClientOptions): NodeClient {
         id: String(j.id),
         duplicate: j.duplicate === true,
       })),
+    planRoute: (key, plan) =>
+      request("POST", `/communities/${key}/routes`, plan, (j) => readRoute(j)),
+    route: (key, order, fingerprint) =>
+      request(
+        "GET",
+        `/communities/${key}/route?order=${encodeURIComponent(order)}&fingerprint=${encodeURIComponent(fingerprint)}`,
+        undefined,
+        (j) => readRoute(j),
+      ),
     pool: (key) =>
       request("GET", `/communities/${key}/pool`, undefined, (j) => j as unknown as PoolView),
     payPledge: (key, pledge) =>
@@ -282,6 +341,22 @@ export function createNodeClient(options: NodeClientOptions): NodeClient {
     saveSupplierBank: (key, supplier, bank) =>
       request("POST", "/suppliers/bank", { community: key, supplier, ...bank }, (j) => ({
         saved: j.saved === true,
+      })),
+    uploadFile: (key, file) =>
+      request(
+        "POST",
+        `/spaces/${key}/files`,
+        {
+          sha512: file.sha512,
+          purpose: file.purpose,
+          type: file.type,
+          bytes: toBase64(file.bytes),
+        },
+        (j) => ({ sha512: String(j.sha512), duplicate: j.duplicate === true }),
+      ),
+    readFile: (key, hash) =>
+      request("GET", `/spaces/${key}/files/${hash}`, undefined, (j) => ({
+        bytes: typeof j.bytes === "string" ? j.bytes : "",
       })),
     pull: (key, after, limit = 100) =>
       request(

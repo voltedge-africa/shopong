@@ -2,7 +2,14 @@
 // of its own start time: every event it writes uses a label and a time derived from the step,
 // so running it again builds the same events (same ids) and the ports recognise the keys.
 
-import { encodeUtf8, sha512Hex, type JsonValue } from "@shopong/events";
+import {
+  commitAddress,
+  encodeUtf8,
+  routeFingerprint,
+  sha512Hex,
+  type HmacSha512,
+  type JsonValue,
+} from "@shopong/events";
 import { asEventId } from "@shopong/ports";
 import { formatDate, formatDateTime, formatZar, pluralise } from "./format.js";
 import {
@@ -50,7 +57,28 @@ async function viewObj(world: World, key: string): Promise<Obj | undefined> {
     : undefined;
 }
 
-const micro = (degrees: number): number => Math.round(degrees * 1_000_000);
+/** A fictional community secret for the scenario's address commitments. Not a real secret. */
+const SCENARIO_SECRET = new Uint8Array(32).fill(0x2a);
+
+/** HMAC-SHA512 from the Web Crypto API, the scenario's stand-in for the Node's HMAC. */
+const webHmac: HmacSha512 = async (key, message) => {
+  const subtle = globalThis.crypto.subtle;
+  const material = new Uint8Array(key);
+  const data = new Uint8Array(message);
+  const cryptoKey = await subtle.importKey(
+    "raw",
+    material,
+    { name: "HMAC", hash: "SHA-512" },
+    false,
+    ["sign"],
+  );
+  return new Uint8Array(await subtle.sign("HMAC", cryptoKey, data));
+};
+
+/** The opaque place id the scenario gives a place: 64 hex characters, from the label (deterministic). */
+async function placeIdOf(w: World, label: string): Promise<string> {
+  return (await sha512Hex(encodeUtf8(`place/${label}`), w.sha512)).slice(0, 64);
+}
 const at = (start: number, n: number): number => start + n * MINUTE_MS;
 
 /** Split a total over `count` members in whole cents: the first few pay a cent more if it does not divide. */
@@ -461,13 +489,48 @@ export const STEPS: readonly StepDefinition[] = [
           },
         },
       );
+      // The places go into the record by id, label, area and the commitment of the address (AGENTS rule 6). The
+      // coordinates stay here, in the scenario's routing, and are not written anywhere.
+      const depotId = await placeIdOf(w, SUPPLIER_DEPOT.label);
+      const hallId = await placeIdOf(w, COLLECTION_POINT.label);
+      await w.emit(
+        treasurer,
+        "place.registered",
+        {
+          place: depotId,
+          label: SUPPLIER_DEPOT.label,
+          area: "Mamelodi",
+          addressCommitment: await commitAddress(
+            SCENARIO_SECRET,
+            `${SUPPLIER_DEPOT.label}, Mamelodi`,
+            webHmac,
+          ),
+        },
+        { at: at(t, 0), label: "place:depot" },
+      );
+      await w.emit(
+        treasurer,
+        "place.registered",
+        {
+          place: hallId,
+          label: COLLECTION_POINT.label,
+          area: "Soweto",
+          addressCommitment: await commitAddress(
+            SCENARIO_SECRET,
+            `${COLLECTION_POINT.label}, Soweto`,
+            webHmac,
+          ),
+        },
+        { at: at(t, 0), label: "place:collection" },
+      );
       const routed = await w.routing.route({
         origin: SUPPLIER_DEPOT,
         destination: COLLECTION_POINT,
-        costing: "truck",
+        costing: "auto",
       });
       if (!routed.ok) throw new Error(`no route: ${routed.error.message}`);
       const route = routed.value;
+      const fingerprint = await routeFingerprint(route.polyline6, route.tileRelease, w.sha512);
       // 09:00 South African time (07:00 UTC) the next day.
       const windowStart = t - (t % DAY_MS) + DAY_MS + 7 * 60 * MINUTE_MS;
       const windowEnd = windowStart + 2 * 60 * MINUTE_MS;
@@ -479,17 +542,14 @@ export const STEPS: readonly StepDefinition[] = [
         {
           order: "o1",
           driver: driver.actor,
-          collectionPoint: {
-            label: COLLECTION_POINT.label,
-            latMicro: micro(COLLECTION_POINT.lat),
-            lngMicro: micro(COLLECTION_POINT.lng),
-          },
+          origin: depotId,
+          destination: hallId,
           route: {
             costing: route.costing,
             distanceMeters: route.distanceMeters,
             durationSeconds: route.durationSeconds,
-            polyline6: route.polyline6,
             tileRelease: route.tileRelease,
+            fingerprint,
           },
           windowStart,
           windowEnd,
@@ -515,12 +575,8 @@ export const STEPS: readonly StepDefinition[] = [
       await w.emit(
         driver,
         "delivery.confirmed",
-        {
-          order: "o1",
-          photoSha512,
-          latMicro: micro(COLLECTION_POINT.lat),
-          lngMicro: micro(COLLECTION_POINT.lng),
-        },
+        // No coordinate: the confirmation names the order and the photo only (AGENTS rule 6, patch of story 7.4).
+        { order: "o1", photoSha512 },
         {
           at: at(t, 0),
           label: "delivery:confirmed",

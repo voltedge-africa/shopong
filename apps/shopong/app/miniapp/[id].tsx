@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { Text } from "panelui-native";
 
 import { BundleMiniApp } from "../../components/BundleMiniApp";
+import { DeliveryScreen } from "../../components/DeliveryScreen";
 import { MiniAppView } from "../../components/MiniAppView";
 import { NativeMiniApp } from "../../components/NativeMiniApp";
 import { OrdersHostProvider } from "../../components/OrdersHost";
@@ -29,7 +30,11 @@ export default function MiniAppActivity() {
       {content?.kind === "native" && app?.id !== "orders" ? (
         <NativeMiniApp load={content.load} />
       ) : null}
-      {content?.kind === "bundle" ? (
+      {content?.kind === "bundle" && app?.id === "delivery" ? (
+        // Delivery plans and shows a route for this community, so it gets the community's host (story 7.4).
+        <DeliveryScreen asset={content.asset()} messages={content.messages} />
+      ) : null}
+      {content?.kind === "bundle" && app?.id !== "delivery" ? (
         <BundleMiniApp asset={content.asset()} messages={content.messages} />
       ) : null}
       {content === undefined ? (

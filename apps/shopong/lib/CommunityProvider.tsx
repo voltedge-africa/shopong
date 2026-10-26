@@ -48,11 +48,28 @@ import {
 } from "./communityEvents";
 import { nodeFailureMessage, unqueuedMessage } from "./nodeMessages";
 import { NODE_ADDRESS } from "./nodeAddress";
-import { createNodeClient, type NodeClient } from "./nodeClient";
+import { createNodeClient, type NodeClient, type RouteAnswer } from "./nodeClient";
+import {
+  OFFLINE_PLAN_MESSAGE,
+  planFailureMessage,
+  routeScreenOf,
+  type RoutePlace,
+  type RouteScreen,
+} from "./route";
 import { cameBackOnline } from "./connectivity";
 import { createQueueStore } from "./queueStore";
 import { poolScreenOf, type PoolScreen } from "./pool";
 import { createSyncService, type Mark, type SyncService, type SyncState } from "./sync";
+import {
+  createAttachmentService,
+  type AttachmentService,
+  type AttachPurpose,
+  type Check,
+  type FileRow,
+  type PickedFile,
+} from "./attachments";
+import { createAttachmentStores } from "./attachmentStore";
+import { sha512 } from "./sha512";
 import { useIdentity } from "./IdentityProvider";
 
 /** How often the phone tries to send and pull while the app is open, in milliseconds. Backoff can make it wait longer. */
@@ -79,6 +96,8 @@ type CommunityContextValue = {
   /** Record a quote. Resolves with the plain reasons it was refused, or `undefined` when recorded. */
   addQuote: (input: unknown) => Promise<string | undefined>;
   quotesFor: (order: string) => Promise<readonly Quote[]>;
+  /** The files on an order (story 3.7). Null until this phone has a Node session for the community. */
+  files: FilesSurface | null;
   /** The last refusals on this phone, newest first (story 2.5). */
   refusals: readonly Refusal[];
   /** The Node sync: what was last tried, and what is waiting (story 3.4). */
@@ -126,10 +145,47 @@ type CommunityContextValue = {
   payPayment: (payout: string) => Promise<string | undefined>;
   /** Keeps a supplier's bank details on the Node. The treasurer only. */
   saveSupplierBank: (supplier: string, bank: BankForm) => Promise<string | undefined>;
+  /** The places this community registered, by id and label (story 7.4). Never a coordinate or an address. */
+  placesOf: () => Promise<readonly RoutePlace[]>;
+  /**
+   * Plans the route between two registered places on the Node, then records `delivery.planned` for the delivery. The
+   * Node refuses a plain member, and a plain sentence says so. Offline, nothing is planned.
+   */
+  planRoute: (
+    origin: string,
+    destination: string,
+  ) => Promise<{ ok: true; route: RouteAnswer } | { ok: false; message: string }>;
+  /** The community's planned route: its line and sentences from the Node, by the fingerprint the record holds. */
+  routeScreen: () => Promise<RouteScreen>;
 };
 
-/** What the session needs to talk to the Node: the client (absent without an address) and the sync service. */
-type NodeBundle = { did: string; client: NodeClient | undefined; sync: SyncService };
+/** The one delivery the community plans for now; orders are not yet in the record (see shortcuts S-7.4-8). */
+const DELIVERY_ORDER = "current";
+const DELIVERY_VIEW_KEY = `delivery/${encodeURIComponent(DELIVERY_ORDER)}`;
+
+/** What the session needs to talk to the Node: the client (absent without an address), the sync service and the files. */
+type NodeBundle = {
+  did: string;
+  client: NodeClient | undefined;
+  sync: SyncService;
+  files: AttachmentService;
+};
+
+/** What the Orders screen may do with the files on an order (story 3.7). */
+export interface FilesSurface {
+  /** Whether this person holds a driver's role, so may attach a delivery photo. */
+  readonly canAttachPhoto: boolean;
+  readonly filesFor: (order: string) => readonly FileRow[];
+  /** Attaches a picked file. Resolves with the plain reason it was refused, or `undefined` when it was started. */
+  readonly attach: (
+    order: string,
+    purpose: AttachPurpose,
+    supplier: string,
+    picked: PickedFile,
+  ) => Promise<string | undefined>;
+  readonly check: (hash: string) => Promise<Check>;
+  readonly retry: () => Promise<void>;
+}
 
 /** A community the Node knows: its key and creator, which `apply` needs to check invitations. */
 type NodeCommunity = { key: string; creator: Did };
@@ -211,8 +267,19 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           setSyncVersion((version) => version + 1);
         },
       });
-      node.current = { did, client, sync: service };
+      const stores = createAttachmentStores(did);
+      const files = createAttachmentService({
+        node: client,
+        sync: service,
+        pending: stores.pending,
+        cache: stores.cache,
+        did: did as Did,
+        sha512: async (bytes) => sha512(bytes),
+        viewOf: (community) => service.viewOf(community),
+      });
+      node.current = { did, client, sync: service, files };
       nextTryAt.current = 0;
+      void files.start();
       void service.start().then(setSync);
     }
     return node.current;
@@ -449,6 +516,35 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     },
     [serviceFor],
   );
+
+  const filesSurface = useMemo<FilesSurface | null>(() => {
+    if (nodeCommunity === null) return null;
+    const key = nodeCommunity.key;
+    return {
+      canAttachPhoto: roles.some((role) => role.role === "driver" && role.expiresAt > Date.now()),
+      filesFor: (order) => {
+        const bundle = nodeFor();
+        return bundle === null ? [] : bundle.files.filesFor(key, order);
+      },
+      attach: async (order, purpose, supplier, picked) => {
+        const bundle = nodeFor();
+        if (bundle === null) return "Make your identity first.";
+        const made = await bundle.files.attach(key, order, purpose, picked, supplier);
+        setSync(bundle.sync.state());
+        return made.ok ? undefined : made.reason;
+      },
+      check: async (hash) => {
+        const bundle = nodeFor();
+        return bundle === null ? "unavailable" : bundle.files.check(key, hash);
+      },
+      retry: async () => {
+        const bundle = nodeFor();
+        if (bundle === null) return;
+        await bundle.files.retryPending();
+        setSync(bundle.sync.state());
+      },
+    };
+  }, [nodeCommunity, roles, nodeFor]);
 
   const canAddQuotes =
     community !== null &&
@@ -824,6 +920,77 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     },
     [nodeFor, nodeCommunity],
   );
+  const placesOf = useCallback(async (): Promise<readonly RoutePlace[]> => {
+    const current = serviceFor().community();
+    if (current === null) return [];
+    await current.space.update();
+    const rows = await current.space.view.list("places/");
+    return rows.map((row) => {
+      const value = (row.value ?? {}) as { label?: unknown; area?: unknown };
+      return {
+        id: row.key.slice("places/".length),
+        label: typeof value.label === "string" ? value.label : "",
+        area: typeof value.area === "string" ? value.area : "",
+      };
+    });
+  }, [serviceFor]);
+
+  const planRoute = useCallback(
+    async (origin: string, destination: string) => {
+      const bundle = nodeFor();
+      const current = serviceFor().community();
+      if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
+        return { ok: false as const, message: OFFLINE_PLAN_MESSAGE };
+      }
+      if (current === null) return { ok: false as const, message: "Make a community first." };
+      await current.space.update();
+      const driver = await serviceFor().currentDriver(Date.now());
+      if (driver === undefined) {
+        return { ok: false as const, message: "Assign a driver before planning a route." };
+      }
+      const reply = await bundle.client.planRoute(nodeCommunity.key, {
+        order: DELIVERY_ORDER,
+        origin,
+        destination,
+      });
+      if (!reply.ok) return { ok: false as const, message: planFailureMessage(reply.failure) };
+      const route = reply.value;
+      const recorded = await serviceFor().planDelivery({
+        order: DELIVERY_ORDER,
+        driver,
+        origin,
+        destination,
+        route: {
+          costing: route.costing,
+          distanceMeters: route.distanceMeters,
+          durationSeconds: route.durationSeconds,
+          tileRelease: route.tileRelease,
+          fingerprint: route.fingerprint,
+        },
+      });
+      setRefusals(serviceFor().refusals());
+      if (!recorded.ok) return { ok: false as const, message: recorded.error.message };
+      return { ok: true as const, route };
+    },
+    [nodeFor, nodeCommunity, serviceFor],
+  );
+
+  const routeScreen = useCallback(async (): Promise<RouteScreen> => {
+    const current = serviceFor().community();
+    if (current === null) return { state: "none" };
+    await current.space.update();
+    const stored = (await current.space.view.get(DELIVERY_VIEW_KEY)) as
+      | { fingerprint?: unknown }
+      | undefined;
+    if (typeof stored?.fingerprint !== "string") return { state: "none" };
+    const bundle = nodeFor();
+    if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
+      return { state: "unreachable", message: OFFLINE_PLAN_MESSAGE };
+    }
+    return routeScreenOf(
+      await bundle.client.route(nodeCommunity.key, DELIVERY_ORDER, stored.fingerprint),
+    );
+  }, [nodeFor, nodeCommunity, serviceFor]);
 
   const shownMembers = nodeCommunity === null ? members : nodeMembers;
   const noNodeReason =
@@ -845,6 +1012,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       canAddQuotes,
       addQuote,
       quotesFor,
+      files: filesSurface,
       refusals,
       sync,
       offlineHint,
@@ -859,6 +1027,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       pool: nodeCommunity === null ? null : pool,
       refreshPool,
       pledgeOrder,
+      placesOf,
+      planRoute,
+      routeScreen,
       paymentOf,
       payOrder,
       paymentsOf,
@@ -881,6 +1052,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       canAddQuotes,
       addQuote,
       quotesFor,
+      filesSurface,
       refusals,
       sync,
       offlineHint,
@@ -895,6 +1067,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       pool,
       refreshPool,
       pledgeOrder,
+      placesOf,
+      planRoute,
+      routeScreen,
       paymentOf,
       payOrder,
       paymentsOf,

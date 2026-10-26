@@ -13,6 +13,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@shopong/adapter-hyperdrive": "workspace:*",
     "@shopong/adapter-stitch-sim": "workspace:*",
     "@shopong/adapter-ucan-iso": "workspace:*",
     "@shopong/community": "workspace:*",
@@ -20,6 +21,7 @@
     "@shopong/ledger-sqlite": "workspace:*",
     "@shopong/ports": "workspace:*",
     "@shopong/record-autobase": "workspace:*",
+    "@shopong/tile-release": "workspace:*",
     "fastify": "5.12.7",
     "pino": "10.4.0",
     "zod": "4.6.7"

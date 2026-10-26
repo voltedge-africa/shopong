@@ -13,3 +13,4 @@ export * from "./routing.js";
 export * from "./geo.js";
 export * from "./agent.js";
 export * from "./gen-ui.js";
+export * from "./file-store.js";

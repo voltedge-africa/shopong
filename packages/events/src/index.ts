@@ -32,6 +32,7 @@ export {
   checkPersonalFields,
   hasIdNumberShape,
   hasPhoneNumberShape,
+  looksLikeAddress,
   normaliseDigits,
   shapeOf,
   type PersonalCheckOptions,
@@ -64,6 +65,23 @@ export {
   type Sha512,
 } from "./hash.js";
 export {
+  FILE_MESSAGES,
+  ATTACHMENT_PURPOSES,
+  ATTACHMENT_RULES,
+  ATTACHMENT_TYPES,
+  checkFileBytes,
+  detectType,
+  fileAttachedIssues,
+  RECORD_LABEL,
+  recordNameOf,
+  stripMetadata,
+  type AttachmentPurpose,
+  type AttachmentType,
+  type FileAttachedPayload,
+  type FileCheck,
+} from "./attachment.js";
+export { fromBase64, toBase64 } from "./base64.js";
+export {
   decodeBigInt,
   encodeBigInt,
   isDecimalIntegerString,
@@ -85,3 +103,10 @@ export {
   type PayloadValidator,
 } from "./registry.js";
 export { Utf8Error, decodeUtf8, encodeUtf8 } from "./utf8.js";
+export { routeFingerprint } from "./route.js";
+export { MAX_ADDRESS_LENGTH, commitAddress, normaliseAddress } from "./commitment.js";
+export {
+  type DeliveryPlannedPayload,
+  type DeliveryRoute,
+  type PlaceRegisteredPayload,
+} from "./registry.js";

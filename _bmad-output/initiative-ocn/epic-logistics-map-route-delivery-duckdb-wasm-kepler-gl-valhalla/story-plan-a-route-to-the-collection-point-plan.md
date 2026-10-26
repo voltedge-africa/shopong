@@ -95,3 +95,21 @@ baseline_revision: '2d1ef5d846450eee09b35853682df06a69a0c175'
 6. **Costing for Demonstration 1?**
    - A) (Recommended) `auto` now, with truck costing later. The spike ran only `auto`, so truck costing is unverified on the engine.
    - B) `truck` with default dimensions now.
+
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 1 high, 5 medium, 8 low. The orchestrator also checked the Delivery screen on web and the Android emulator.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | `delivery.confirmed` with coordinates was accepted into the record from any signed member | high, real | patch | A strict shape (order, photo hash, optional opaque place) with no coordinate keys; the scenario migrated; a standing driver role in `apply`; tests failed first |
+| 2 | Numbers and text in `delivery.planned` could carry a coordinate or an address | medium, real | patch | Bounded distance, duration and window; `tileRelease` must be a release id |
+| 3 | A place label or area could hold a street address | medium, real | patch | `looksLikeAddress` (street number plus street word, erf/stand/unit/flat/house) in the validator, the Node place route and `apply`; mutation-checked |
+| 4 | A removed co-treasurer or driver could still plan on the Node | medium, real | patch | Current membership checked after the signature and before the one-time number; mutation-checked |
+| 5 | One node-wide secret for address commitments, with no domain separation | medium, real | patch | Per-community key with the label `ocn/address/v1`; an address commitment never equals the phone commitment of the same text |
+| 6 | A corrupt places or routes file stopped the Node | medium, real | patch | Quarantined to `.bad`; writes go to disk first |
+| 7, 8, 9, 11, 12, 14 | Fingerprint collisions; the named driver not checked in `apply`; no rate or body limits; "already used" for a full table; jargon; truncated polylines | low, real | patch | Tested |
+| 10, 13 | Duplicate places on retry; "Road" not mapped to "Rd" | low | defer | S-7.4-15, S-7.4-16 |
+| 14b | The Kepler page posts with target `*` | low | defer | S-7.4-17 |
+| bundle | The phone bundle contained `MemoryRouting` and `encodePolyline6` through the adapters barrel | real | patch | Routing moved to a subpath; the exported Hermes bundle has zero occurrences; a guard test |
+

@@ -2,6 +2,7 @@ import type { MiniAppManifest } from "@shopong/miniapp";
 
 export {
   OrdersHostContext,
+  type AttachmentHost,
   type BankForm,
   type OrdersHost,
   type PaymentHost,
@@ -9,6 +10,15 @@ export {
   type PayoutsReading,
 } from "./host";
 export { type PaymentRecord } from "./payouts";
+export {
+  attachOrReason,
+  checkWords,
+  READ_FAILED,
+  stateWords,
+  type FileCheck,
+  type FilePurpose,
+  type FileRowView,
+} from "./files";
 export { SIMULATED_NOTE, payCardOf, type PaymentView, type PayAction, type PayCard } from "./pay";
 
 export const manifest: MiniAppManifest = {

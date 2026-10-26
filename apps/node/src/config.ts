@@ -3,8 +3,10 @@
 // contains a secret key is refused, and secrets come only from the environment
 // (see secrets.ts).
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
+import { isSafeReleaseName } from "@shopong/tile-release";
 import { COMPONENT_NAMES, type ComponentName } from "./components.ts";
 import {
   ConfigError,
@@ -44,14 +46,24 @@ const corsOriginSchema = z
   .string()
   .refine((v) => v === "*" || /^https?:\/\/[^/\s?#]+$/u.test(v), "origin");
 const componentFileSchema = z.strictObject({ enabled: z.boolean().optional() });
+const releaseNameSchema = z.string().refine(isSafeReleaseName, "release");
 
 const didSchema = z.string().regex(/^did:key:z[1-9A-HJ-NP-Za-km-z]+$/u, "did");
 export const DEFAULT_MAX_COMMUNITIES = 50;
+/** The bytes one community may hold in its files: 200 MB (story 3.7, review patch). */
+export const DEFAULT_FILE_QUOTA_BYTES = 200 * 1024 * 1024;
 
 const fileSchema = z.strictObject({
   dataDir: z.string().min(1).optional(),
   /** The most communities this Node will host, in all (review N1). Default 50. */
   maxCommunities: z.number().int().min(1).max(100_000).optional(),
+  /** The bytes one community may hold in its files. Default 200 MB (story 3.7, review patch). */
+  fileQuotaBytes: z
+    .number()
+    .int()
+    .min(1)
+    .max(10 * 1024 * 1024 * 1024)
+    .optional(),
   /** DIDs allowed to create communities. Empty (the default) means open: for local development only. */
   allowedCreators: z.array(didSchema).optional(),
   server: z.strictObject({ host: hostSchema.optional(), port: portSchema.optional() }).optional(),
@@ -66,6 +78,13 @@ const fileSchema = z.strictObject({
       queue: componentFileSchema.optional(),
     })
     .optional(),
+  /** Map tile releases (story 7.2): the folder outside the data folder, and the release the Node serves as active. */
+  tiles: z
+    .strictObject({
+      releasesDir: z.string().min(1).optional(),
+      activeRelease: releaseNameSchema.optional(),
+    })
+    .optional(),
 });
 
 export interface NodeConfig {
@@ -77,6 +96,8 @@ export interface NodeConfig {
   environment: Environment;
   /** The most communities hosted on this Node, all creators together. */
   maxCommunities: number;
+  /** The bytes one community may hold in its files (story 3.7). Default 200 MB. */
+  fileQuotaBytes: number;
   /** DIDs allowed to create communities. Empty means open (local development only). */
   allowedCreators: string[];
   /** Browser origins allowed to call the Node's routes (exact, for example `https://app.example`). Empty by default. */
@@ -85,6 +106,13 @@ export interface NodeConfig {
   paymentsAdapter: PaymentsAdapterName;
   /** Lets the simulation run in a production environment. Off by default (review item 1). */
   allowSimulatedPayments: boolean;
+  /** Map tile releases (story 7.2). Nothing is served until `releasesDir` is set. */
+  tiles: {
+    /** The releases folder. It must sit outside the data folder. */
+    releasesDir: string | undefined;
+    /** The release served at `/map/active/...`. Optional: without it the alias answers "No map data yet." */
+    activeRelease: string | undefined;
+  };
 }
 
 export interface LoadedConfig {
@@ -172,6 +200,48 @@ function readConfigFile(path: string, readFile: (p: string) => string): z.infer<
   return parsed.data;
 }
 
+/**
+ * Map releases are public data served by the Node, so their folder must sit outside the data folder. The active
+ * release can only be named when there is a folder to find it in.
+ */
+function checkTiles(config: NodeConfig): void {
+  const { releasesDir, activeRelease } = config.tiles;
+  if (activeRelease !== undefined && releasesDir === undefined) {
+    throw new ConfigError("tiles.activeRelease needs tiles.releasesDir (or OCN_NODE_TILES_DIR)");
+  }
+  if (releasesDir === undefined) return;
+  // Real paths, so a symbolic link cannot place the releases folder inside the data folder, or the reverse.
+  const data = realPathOf(config.dataDir);
+  const releases = realPathOf(releasesDir);
+  if (isWithin(data, releases)) {
+    throw new ConfigError(
+      "tiles.releasesDir must be outside the data folder (the data folder holds private state)",
+    );
+  }
+  if (isWithin(releases, data)) {
+    throw new ConfigError("tiles.releasesDir must not contain the data folder");
+  }
+}
+
+/** Whether `child` is `parent` or inside it, by path text (both already resolved to real paths). */
+function isWithin(parent: string, child: string): boolean {
+  const rel = relative(parent, child);
+  return rel === "" || (rel.split(sep)[0] !== ".." && !isAbsolute(rel));
+}
+
+/** The real path of the nearest existing ancestor, with the rest of the path added back. */
+function realPathOf(path: string): string {
+  let probe = resolve(path);
+  const rest: string[] = [];
+  while (!existsSync(probe)) {
+    const parent = dirname(probe);
+    if (parent === probe) break;
+    rest.unshift(basename(probe));
+    probe = parent;
+  }
+  return join(realpathSync(probe), ...rest);
+}
+
 /** Loads and validates the configuration and the secrets. Throws ConfigError; never returns a partial result. */
 export function loadConfig(options: LoadOptions): LoadedConfig {
   const { env } = options;
@@ -189,10 +259,15 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
     logLevel: file.logLevel ?? "info",
     environment: file.environment ?? "production",
     maxCommunities: file.maxCommunities ?? DEFAULT_MAX_COMMUNITIES,
+    fileQuotaBytes: file.fileQuotaBytes ?? DEFAULT_FILE_QUOTA_BYTES,
     allowedCreators: [...(file.allowedCreators ?? [])],
     corsOrigins: [...(file.cors?.origins ?? [])],
     paymentsAdapter: "simulated",
     allowSimulatedPayments: false,
+    tiles: {
+      releasesDir: file.tiles?.releasesDir,
+      activeRelease: file.tiles?.activeRelease,
+    },
     components: Object.fromEntries(
       COMPONENT_NAMES.map((name) => [
         name,
@@ -233,6 +308,16 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
       );
     }
     merged.maxCommunities = parsed;
+  }
+  const envQuota = env["OCN_NODE_FILE_QUOTA_BYTES"];
+  if (envQuota) {
+    const parsed = /^\d+$/u.test(envQuota) ? Number(envQuota) : Number.NaN;
+    if (!(Number.isSafeInteger(parsed) && parsed >= 1)) {
+      throw new ConfigError(
+        "invalid environment variable OCN_NODE_FILE_QUOTA_BYTES: expected a whole number of bytes",
+      );
+    }
+    merged.fileQuotaBytes = parsed;
   }
   const envCreators = env["OCN_NODE_ALLOWED_CREATORS"];
   if (envCreators) {
@@ -285,6 +370,18 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
       );
     }
   }
+  const envTilesDir = env["OCN_NODE_TILES_DIR"];
+  if (envTilesDir) merged.tiles.releasesDir = envTilesDir;
+  const envTilesRelease = env["OCN_NODE_TILES_RELEASE"];
+  if (envTilesRelease) {
+    if (!isSafeReleaseName(envTilesRelease)) {
+      throw new ConfigError(
+        "invalid environment variable OCN_NODE_TILES_RELEASE: expected a release name such as kwazulu-natal-2026-10-23",
+      );
+    }
+    merged.tiles.activeRelease = envTilesRelease;
+  }
+  checkTiles(merged);
   const envAllowSim = env["OCN_NODE_ALLOW_SIMULATED_PAYMENTS"];
   if (envAllowSim)
     merged.allowSimulatedPayments = parseEnvBoolean(

@@ -29,10 +29,17 @@ export function BundleMiniApp({ asset, messages }: Props) {
   const theme = useUniwind().theme === "light" ? "light" : "dark";
   const [background] = useCSSVariable(["--color-background"]);
 
+  // The messages the page was last sent, as text. When the app's messages change later (a planned route, say), the
+  // page is sent them again; the first hand-over and a repeat of the same text send nothing twice.
+  const latest = useRef(messages);
+  latest.current = messages;
+  const sent = useRef("");
+
   const onMessage = (event: WebViewMessageEvent) => {
     if (!isReadyMessage(event.nativeEvent.data)) return;
-    for (const message of [themeMessage(theme), ...messages])
+    for (const message of [themeMessage(theme), ...latest.current])
       webView.current?.postMessage(JSON.stringify(message));
+    sent.current = JSON.stringify(latest.current);
     setReady(true);
   };
 
@@ -40,6 +47,14 @@ export function BundleMiniApp({ asset, messages }: Props) {
     if (!ready) return;
     webView.current?.postMessage(JSON.stringify(themeMessage(theme)));
   }, [theme, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const text = JSON.stringify(messages);
+    if (text === sent.current) return;
+    sent.current = text;
+    for (const message of messages) webView.current?.postMessage(JSON.stringify(message));
+  }, [messages, ready]);
 
   useEffect(() => {
     let current = true;

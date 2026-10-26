@@ -11,6 +11,7 @@ import {
   sha512Hex,
   type EventEnvelope,
   type EventId,
+  type DeliveryPlannedPayload,
   type EventType,
   type JsonObject,
   type Sha512,
@@ -32,6 +33,7 @@ import {
   type SpaceDefinition,
 } from "@shopong/ports";
 import { createCommunityApply, FOUNDER_INVITATION } from "./apply.js";
+import { driverStands, placeAdderProblem, placeJson, plannerProblem } from "./delivery.js";
 import { logTimeOf } from "./log-time.js";
 import {
   QUOTE_MESSAGES,
@@ -118,6 +120,19 @@ export const EMPTY_NAME_MESSAGE = "Give your community a name.";
 
 /** `not_permitted`: not the treasurer. `incomplete`: nothing is recorded; the reasons are in the message. */
 export type QuoteError = PortError<"not_permitted" | "incomplete" | "refused">;
+
+/** A place the Node made (story 7.4): its opaque id, label, coarse area and the commitment of its exact address. */
+export interface PlaceRecord {
+  readonly id: string;
+  readonly label: string;
+  readonly area: string;
+  readonly addressCommitment: string;
+}
+
+/** The route an order is planned on, as the record names it: place ids and the fingerprint, never a coordinate. */
+export type DeliveryPlan = DeliveryPlannedPayload;
+
+export type PlanError = PortError<"not_permitted" | "refused">;
 
 export interface QuoteReceipt {
   /** The event id of the `quote.added` entry. */
@@ -220,6 +235,15 @@ export interface Community {
   addQuote(input: unknown, now: EpochMs): Promise<Result<QuoteReceipt, QuoteError>>;
   /** The quotes recorded for one order, as the view holds them now. */
   quotesFor(order: string): Promise<readonly Quote[]>;
+  /** The driver whose role stands at log time, judged as `apply` judges a driver (patch of story 7.4). */
+  currentDriver(now: EpochMs): Promise<string | undefined>;
+  /** Record a place the Node made (story 7.4). Only the treasurer may. */
+  registerPlace(place: PlaceRecord, now: EpochMs): Promise<Result<EventEnvelope, PlanError>>;
+  /**
+   * Record an order's route between two registered places (story 7.4). The treasurer, or a driver whose role stands
+   * at log time, may plan it. Refused with the plain reason otherwise.
+   */
+  planDelivery(plan: DeliveryPlan, now: EpochMs): Promise<Result<EventEnvelope, PlanError>>;
 }
 
 function wrap(
@@ -316,6 +340,38 @@ function wrap(
         request,
         await logAt(space),
       );
+    },
+    async currentDriver(now) {
+      await space.update();
+      const at = (await logAt(space)) || now;
+      for (const row of await space.view.list("roles/")) {
+        if (!row.key.endsWith("/driver")) continue;
+        const who = row.key.slice("roles/".length, -"/driver".length);
+        if (await driverStands(standingOf(), space.view, who, at)) return who;
+      }
+      return undefined;
+    },
+    async registerPlace(place, now) {
+      await space.update();
+      const at = await logAt(space);
+      const problem = await placeAdderProblem(standingOf(), space.view, me, at);
+      if (problem !== undefined) return err("not_permitted", problem);
+      const payload = {
+        place: place.id,
+        ...placeJson({
+          label: place.label,
+          area: place.area,
+          addressCommitment: place.addressCommitment,
+        }),
+      };
+      return append(deps, space, key, "place.registered", payload, [], now);
+    },
+    async planDelivery(plan, now) {
+      await space.update();
+      const at = await logAt(space);
+      const problem = await plannerProblem(standingOf(), space.view, me, at);
+      if (problem !== undefined) return err("not_permitted", problem);
+      return append(deps, space, key, "delivery.planned", plan as unknown as JsonObject, [], now);
     },
     async addQuote(input, now) {
       await space.update();

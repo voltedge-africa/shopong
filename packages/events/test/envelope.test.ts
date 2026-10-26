@@ -154,12 +154,13 @@ describe("event type registry", () => {
       "ledger",
       "delivery",
     ];
-    const more = ["collection", "funding", "obligation", "solution", "agent"];
+    const more = ["collection", "funding", "obligation", "solution", "agent", "file", "place"];
     expect(new Set(EVENT_TYPES.map((t) => t.split(".")[0]))).toEqual(
       new Set([...families, ...more]),
     );
-    // 28 first-release types, plus `payment.payout` and `payment.approved` (story 4.7).
-    expect(EVENT_TYPES).toHaveLength(30);
+    // The first-release types, plus `payment.payout` and `payment.approved` (story 4.7), and the types main added
+    // (`file.attached` story 3.7, `place.registered`, `delivery.planned`, `delivery.confirmed`, stories 7.4).
+    expect(EVENT_TYPES).toHaveLength(32);
     expect(new Set(EVENT_TYPES).size).toBe(EVENT_TYPES.length);
   });
 

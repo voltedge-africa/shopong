@@ -9,6 +9,7 @@ import {
   runLedgerContract,
   runCommitmentsContract,
   runOcrContract,
+  runFileStoreContract,
   runPayInContract,
   runPayOutContract,
   runRoutingContract,
@@ -18,6 +19,7 @@ import {
 } from "@shopong/ports-contract";
 import { asSha512Hex, type CapabilityToken, type Clock } from "@shopong/ports";
 import { webCryptoHmac } from "./test-hmac.js";
+import { MemoryRouting } from "./routing.js";
 import {
   MemoryAgent,
   MemoryCapabilityAuth,
@@ -27,9 +29,9 @@ import {
   MemoryLedger,
   MemoryCommitments,
   MemoryOcr,
+  MemoryFileStore,
   MemoryPayIn,
   MemoryPayOut,
-  MemoryRouting,
   MemoryStableRail,
   createMemoryRecordNetwork,
 } from "./index.js";
@@ -146,3 +148,8 @@ runCommitmentsContract(() => {
     unknown: "u".repeat(64),
   };
 });
+
+runFileStoreContract(() => ({
+  files: new MemoryFileStore(),
+  absent: asSha512Hex("cd".repeat(64)),
+}));

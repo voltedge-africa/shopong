@@ -101,3 +101,21 @@ baseline_revision: '2d1ef5d846450eee09b35853682df06a69a0c175'
 5. **Share-alike for tiles.**
    - A) Treat the tiles as a derived database: publish each release under ODbL with attribution and a link to the source (recommended; the Delivery basemap is read the same way). Confirm with counsel.
    - B) Take legal advice before the first release. Blocks only the pilot release, not the build.
+
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 2 high, 3 medium, 6 low. The builder also reported that the plan's region (KwaZulu-Natal from Geofabrik) does not exist as a province file; the national South Africa extract is the only South African file (423,139,578 bytes). The region is decision D-8 and is still with the product owner; the KwaZulu-Natal pin stays unpinned and the build refuses it.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | The served manifest was re-read from disk on every request after a once-per-process check | high, real | patch | The verified manifest bytes and digest are kept in memory and served; test failed first |
+| 2 | Listed files were found with `stat` (follows symlinks) and not re-checked after verification | high, real | patch | `lstat`, no symlinks, size/mtime/inode stamps compared on open, a mismatch re-hashes the release; tests failed first. (`O_NOFOLLOW` itself is redundant with the `lstat` check) |
+| 3 | `If-Range` was ignored, so a resumed download could splice releases | medium, real | patch | Full 200 when the validator no longer matches; test failed first; mutation-checked |
+| 4 | `manifest.sha512` proves consistency, not authenticity | medium | defer | S-7.2-15 (no signature or pinned root; fine for a demo) |
+| 5 | Publish race: a file added to staging between the scan and the copy | low to medium, real | patch | The copy is re-scanned before the rename; incoming removed on failure; tests failed first |
+| 6 | Scripts trusted a planted binary in world-writable `/tmp` | medium, real | patch | Private scratch under `~/.cache/ocn-tiles` (owned, no group/other write, no symlink); a prebuilt binary is reused only with a recorded SHA-256 |
+| 7, 8 | A pipeline failure after publish aborted cleanup; unquoted paths | low, real | patch | Trap cleanup; arrays and quoting |
+| 9 | The config check was lexical, not on real paths | low, real | patch | Real paths; an ancestor of the data folder is refused |
+| 10 | A failed check was cached for the life of the process | low, real | patch | Retried after 30 s |
+| 11 | No ignore patterns for map files | low, real | patch | `*.pbf`, `*.osm`, `*.tar`, `*.zip` and the scratch folders ignored |
+

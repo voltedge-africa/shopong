@@ -15,16 +15,18 @@
 //
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
 // `joined/<invitation id>` { member }, `roles/<did>/<role>` and `revoked/<grant id>` (see roles.ts),
-// `quotes/<order>/<supplier>` (see quotes.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
-// pledges.ts), `payments/<pledge event id>` (the Node's request for a pledge), `settings/approvals` (story 4.7), `payouts/<payment id>` and `approvals/<payment id>/<approver>` (story 4.7), `log/time` (see log-time.ts), `indexers/<did>` (true; the
+// `settings/approvals` (story 4.7), `payouts/<payment id>` and `approvals/<payment id>/<approver>` (story 4.7), // `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
+// pledges.ts), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
 
 import {
+  PAYLOAD_VALIDATORS,
   PERSONAL_DATA_MESSAGE,
   checkPersonalFields,
   isPlainObject,
   type EventEnvelope,
+  type FileAttachedPayload,
   type JsonObject,
 } from "@shopong/events";
 import type {
@@ -37,6 +39,17 @@ import type {
   ViewWriter,
 } from "@shopong/ports";
 import { invitePassOnAllowed } from "./chain.js";
+import { fileOfOrderKey, fileShapeProblem, fileUploadProblem } from "./files.js";
+import {
+  DELIVERY_MESSAGES,
+  deliveryKey,
+  placeAdderProblem,
+  placeJson,
+  driverStands,
+  placeKey,
+  placeRegistered,
+  plannerProblem,
+} from "./delivery.js";
 import { verifyAuthority } from "./authority.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
 import {
@@ -132,6 +145,10 @@ const CHECKED: ReadonlySet<string> = new Set([
   "quote.added",
   "pledge.created",
   "payment.requested",
+  "file.attached",
+  "place.registered",
+  "delivery.planned",
+  "delivery.confirmed",
   PAYOUT_TYPE,
   APPROVAL_TYPE,
 ]);
@@ -316,6 +333,98 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
   }
 
   /**
+   * A place (story 7.4): the treasurer's, shaped as the registry says (no coordinate, no address), and not registered
+   * already. The record keeps its label, area and the commitment of its address.
+   */
+  async function placeRegisteredCheck(
+    event: EventEnvelope,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const adder = await placeAdderProblem(standing, view, event.actor, at);
+    if (adder !== undefined) return adder;
+    if (PAYLOAD_VALIDATORS["place.registered"](event.payload).length > 0) {
+      return DELIVERY_MESSAGES.place_unreadable;
+    }
+    const place = str(event.payload, "place") ?? "";
+    if (await placeRegistered(view, place)) return DELIVERY_MESSAGES.place_exists;
+    await view.put(
+      placeKey(place),
+      placeJson({
+        label: str(event.payload, "label") ?? "",
+        area: str(event.payload, "area") ?? "",
+        addressCommitment: str(event.payload, "addressCommitment") ?? "",
+      }),
+    );
+    return undefined;
+  }
+
+  /**
+   * A confirmation (patch of story 7.4): a driver's, with the order and the photo's SHA-512 and no coordinate. The
+   * record keeps the order's confirmation as `delivered/<order>`.
+   */
+  async function deliveryConfirmedCheck(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if (!(await driverStands(standing, view, event.actor, at))) {
+      return DELIVERY_MESSAGES.confirm_not_permitted;
+    }
+    if (PAYLOAD_VALIDATORS["delivery.confirmed"](event.payload).length > 0) {
+      return DELIVERY_MESSAGES.confirm_unreadable;
+    }
+    const order = str(event.payload, "order") ?? "";
+    await view.put(`delivered/${encodeURIComponent(order)}`, {
+      event: entry.id,
+      photoSha512: str(event.payload, "photoSha512") ?? "",
+    });
+    return undefined;
+  }
+
+  /**
+   * A route (story 7.4): planned by the treasurer or a driver whose role stands at log time, between two different
+   * registered places, for a driver who is a member. The route's summary is kept for the order; no line is.
+   */
+  async function deliveryPlannedCheck(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    const planner = await plannerProblem(standing, view, event.actor, at);
+    if (planner !== undefined) return planner;
+    const payload = event.payload;
+    const origin = str(payload, "origin") ?? "";
+    const destination = str(payload, "destination") ?? "";
+    if (origin !== "" && origin === destination) return DELIVERY_MESSAGES.same_place;
+    if (PAYLOAD_VALIDATORS["delivery.planned"](payload).length > 0) {
+      return DELIVERY_MESSAGES.unreadable;
+    }
+    const driver = str(payload, "driver") ?? "";
+    if (!(await placeRegistered(view, origin)) || !(await placeRegistered(view, destination))) {
+      return DELIVERY_MESSAGES.unknown_place;
+    }
+    if ((await view.get(`members/${driver}`)) === undefined) return DELIVERY_MESSAGES.not_member;
+    if (!(await driverStands(standing, view, driver, at))) return DELIVERY_MESSAGES.not_a_driver;
+    const route = (payload.route ?? {}) as JsonObject;
+    await view.put(deliveryKey(str(payload, "order") ?? ""), {
+      event: entry.id,
+      driver,
+      origin,
+      destination,
+      costing: str(route, "costing") ?? "",
+      distanceMeters: typeof route.distanceMeters === "number" ? route.distanceMeters : 0,
+      durationSeconds: typeof route.durationSeconds === "number" ? route.durationSeconds : 0,
+      tileRelease: str(route, "tileRelease") ?? "",
+      fingerprint: str(route, "fingerprint") ?? "",
+      plannedBy: event.actor,
+    });
+    return undefined;
+  }
+
+  /**
    * A supplier payment (story 4.7). Only the treasurer (the creator, or a co-treasurer standing at log time) may record one,
    * and only for a supplier with a quote on the order. The payment's record event id is its key.
    */
@@ -417,6 +526,27 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /**
+   * A file is named by its event only when the event is in the strict form, its sender may attach that purpose at log
+   * time, and the file is recorded under its order (story 3.7). The bytes are the Node's; the record holds the reference.
+   */
+  async function fileAttached(
+    event: EventEnvelope,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const shape = fileShapeProblem(event.payload);
+    if (shape !== undefined) return shape;
+    const payload = event.payload as unknown as FileAttachedPayload;
+    const refused = await fileUploadProblem(standing, view, event.actor, payload.purpose, at);
+    if (refused !== undefined) return refused;
+    await view.put(fileOfOrderKey(payload.order, payload.hash), {
+      ...(event.payload as JsonObject),
+      by: event.actor,
+    });
+    return undefined;
+  }
+
   return async (entries, view, host) => {
     for (const entry of entries) {
       const event = entry.event;
@@ -481,6 +611,14 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return pledgeCreated(entry, view);
       case "payment.requested":
         return paymentRequested(entry, view);
+      case "file.attached":
+        return fileAttached(event, view, at);
+      case "place.registered":
+        return placeRegisteredCheck(event, view, at);
+      case "delivery.planned":
+        return deliveryPlannedCheck(entry, view, at);
+      case "delivery.confirmed":
+        return deliveryConfirmedCheck(entry, view, at);
       case PAYOUT_TYPE:
         return payoutRecorded(entry, view, at);
       case APPROVAL_TYPE:
