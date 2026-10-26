@@ -20,11 +20,14 @@ import { PlaceRegistry, RouteStore } from "./places.ts";
 import { StraightLineRouting } from "./routing.ts";
 import { payerCommitmentOf, type PaymentRequestOptions } from "./payment-request-route.ts";
 import { openCheckingStore, type ConfirmationDeps } from "./payment-confirmation.ts";
+import { openPayoutStore, type PayoutOptions } from "./payouts.ts";
 import { startChecking, type RunningChecking } from "./reconciler.ts";
 import { readVersion } from "./version.ts";
 
 /** The books' file in the data folder (story 4.5): the SQLite ledger the Node runs in production. */
 export const LEDGER_FILE = "ledger.sqlite";
+/** The Node's own table of supplier bank details and posted payments (story 4.7). Never shared with the record. */
+export const PAYOUT_STATE_FILE = "payouts-state.json";
 
 export interface RunningNode {
   app: FastifyInstance;
@@ -199,6 +202,20 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
             masterKey: masterKeyOf(secrets),
           });
     const paymentRequests = paymentRequestOptionsOf({ auth, hub, payments, secrets, identity });
+    // Supplier payments (story 4.7): the posting, the simulated payout and the Node's own table. They need the record, the
+    // books, the simulated payments and the Node's identity.
+    const payoutOptions: PayoutOptions | undefined =
+      payments === undefined || hub === undefined || books === undefined || identity === undefined
+        ? undefined
+        : {
+            auth,
+            hub,
+            ledger: books,
+            payments,
+            nodeIdentity: identity,
+            store: openPayoutStore(join(config.dataDir, PAYOUT_STATE_FILE)),
+            commitmentKey: masterKeyOf(secrets),
+          };
 
     // Confirmation of simulated payments (story 4.5): the books, the record and the status, in order.
     const confirmation: ConfirmationDeps | undefined =
@@ -257,6 +274,18 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
           ? {}
           : { masterKey: masterKeyOf(secrets), nodeIdentity: identity }),
       },
+      // The authority check (`POST /authority/check`) answers for each community the Node holds (story 4.7, S-2.5-15).
+      ...(hub === undefined
+        ? {}
+        : {
+            authorityOf: async (spaceKey: string) => {
+              const registered = hub!.registrationOf(spaceKey);
+              const view = await hub!.indexedView(spaceKey);
+              if (registered === undefined || view === undefined) return undefined;
+              return { creator: registered.creator, spaceKey, view };
+            },
+          }),
+      ...(payoutOptions === undefined ? {} : { payouts: payoutOptions }),
       allowedCreators: config.allowedCreators,
       cors: { origins: config.corsOrigins, environment: config.environment },
       ...(config.tiles.releasesDir === undefined

@@ -14,6 +14,7 @@ import {
   type PaymentHost,
   type ProofHost,
   type ProofView,
+  type PayoutHost,
 } from "@shopong/miniapp-orders";
 import type { OrderProgress } from "@shopong/community";
 
@@ -87,8 +88,21 @@ function proofViewOf(progress: OrderProgress): ProofView {
 }
 
 export function OrdersHostProvider({ children }: { children: ReactNode }) {
-  const { canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder, files, proof } =
-    useCommunity();
+  const {
+    canAddQuotes,
+    addQuote,
+    quotesFor,
+    pledgeOrder,
+    paymentOf,
+    payOrder,
+    paymentsOf,
+    proposePayment,
+    approvePayment,
+    payPayment,
+    saveSupplierBank,
+    files,
+    proof,
+  } = useCommunity();
   const host = useMemo<OrdersHost>(() => {
     const payments: PaymentHost = {
       paymentOf,
@@ -105,6 +119,14 @@ export function OrdersHostProvider({ children }: { children: ReactNode }) {
           return "The bank page could not be opened. Try Pay again.";
         }
       },
+    };
+    // Supplier payments (story 4.7): the Node and the record decide; the screen only shows their answers.
+    const payouts: PayoutHost = {
+      paymentsOf,
+      propose: proposePayment,
+      approve: approvePayment,
+      pay: payPayment,
+      saveBank: saveSupplierBank,
     };
     const attachments: AttachmentHost | undefined =
       files === null
@@ -151,9 +173,24 @@ export function OrdersHostProvider({ children }: { children: ReactNode }) {
       addQuote,
       quotesFor,
       payments,
+      payouts,
       attachments,
       proof: proofHost,
     };
-  }, [canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder, files, proof]);
+  }, [
+    canAddQuotes,
+    addQuote,
+    quotesFor,
+    pledgeOrder,
+    paymentOf,
+    payOrder,
+    paymentsOf,
+    proposePayment,
+    approvePayment,
+    payPayment,
+    saveSupplierBank,
+    files,
+    proof,
+  ]);
   return <OrdersHostContext.Provider value={host}>{children}</OrdersHostContext.Provider>;
 }

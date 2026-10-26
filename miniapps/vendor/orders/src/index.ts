@@ -7,6 +7,9 @@ export {
   type PaymentHost,
   type ProofHost,
   type ProofView,
+  type BankForm,
+  type PayoutHost,
+  type PayoutsReading,
 } from "./host";
 export {
   ARRIVAL_HELP,
@@ -16,6 +19,7 @@ export {
   progressWords,
   type ArrivalState,
 } from "./proof";
+export { type PaymentRecord } from "./payouts";
 export {
   attachOrReason,
   checkWords,

@@ -59,6 +59,10 @@ function SyncBlock() {
 
 const dateOf = (ms: number) => new Date(ms).toDateString();
 
+/** How many people may be asked to approve a supplier payment (story 4.7). Two is the suggested number. */
+export const APPROVAL_CHOICES = [1, 2, 3, 4, 5] as const;
+export const SUGGESTED_APPROVALS = 2;
+
 /** "Your role": what I hold, with its end date, and whether it has ended. */
 function RoleLine({ record, now }: { record: RoleRecord; now: number }) {
   const label = ROLES[record.role].label;
@@ -117,6 +121,7 @@ export function CommunityCard() {
   const [ability, setAbility] = useState(ACTIONS[0]?.ability ?? "payment/approve");
   const [amount, setAmount] = useState("");
   const [answer, setAnswer] = useState<string | undefined>();
+  const [approvals, setApprovals] = useState<number>(SUGGESTED_APPROVALS);
   const chosen = ACTIONS.find((action) => action.ability === ability);
 
   const run = async (action: () => Promise<string | undefined>, done?: () => void) => {
@@ -145,7 +150,25 @@ export function CommunityCard() {
         <>
           <Text muted>Start a community, or join one you were invited to.</Text>
           <Input label="Community name" value={name} onChangeText={setName} />
-          <Button fullWidth disabled={busy} onPress={() => run(() => create(name))}>
+          <Text weight="bold">How many people must approve a payment to a supplier?</Text>
+          <View className="flex-row flex-wrap gap-2">
+            {APPROVAL_CHOICES.map((n) => (
+              <Button
+                key={n}
+                variant={approvals === n ? "primary" : "outline"}
+                onPress={() => setApprovals(n)}
+              >
+                {n === SUGGESTED_APPROVALS ? `${n} (suggested)` : String(n)}
+              </Button>
+            ))}
+          </View>
+          {approvals === 1 ? (
+            <Text>
+              With one approver, one person can then pay a supplier alone. Only choose this if that
+              is what you want.
+            </Text>
+          ) : null}
+          <Button fullWidth disabled={busy} onPress={() => run(() => create(name, approvals))}>
             Create a community
           </Button>
           <Button fullWidth variant="outline" onPress={() => router.push("/join")}>
