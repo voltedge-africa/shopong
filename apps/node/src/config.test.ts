@@ -3,6 +3,9 @@ import { loadConfig } from "./config.ts";
 import { ConfigError, ResolvedSecrets, SECRET_DEFINITIONS } from "./secrets.ts";
 import { FAKE_SECRETS } from "./testing/capture.ts";
 
+// The record is on by default, so every load that does not switch it off needs its master key.
+const RECORD = { RECORD_MASTER_KEY: FAKE_SECRETS.RECORD_MASTER_KEY };
+
 const files = (map: Record<string, string>) => (path: string) => {
   const text = map[path];
   if (text === undefined) throw Object.assign(new Error("nope"), { code: "ENOENT" });
@@ -20,9 +23,10 @@ function failure(fn: () => unknown): ConfigError {
 }
 
 describe("loadConfig", () => {
-  it("starts with no file and no secrets: record and queue on, ledger and payments off", () => {
-    const { config } = loadConfig({ env: {} });
+  it("starts with no file and only the record key: record and queue on, ledger and payments off", () => {
+    const { config } = loadConfig({ env: RECORD });
     expect(config.server).toEqual({ host: "127.0.0.1", port: 8787 });
+    expect(config.dataDir).toBe("ocn-data");
     expect(config.components).toEqual({
       record: { enabled: true },
       ledger: { enabled: false },
@@ -36,16 +40,23 @@ describe("loadConfig", () => {
       "/c.json": JSON.stringify({
         server: { port: 9000 },
         logLevel: "debug",
+        dataDir: "/from/file",
         components: { queue: { enabled: false } },
       }),
     });
-    const fromFile = loadConfig({ env: { OCN_NODE_CONFIG: "/c.json" }, readFile }).config;
+    const fromFile = loadConfig({
+      env: { ...RECORD, OCN_NODE_CONFIG: "/c.json" },
+      readFile,
+    }).config;
+    expect(fromFile.dataDir).toBe("/from/file");
     expect(fromFile.server.port).toBe(9000);
     expect(fromFile.logLevel).toBe("debug");
     expect(fromFile.components.queue.enabled).toBe(false);
 
     const fromEnv = loadConfig({
       env: {
+        ...RECORD,
+        OCN_NODE_DATA_DIR: "/from/env",
         OCN_NODE_CONFIG: "/c.json",
         OCN_NODE_PORT: "9100",
         OCN_NODE_QUEUE_ENABLED: "true",
@@ -54,6 +65,7 @@ describe("loadConfig", () => {
       readFile,
     }).config;
     expect(fromEnv.server.port).toBe(9100);
+    expect(fromEnv.dataDir).toBe("/from/env");
     expect(fromEnv.components.queue.enabled).toBe(true);
     expect(fromEnv.logLevel).toBe("warn");
   });
@@ -64,7 +76,7 @@ describe("loadConfig", () => {
       "/b.json": JSON.stringify({ server: { port: 2222 } }),
     });
     const { config } = loadConfig({
-      env: { OCN_NODE_CONFIG: "/a.json" },
+      env: { ...RECORD, OCN_NODE_CONFIG: "/a.json" },
       configPath: "/b.json",
       readFile,
     });
@@ -82,18 +94,21 @@ describe("loadConfig", () => {
   });
 
   it("rejects an invalid port in the environment", () => {
-    expect(failure(() => loadConfig({ env: { OCN_NODE_PORT: "99999" } })).message).toContain(
-      "OCN_NODE_PORT",
-    );
+    expect(
+      failure(() => loadConfig({ env: { ...RECORD, OCN_NODE_PORT: "99999" } })).message,
+    ).toContain("OCN_NODE_PORT");
   });
 
   it("reports unreadable and malformed config files by path only", () => {
     expect(
-      failure(() => loadConfig({ env: { OCN_NODE_CONFIG: "/missing.json" }, readFile: files({}) }))
-        .message,
+      failure(() =>
+        loadConfig({ env: { ...RECORD, OCN_NODE_CONFIG: "/missing.json" }, readFile: files({}) }),
+      ).message,
     ).toContain("ENOENT");
     const readFile = files({ "/x.json": '{"a": "super-secret-looking-text' });
-    const error = failure(() => loadConfig({ env: { OCN_NODE_CONFIG: "/x.json" }, readFile }));
+    const error = failure(() =>
+      loadConfig({ env: { ...RECORD, OCN_NODE_CONFIG: "/x.json" }, readFile }),
+    );
     expect(error.message).toContain("not valid JSON");
     expect(error.message).not.toContain("super-secret-looking-text");
   });
@@ -101,9 +116,16 @@ describe("loadConfig", () => {
 
 describe("secrets (AC 1.5a)", () => {
   const allOn = {
+    ...RECORD,
     OCN_NODE_LEDGER_ENABLED: "true",
     OCN_NODE_PAYMENTS_ENABLED: "true",
   };
+
+  it("refuses to start without the record master key, naming the key and no value", () => {
+    const error = failure(() => loadConfig({ env: {} }));
+    expect(error.keys).toEqual(["RECORD_MASTER_KEY"]);
+    expect(error.message).toContain("RECORD_MASTER_KEY");
+  });
 
   it("names every missing required secret and no values", () => {
     const error = failure(() =>
@@ -123,21 +145,21 @@ describe("secrets (AC 1.5a)", () => {
 
   it("treats an empty value as missing", () => {
     const error = failure(() =>
-      loadConfig({ env: { OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN: "" } }),
+      loadConfig({ env: { ...RECORD, OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN: "" } }),
     );
     expect(error.keys).toEqual(["LEDFRA_API_TOKEN"]);
   });
 
   it("requires only the secrets of enabled components", () => {
     const { secrets } = loadConfig({
-      env: { OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN: "abcd1234" },
+      env: { ...RECORD, OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN: "abcd1234" },
     });
-    expect(secrets.keys()).toEqual(["LEDFRA_API_TOKEN"]);
+    expect(secrets.keys()).toEqual(["LEDFRA_API_TOKEN", "RECORD_MASTER_KEY"]);
   });
 
   it("never requires the optional placeholders, but loads them when present", () => {
     const { secrets } = loadConfig({
-      env: { STABLECOIN_SIGNING_KEY: FAKE_SECRETS.STABLECOIN_SIGNING_KEY },
+      env: { ...RECORD, STABLECOIN_SIGNING_KEY: FAKE_SECRETS.STABLECOIN_SIGNING_KEY },
     });
     expect(secrets.has("STABLECOIN_SIGNING_KEY")).toBe(true);
     expect(
@@ -149,7 +171,11 @@ describe("secrets (AC 1.5a)", () => {
 
   it("reads KEY_FILE and strips the trailing newline", () => {
     const { secrets } = loadConfig({
-      env: { OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN_FILE: "/run/secrets/ledfra" },
+      env: {
+        ...RECORD,
+        OCN_NODE_LEDGER_ENABLED: "true",
+        LEDFRA_API_TOKEN_FILE: "/run/secrets/ledfra",
+      },
       readSecretFile: (p) => (p === "/run/secrets/ledfra" ? "from-file-token\n" : ""),
     });
     expect(secrets.get("LEDFRA_API_TOKEN")).toBe("from-file-token");
@@ -158,7 +184,7 @@ describe("secrets (AC 1.5a)", () => {
   it("refuses an unreadable secret file, naming the key and error code only", () => {
     const error = failure(() =>
       loadConfig({
-        env: { OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN_FILE: "/nope" },
+        env: { ...RECORD, OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN_FILE: "/nope" },
         readSecretFile: () => {
           throw Object.assign(new Error("ENOENT: secret-in-message"), { code: "ENOENT" });
         },
@@ -172,7 +198,7 @@ describe("secrets (AC 1.5a)", () => {
   it("refuses a key set both directly and as a file", () => {
     const error = failure(() =>
       loadConfig({
-        env: { LLM_API_KEY: "direct-value", LLM_API_KEY_FILE: "/x" },
+        env: { ...RECORD, LLM_API_KEY: "direct-value", LLM_API_KEY_FILE: "/x" },
         readSecretFile: () => "x",
       }),
     );
@@ -188,14 +214,16 @@ describe("secrets (AC 1.5a)", () => {
         apiKey: "another-leaky-654321",
       }),
     });
-    const error = failure(() => loadConfig({ env: { OCN_NODE_CONFIG: "/c.json" }, readFile }));
+    const error = failure(() =>
+      loadConfig({ env: { ...RECORD, OCN_NODE_CONFIG: "/c.json" }, readFile }),
+    );
     expect(error.keys).toEqual(["STITCH_CLIENT_SECRET", "apiKey"]);
     expect(error.message).not.toContain("leaky-value-123456");
     expect(error.message).not.toContain("another-leaky-654321");
   });
 
   it("does not leak values when a ResolvedSecrets is serialised or inspected", async () => {
-    const { secrets } = loadConfig({ env: { LLM_API_KEY: FAKE_SECRETS.LLM_API_KEY } });
+    const { secrets } = loadConfig({ env: { ...RECORD, LLM_API_KEY: FAKE_SECRETS.LLM_API_KEY } });
     expect(secrets).toBeInstanceOf(ResolvedSecrets);
     const { inspect } = await import("node:util");
     expect(JSON.stringify(secrets)).not.toContain(FAKE_SECRETS.LLM_API_KEY);

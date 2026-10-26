@@ -94,9 +94,32 @@ context: []
 
 ## Implementation Notes
 
+- **Question 1 (runtime), answered by the smoke test:** the Hyper stack runs on Node v24.22.1 (`packages/record-autobase/src/smoke.test.ts`: one event through Autobase and Hyperbee, view read back). No Bare process was needed.
+- **Admitted writer key:** Autobase boots a key pair as a core whose key is the hash of its manifest, not the public key. `apply` therefore names a member's writer core with `Hypercore.key({ version, signers: [{ publicKey }] })` (`packages/record-autobase/src/keys.ts`). This added the pinned dependency `hypercore@11.39.3` (MIT per npm; the register and the spike's lock disagree, both permissive).
+- **Licences:** autobase 7.28.2 Apache-2.0, b4a 1.9.0 Apache-2.0, corestore 7.16.1 MIT, hyperbee 2.27.3 MIT, hypercore 11.39.3 MIT.
+- **Deviation from decision 2A, recorded:** the creator's own writer key is the random key Autobase keeps in the data folder, not a key derived from the master key (shortcut S-3.2-2). Every joining member's key is derived.
+- **Node wiring:** `RECORD_MASTER_KEY` (64 hex) is required while the record is on (on by default); `dataDir` / `OCN_NODE_DATA_DIR` sets the data folder; the record reports `mode: autobase` in `/health`. Node runs the workspace `.js` specifiers through a resolve hook (`apps/node/src/workspace-resolve.ts`).
+- **Speed (decision 6A, information only):** 1,000 appends took 3.07 s; a close, reopen and read took 142 ms (development machine).
+- **Not covered by a test:** the entry-from-an-unknown-key rule (S-3.2-9); real Hyperswarm replication (S-3.2-6); a manual community create-stop-start through a CLI (none exists; the Node test does it in process).
+
 ## Plan Change Log
 
 ## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 10 findings: 4 medium, 6 low.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | A removed, then re-admitted writer can never write again | medium, real | patch | Test failed first (`Not writable`), fixed; removing the fix fails the test |
+| 2 | Writer core keys are derived from the master key inside apply, so a second Node with another master key diverges | medium, real | defer | S-3.2-18 (one Node in Demonstration 1) |
+| 3 | Plaintext seed derives the creator's writer secret; data folder created with default permissions | medium, real | patch (permissions), defer (seed) | Folder 0700, file 0600, tested; seed consequence added to S-3.2-3 |
+| 4 | Placeholder master key (64 zeros) accepted | medium, real | patch | Weak keys refused; `.env.example` is now an invalid placeholder; tested |
+| 5 | Event id trusted from the log, not recomputed | low, real (rule 5) | patch | Recomputed in apply; removing it fails a test |
+| 6 | No test for the unknown-writer-key row, or re-admission | low, real | patch | Tests added. Note: the unknown-key guard is redundant with the admission check right after it, so removing it alone changes no result; kept as defence in depth |
+| 7 | Id logged before the admission check | low, real | patch | Order fixed; removing the check fails a test |
+| 8 | Index written before the first entry | low | defer | S-3.2-19 |
+| 9 | `spaces.json` not fsynced; a truncated file blocks start | low | defer | S-3.2-20 |
+| 10 | Record left open if startup fails after it opens | low, real | patch | Closed on failure; tested |
 
 ## Design Notes
 
