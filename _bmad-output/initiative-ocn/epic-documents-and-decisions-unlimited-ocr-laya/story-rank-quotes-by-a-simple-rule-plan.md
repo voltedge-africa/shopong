@@ -67,6 +67,21 @@ context: []
 
 ## Review Triage Log
 
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 10 findings: 1 high, 1 medium, 8 low. One more gap found by the orchestrator's mutation check.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | The card never shows which needs it ranked for, so two phones can disagree silently | high, real | patch | Card starts with "Ranked for: ..."; test failed first; seen on web and emulator. The per-phone list itself is accepted as S-6.9-2 until story 8.2 supplies it from the record |
+| 2 | Quotes for one order could show under another order's name while loading, or stay if loading failed | medium, real | patch | Cleared on name change, filtered by order, plain failure message; test failed first |
+| 3, 4 | Quantity messages did not say what was wrong | low, real | patch | Plain sentences for too large and for commas; tests |
+| 5 | "Only one quote" headline when others are incomplete | low, real | patch | "Only one quote can be compared so far."; test |
+| 6 | A tiny margin read "0.0% more" | low, real | patch | "less than 0.1% more"; test |
+| 7 | Item names are not matched across Unicode forms or zero-width characters | low, real | defer | S-6.9-13 |
+| 8 | Wanted-list problems came back in input order | low, real | patch | Sorted; test |
+| 9 | Duplicate React keys for identical problem lines | low, real | patch | Index plus text |
+| 10 | One supplier over 2^53 makes the whole ranking refuse | low, unreachable from the UI | defer | S-6.9-14 |
+| 11 | (mutation check) Removing the tie-break changed no test | medium, real | patch | The redundant pre-sort was removed; a test over all 24 input orders of tied suppliers now fails without the tie-break |
+
 ## Open Questions
 
 **Answered 2026-10-26 by the product owner: all recommended answers accepted.**
