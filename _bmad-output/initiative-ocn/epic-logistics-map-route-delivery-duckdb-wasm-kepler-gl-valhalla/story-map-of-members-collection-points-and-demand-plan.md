@@ -3,7 +3,7 @@ title: "Map of members, collection points and demand"
 type: "feature"
 ticket: 3
 created: "2026-10-26"
-status: draft
+status: done
 baseline_revision: "5471d90"
 risk: "medium"
 hitl: false
