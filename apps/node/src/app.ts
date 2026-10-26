@@ -1,3 +1,4 @@
+import { registerRouteRoutes, type RouteRouteOptions } from "./route-routes.ts";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import {
   COMPONENT_NAMES,
@@ -11,6 +12,7 @@ import { keepRawJsonBody } from "./signed.ts";
 import { registerCors, type CorsOptions } from "./cors.ts";
 import { registerCommunityRoutes, type CommunityHub } from "./community-routes.ts";
 import { registerPoolRoute, type PoolRouteOptions } from "./pool-routes.ts";
+import { registerTileRoutes, type TileRouteOptions } from "./tiles-routes.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { registerFileRoutes, type FileRouteOptions } from "./files.ts";
 import { registerPaymentRoutes } from "./payments-routes.ts";
@@ -54,6 +56,8 @@ export interface AppOptions {
   communityNonces?: { readonly create?: number; readonly members?: number };
   /** The pool read (story 4.6). Without a ledger the route answers 503. */
   pool?: PoolRouteOptions;
+  /** Route planning and places (story 7.4). Without it, the route routes are not served. */
+  routes?: RouteRouteOptions;
   /** The simulated payments (story 4.4). Without it, the payment routes are not served. */
   payments?: SimulatedStitch;
   /** The member's pay routes for a pledge (story 4.3). Without it, they are not served. */
@@ -66,6 +70,8 @@ export interface AppOptions {
   books?: { readonly configureCommunity: (communityKey: string) => Promise<void> };
   /** The signed file routes (story 3.7). Without it, they are not served. */
   files?: FileRouteOptions;
+  /** The map tile releases (story 7.2). Without a releases folder the `/map` routes are not served. */
+  tiles?: TileRouteOptions;
 }
 
 async function report(options: AppOptions): Promise<HealthReport> {
@@ -106,9 +112,11 @@ export function buildApp(options: AppOptions): FastifyInstance {
 
   app.get("/ready", async (_request, reply) => {
     const health = await report(options);
-    return reply
-      .code(health.status === "ok" ? 200 : 503)
-      .send({ ready: health.status === "ok", ...health });
+    return reply.code(health.status === "ok" ? 200 : 503).send({
+      ready: health.status === "ok",
+      ...health,
+      mapRelease: options.tiles?.activeRelease ?? null,
+    });
   });
 
   registerCors(app, options.cors ?? { origins: [], environment: "production" });
@@ -122,6 +130,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
   registerSyncRoutes(app, auth, options.sync ?? {});
   if (options.files !== undefined) registerFileRoutes(app, options.files);
   registerPoolRoute(app, auth, options.pool ?? {});
+  if (options.routes !== undefined) registerRouteRoutes(app, auth, options.routes);
+  if (options.tiles !== undefined) registerTileRoutes(app, options.tiles);
   if (options.payments !== undefined) {
     registerPaymentRoutes(app, options.payments, options.paymentConfirmation);
   }

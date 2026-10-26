@@ -1,0 +1,25 @@
+{
+  "region": "eswatini-rehearsal",
+  "pinned": true,
+  "note": "Rehearsal only: the spike's Eswatini extract, used to prove the pipeline end to end. Not a South African release.",
+  "source": {
+    "file": "swaziland-261023.osm.pbf",
+    "url": "https://download.geofabrik.de/africa/swaziland-261023.osm.pbf",
+    "md5Url": "https://download.geofabrik.de/africa/swaziland-261023.osm.pbf.md5",
+    "snapshotDate": "2026-10-23",
+    "sha256": "0d1abcd2c222cd328315e268a1014b7acb88a21b5cd1669020fd631453c89777"
+  },
+  "builder": {
+    "valhallaVersion": "3.8.3",
+    "valhallaRevision": "a60c7cbfc83e073f50887cd27e0109d02e6b64e5",
+    "wrapper": "valhalla-wasm v0.2.1 (b09d0ceb6673801d9e8eeb30c43927b89300c553)"
+  },
+  "coverage": [30.785751, -27.318256, 32.136984, -25.717811],
+  "attribution": {
+    "text": "© OpenStreetMap contributors, ODbL 1.0",
+    "linkText": "© OpenStreetMap contributors (ODbL)",
+    "url": "https://www.openstreetmap.org/copyright",
+    "licence": "ODbL 1.0",
+    "note": "Tiles built from OpenStreetMap are treated as a derived database: attribution is shown and the share-alike position needs counsel's confirmation before the first public release (question 5)."
+  }
+}

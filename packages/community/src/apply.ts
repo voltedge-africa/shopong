@@ -21,6 +21,7 @@
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
 
 import {
+  PAYLOAD_VALIDATORS,
   PERSONAL_DATA_MESSAGE,
   checkPersonalFields,
   isPlainObject,
@@ -31,6 +32,16 @@ import {
 import type { Apply, CapabilityAuth, Did, EpochMs, RecordEntry, ViewWriter } from "@shopong/ports";
 import { invitePassOnAllowed } from "./chain.js";
 import { fileOfOrderKey, fileShapeProblem, fileUploadProblem } from "./files.js";
+import {
+  DELIVERY_MESSAGES,
+  deliveryKey,
+  placeAdderProblem,
+  placeJson,
+  driverStands,
+  placeKey,
+  placeRegistered,
+  plannerProblem,
+} from "./delivery.js";
 import { verifyAuthority } from "./authority.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
 import {
@@ -112,6 +123,9 @@ const CHECKED: ReadonlySet<string> = new Set([
   "pledge.created",
   "payment.requested",
   "file.attached",
+  "place.registered",
+  "delivery.planned",
+  "delivery.confirmed",
 ]);
 
 export function createCommunityApply(env: CommunityApplyEnvironment): Apply<EventEnvelope> {
@@ -287,6 +301,98 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /**
+   * A place (story 7.4): the treasurer's, shaped as the registry says (no coordinate, no address), and not registered
+   * already. The record keeps its label, area and the commitment of its address.
+   */
+  async function placeRegisteredCheck(
+    event: EventEnvelope,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const adder = await placeAdderProblem(standing, view, event.actor, at);
+    if (adder !== undefined) return adder;
+    if (PAYLOAD_VALIDATORS["place.registered"](event.payload).length > 0) {
+      return DELIVERY_MESSAGES.place_unreadable;
+    }
+    const place = str(event.payload, "place") ?? "";
+    if (await placeRegistered(view, place)) return DELIVERY_MESSAGES.place_exists;
+    await view.put(
+      placeKey(place),
+      placeJson({
+        label: str(event.payload, "label") ?? "",
+        area: str(event.payload, "area") ?? "",
+        addressCommitment: str(event.payload, "addressCommitment") ?? "",
+      }),
+    );
+    return undefined;
+  }
+
+  /**
+   * A confirmation (patch of story 7.4): a driver's, with the order and the photo's SHA-512 and no coordinate. The
+   * record keeps the order's confirmation as `delivered/<order>`.
+   */
+  async function deliveryConfirmedCheck(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if (!(await driverStands(standing, view, event.actor, at))) {
+      return DELIVERY_MESSAGES.confirm_not_permitted;
+    }
+    if (PAYLOAD_VALIDATORS["delivery.confirmed"](event.payload).length > 0) {
+      return DELIVERY_MESSAGES.confirm_unreadable;
+    }
+    const order = str(event.payload, "order") ?? "";
+    await view.put(`delivered/${encodeURIComponent(order)}`, {
+      event: entry.id,
+      photoSha512: str(event.payload, "photoSha512") ?? "",
+    });
+    return undefined;
+  }
+
+  /**
+   * A route (story 7.4): planned by the treasurer or a driver whose role stands at log time, between two different
+   * registered places, for a driver who is a member. The route's summary is kept for the order; no line is.
+   */
+  async function deliveryPlannedCheck(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    const planner = await plannerProblem(standing, view, event.actor, at);
+    if (planner !== undefined) return planner;
+    const payload = event.payload;
+    const origin = str(payload, "origin") ?? "";
+    const destination = str(payload, "destination") ?? "";
+    if (origin !== "" && origin === destination) return DELIVERY_MESSAGES.same_place;
+    if (PAYLOAD_VALIDATORS["delivery.planned"](payload).length > 0) {
+      return DELIVERY_MESSAGES.unreadable;
+    }
+    const driver = str(payload, "driver") ?? "";
+    if (!(await placeRegistered(view, origin)) || !(await placeRegistered(view, destination))) {
+      return DELIVERY_MESSAGES.unknown_place;
+    }
+    if ((await view.get(`members/${driver}`)) === undefined) return DELIVERY_MESSAGES.not_member;
+    if (!(await driverStands(standing, view, driver, at))) return DELIVERY_MESSAGES.not_a_driver;
+    const route = (payload.route ?? {}) as JsonObject;
+    await view.put(deliveryKey(str(payload, "order") ?? ""), {
+      event: entry.id,
+      driver,
+      origin,
+      destination,
+      costing: str(route, "costing") ?? "",
+      distanceMeters: typeof route.distanceMeters === "number" ? route.distanceMeters : 0,
+      durationSeconds: typeof route.durationSeconds === "number" ? route.durationSeconds : 0,
+      tileRelease: str(route, "tileRelease") ?? "",
+      fingerprint: str(route, "fingerprint") ?? "",
+      plannedBy: event.actor,
+    });
+    return undefined;
+  }
+
   /** A quote is the treasurer's: the creator or a co-treasurer. Its shape is checked as in the form. */
   async function quoteAdded(
     event: EventEnvelope,
@@ -393,6 +499,12 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return paymentRequested(entry, view);
       case "file.attached":
         return fileAttached(event, view, at);
+      case "place.registered":
+        return placeRegisteredCheck(event, view, at);
+      case "delivery.planned":
+        return deliveryPlannedCheck(entry, view, at);
+      case "delivery.confirmed":
+        return deliveryConfirmedCheck(entry, view, at);
       default:
         return quoteAdded(event, view, at);
     }

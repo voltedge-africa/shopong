@@ -6,6 +6,7 @@
 
 import { fileAttachedIssues } from "./attachment.js";
 import type { JsonObject } from "./json.js";
+import { looksLikeAddress } from "./personal.js";
 
 export const EVENT_TYPES = [
   "member.invited",
@@ -24,6 +25,7 @@ export const EVENT_TYPES = [
   "payment.failed",
   "payment.refunded",
   "ledger.posted",
+  "place.registered",
   "delivery.planned",
   "delivery.started",
   "delivery.confirmed",
@@ -84,6 +86,43 @@ export interface RoleGrantedPayload extends JsonObject {
   readonly grantee: string;
   /** When the role ends, milliseconds since the Unix epoch. */
   readonly expiresAt: number;
+}
+
+/**
+ * `place.registered` (story 7.4): a place the community routes to. `place` is an opaque id the Node made; the
+ * coordinates stay on the Node. `addressCommitment` is the keyed commitment of the exact address (AGENTS rule 6).
+ */
+export interface PlaceRegisteredPayload extends JsonObject {
+  readonly place: string;
+  readonly label: string;
+  readonly area: string;
+  readonly addressCommitment: string;
+}
+
+/** The route a `delivery.planned` names: its costing, numbers and fingerprint. The line itself stays on the Node. */
+export interface DeliveryRoute extends JsonObject {
+  readonly costing: string;
+  readonly distanceMeters: number;
+  readonly durationSeconds: number;
+  readonly tileRelease: string;
+  /** SHA-512 hex of the polyline and the tile release (`routeFingerprint`). */
+  readonly fingerprint: string;
+}
+
+/**
+ * `delivery.planned` (story 7.4): the order's route from one registered place to another, planned by the treasurer
+ * or a current driver. Place ids and a route fingerprint only: no coordinate, polyline or address (AGENTS rule 6).
+ */
+export interface DeliveryPlannedPayload extends JsonObject {
+  readonly order: string;
+  /** `did:key` of the driver the route is for. */
+  readonly driver: string;
+  /** Place ids (opaque, 64 hex) of the start and the end. */
+  readonly origin: string;
+  readonly destination: string;
+  readonly route: DeliveryRoute;
+  // The optional window (`windowStart`, `windowEnd`: milliseconds since the epoch) is checked by the validator but not
+  // named here, because an optional field cannot sit under `JsonObject` (as `member.removed`'s reason is).
 }
 
 /** Payload shape per type. Placeholders until each type's owning story defines it. */
@@ -168,6 +207,157 @@ const roleGranted: PayloadValidator = (payload) => {
  * fields, the types and the purpose's size and type rules are checked here (`attachment.ts`).
  */
 const fileAttached: PayloadValidator = (payload) => fileAttachedIssues(payload);
+/** Exactly these keys, no others: an unknown field (a coordinate, say) makes the payload invalid. */
+function onlyKeys(payload: JsonObject, allowed: readonly string[]): Issue[] {
+  return Object.keys(payload)
+    .filter((key) => !allowed.includes(key))
+    .map((key) => ({ path: `$.payload.${key}`, message: "is not a field of this event" }));
+}
+
+const OPAQUE_PLACE = /^[0-9a-f]{64}$/;
+const SHA512_HEX = /^[0-9a-f]{128}$/;
+const COSTINGS = ["auto", "truck", "bicycle", "pedestrian"] as const;
+const COMMITMENT_HEX = /^[0-9a-f]{128}$/;
+
+/** Text of `min` to `max` characters (after trimming) with no control character (code points below 0x20). */
+/** A place name: bounded text that does not read as an address (place labels are names, never addresses). */
+const placeName = (max: number) => (value: string) =>
+  boundedText(1, max)(value) && !looksLikeAddress(value);
+
+/** An integer in `[min, max]`. */
+function boundedInt(value: unknown, min: number, max: number): boolean {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= min && value <= max;
+}
+
+/** Epoch milliseconds for a window: 2020 to 2100, so a stray small or huge number is refused. */
+const WINDOW_MIN = 1_577_836_800_000;
+const WINDOW_MAX = 4_102_444_800_000;
+
+/** A tile release id: a short lower-case name such as `memory-tiles-2026.01`, never free text. */
+const RELEASE_ID = /^[a-z0-9][a-z0-9._-]{0,79}$/;
+
+const boundedText = (min: number, max: number) => (value: string) => {
+  const trimmed = value.trim();
+  let control = false;
+  for (let i = 0; i < value.length; i++) if (value.charCodeAt(i) < 0x20) control = true;
+  return trimmed.length >= min && trimmed.length <= max && !control;
+};
+
+const placeRegistered: PayloadValidator = (payload) => {
+  const issues = [
+    ...onlyKeys(payload, ["place", "label", "area", "addressCommitment"]),
+    ...requireString(payload, "place", (v) => OPAQUE_PLACE.test(v), "must be an opaque place id"),
+    ...requireString(
+      payload,
+      "label",
+      placeName(80),
+      "must be a place name of 1 to 80 characters, not an address",
+    ),
+    ...requireString(
+      payload,
+      "area",
+      placeName(60),
+      "must be an area name of 1 to 60 characters, not an address",
+    ),
+    ...requireString(
+      payload,
+      "addressCommitment",
+      (v) => COMMITMENT_HEX.test(v),
+      "must be a commitment to the address",
+    ),
+  ];
+  return issues;
+};
+
+const deliveryPlanned: PayloadValidator = (payload) => {
+  const issues: Issue[] = [
+    ...onlyKeys(payload, [
+      "order",
+      "driver",
+      "origin",
+      "destination",
+      "route",
+      "windowStart",
+      "windowEnd",
+    ]),
+    ...requireString(payload, "order", nonEmpty, "must be a non-empty order id"),
+    ...requireString(payload, "driver", (v) => DID_KEY.test(v), "must be a did:key"),
+    ...requireString(payload, "origin", (v) => OPAQUE_PLACE.test(v), "must be an opaque place id"),
+    ...requireString(
+      payload,
+      "destination",
+      (v) => OPAQUE_PLACE.test(v),
+      "must be an opaque place id",
+    ),
+  ];
+  if (payload.origin !== undefined && payload.origin === payload.destination) {
+    issues.push({ path: "$.payload.destination", message: "must be a different place" });
+  }
+  const route = payload.route;
+  if (typeof route !== "object" || route === null || Array.isArray(route)) {
+    issues.push({ path: "$.payload.route", message: "must be the route's summary" });
+  } else {
+    const r = route as JsonObject;
+    issues.push(
+      ...onlyKeys(r, [
+        "costing",
+        "distanceMeters",
+        "durationSeconds",
+        "tileRelease",
+        "fingerprint",
+      ]),
+      ...requireString(
+        r,
+        "costing",
+        (v) => (COSTINGS as readonly string[]).includes(v),
+        "must be a known costing",
+      ),
+      ...requireString(
+        r,
+        "tileRelease",
+        (v) => RELEASE_ID.test(v),
+        "must be a tile release id, such as memory-tiles-2026.01",
+      ),
+      ...requireString(
+        r,
+        "fingerprint",
+        (v) => SHA512_HEX.test(v),
+        "must be a SHA-512 fingerprint",
+      ),
+    );
+    if (!boundedInt(r.distanceMeters, 1, 2_000_000))
+      issues.push({
+        path: "$.payload.route.distanceMeters",
+        message: "must be 1 to 2,000,000 metres",
+      });
+    if (!boundedInt(r.durationSeconds, 1, 172_800))
+      issues.push({ path: "$.payload.route.durationSeconds", message: "must be whole seconds" });
+  }
+  for (const field of ["windowStart", "windowEnd"] as const) {
+    const value = payload[field];
+    if (value !== undefined && !boundedInt(value, WINDOW_MIN, WINDOW_MAX))
+      issues.push({ path: `$.payload.${field}`, message: "must be a time between 2020 and 2100" });
+  }
+  return issues;
+};
+
+/**
+ * `delivery.confirmed` (patch of story 7.4): the order, the SHA-512 of the delivery photo, and optionally the place it
+ * was confirmed at (an opaque id, not a coordinate). No coordinate of any kind is accepted (AGENTS rule 6).
+ */
+const deliveryConfirmed: PayloadValidator = (payload) => [
+  ...onlyKeys(payload, ["order", "photoSha512", "place"]),
+  ...requireString(payload, "order", nonEmpty, "must be a non-empty order id"),
+  ...requireString(
+    payload,
+    "photoSha512",
+    (v) => SHA512_HEX.test(v),
+    "must be a SHA-512 of the photo",
+  ),
+  ...(payload.place === undefined
+    ? []
+    : requireString(payload, "place", (v) => OPAQUE_PLACE.test(v), "must be an opaque place id")),
+];
 
 export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator } = {
   ...(Object.fromEntries(EVENT_TYPES.map((t) => [t, anyObject])) as {
@@ -178,4 +368,7 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "role.granted": roleGranted,
   "member.removed": memberRemoved,
   "file.attached": fileAttached,
+  "place.registered": placeRegistered,
+  "delivery.planned": deliveryPlanned,
+  "delivery.confirmed": deliveryConfirmed,
 };

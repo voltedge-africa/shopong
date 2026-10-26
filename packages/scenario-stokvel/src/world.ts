@@ -17,13 +17,13 @@ import {
   MemoryLedger,
   MemoryPayIn,
   MemoryPayOut,
-  MemoryRouting,
   createCounterIds,
   createManualClock,
   createMemoryRecordNetwork,
   type ManualClock,
   type MemoryRecordNetwork,
 } from "@shopong/adapters-memory";
+import { MemoryRouting } from "@shopong/adapters-memory/routing";
 import {
   money,
   type Capability,

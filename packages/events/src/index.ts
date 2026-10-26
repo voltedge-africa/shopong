@@ -32,6 +32,7 @@ export {
   checkPersonalFields,
   hasIdNumberShape,
   hasPhoneNumberShape,
+  looksLikeAddress,
   normaliseDigits,
   shapeOf,
   type PersonalCheckOptions,
@@ -102,3 +103,10 @@ export {
   type PayloadValidator,
 } from "./registry.js";
 export { Utf8Error, decodeUtf8, encodeUtf8 } from "./utf8.js";
+export { routeFingerprint } from "./route.js";
+export { MAX_ADDRESS_LENGTH, commitAddress, normaliseAddress } from "./commitment.js";
+export {
+  type DeliveryPlannedPayload,
+  type DeliveryRoute,
+  type PlaceRegisteredPayload,
+} from "./registry.js";

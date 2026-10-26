@@ -5,7 +5,8 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./routing": "./src/routing.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

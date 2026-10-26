@@ -160,7 +160,8 @@ describe("real envelopes", () => {
     const s = fresh();
     await s.runAll();
     const world = await s.world();
-    expect(world.events.size).toBe(44);
+    // 46: the 44 of story 6 plus the two `place.registered` events of story 7.4 (the depot and the collection point).
+    expect(world.events.size).toBe(46);
     for (const [id, event] of world.events) {
       const bytes = encodeEvent(event);
       const decoded = decodeEvent(bytes);
@@ -169,6 +170,42 @@ describe("real envelopes", () => {
       expect(event.actor).toMatch(/^did:key:z6Mk/);
       expect(event.space).toBe(world.spaceKey);
       expect(event.proof).toHaveLength(1);
+    }
+  });
+
+  it("plans the route by place ids and a fingerprint: no coordinate in the planned route or its places", async () => {
+    const s = fresh();
+    await s.runAll();
+    const world = await s.world();
+    const planned = [...world.events.values()].filter((e) => e.type === "delivery.planned");
+    expect(planned).toHaveLength(1);
+    const payload = planned[0]?.payload as Record<string, unknown>;
+    expect(payload.origin).toMatch(/^[0-9a-f]{64}$/);
+    expect(payload.destination).toMatch(/^[0-9a-f]{64}$/);
+    expect(payload.route).toMatchObject({ costing: "auto", tileRelease: "memory-tiles-2026.01" });
+    expect((payload.route as { fingerprint: string }).fingerprint).toMatch(/^[0-9a-f]{128}$/);
+    expect(JSON.stringify(payload)).not.toMatch(/lat|lng|polyline|Micro/);
+    const places = [...world.events.values()].filter((e) => e.type === "place.registered");
+    expect(places).toHaveLength(2);
+    for (const place of places) {
+      expect(JSON.stringify(place.payload)).not.toMatch(/lat|lng|Micro|Church|street/i);
+      expect((place.payload as { addressCommitment: string }).addressCommitment).toMatch(
+        /^[0-9a-f]{128}$/,
+      );
+    }
+  });
+
+  it("writes no coordinate in any delivery event (patch: the confirmation holds the order and the photo only)", async () => {
+    const s0 = fresh();
+    await s0.runAll();
+    const world = await s0.world();
+    const deliveries = [...world.events.values()].filter((e) => e.type.startsWith("delivery."));
+    expect(deliveries.map((e) => e.type).sort()).toEqual([
+      "delivery.confirmed",
+      "delivery.planned",
+    ]);
+    for (const event of deliveries) {
+      expect(JSON.stringify(event.payload)).not.toMatch(/lat|lng|Micro|polyline/);
     }
   });
 

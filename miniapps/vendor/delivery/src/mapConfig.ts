@@ -13,6 +13,8 @@ const INK = {
   dark: {
     route: "#94a3b8",
     routeRgb: [148, 163, 184],
+    planned: "#2dd4bf",
+    plannedRgb: [45, 212, 191],
     stopStroke: [14, 17, 22],
     stopText: [226, 232, 240],
     stopTextOutline: [11, 15, 20, 255],
@@ -20,6 +22,8 @@ const INK = {
   light: {
     route: "#64748b",
     routeRgb: [100, 116, 139],
+    planned: "#0d9488",
+    plannedRgb: [13, 148, 136],
     stopStroke: [255, 255, 255],
     stopText: [15, 23, 42],
     stopTextOutline: [255, 255, 255, 255],
@@ -33,7 +37,7 @@ const colorRange = (colors: string[]) => ({
   colors,
 });
 
-export function makeLayerConfig(mode: MapMode) {
+export function makeLayerConfig(mode: MapMode, withPlanned = false) {
   const ink = INK[mode];
   return {
     version: "v1",
@@ -92,6 +96,44 @@ export function makeLayerConfig(mode: MapMode) {
               sizeScale: "linear",
             },
           },
+          ...(withPlanned
+            ? [
+                {
+                  id: "planned-route-layer",
+                  type: "line",
+                  config: {
+                    dataId: "planned-route",
+                    label: "Planned route",
+                    color: ink.plannedRgb,
+                    columns: {
+                      lat0: "lat0",
+                      lng0: "lng0",
+                      lat1: "lat1",
+                      lng1: "lng1",
+                      alt0: null,
+                      alt1: null,
+                    },
+                    isVisible: true,
+                    visConfig: {
+                      opacity: 0.9,
+                      thickness: 4,
+                      colorRange: colorRange([ink.planned]),
+                      sizeRange: [0, 10],
+                      targetColor: null,
+                      elevationScale: 1,
+                    },
+                    hidden: false,
+                    textLabel: [],
+                  },
+                  visualChannels: {
+                    colorField: null,
+                    colorScale: "quantile",
+                    sizeField: null,
+                    sizeScale: "linear",
+                  },
+                },
+              ]
+            : []),
           {
             id: "stops-layer",
             type: "point",

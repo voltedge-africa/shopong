@@ -1,5 +1,6 @@
 // Behaviour specific to the in-memory adapters, beyond what the port contracts require.
 import { describe, expect, it } from "vite-plus/test";
+import { encodePolyline6 } from "./routing.js";
 import { decodePolyline6, expectErr, expectOk, randomEventId } from "@shopong/ports-contract";
 import { money, type CapabilityToken, type Did } from "@shopong/ports";
 import {
@@ -11,7 +12,6 @@ import {
   MemoryStableRail,
   createCounterIds,
   createManualClock,
-  encodePolyline6,
   parseDirectives,
 } from "./index.js";
 

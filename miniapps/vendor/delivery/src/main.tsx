@@ -12,16 +12,24 @@ import {
 } from "redux";
 
 import { paddedBounds, toKeplerDatasets } from "./datasets";
+import { decodePolyline6 } from "./polyline";
 import { makeLayerConfig, MAP_CONTROLS } from "./mapConfig";
 import { ATTRIBUTION, makeClermontStyle } from "./basemap/style";
-import { parseAppMessage, type DeliveryMap, type MapMode, type PageMessage } from "./protocol";
+import {
+  isFromParent,
+  parseAppMessage,
+  type DeliveryMap,
+  type MapMode,
+  type PageMessage,
+} from "./protocol";
 
 const MAP_ID = "delivery";
 
 // Kepler's type asks for every section of a saved config (filters, interaction settings, ...) but
 // accepts one with only the layers, which is all this page needs.
 type SavedConfig = NonNullable<Parameters<typeof addDataToMap>[0]["config"]>;
-const makeConfig = (mode: MapMode) => makeLayerConfig(mode) as unknown as SavedConfig;
+const makeConfig = (mode: MapMode, withPlanned: boolean) =>
+  makeLayerConfig(mode, withPlanned) as unknown as SavedConfig;
 
 // Kepler fetches its icon list from a third-party server when it starts. Only the icon layer uses
 // it, and this page makes no outside requests, so that one fetch gets an empty list instead.
@@ -99,14 +107,21 @@ function App() {
       addDataToMap({
         datasets: toKeplerDatasets(map),
         options: { centerMap: false, readOnly: true },
-        config: makeConfig(mode),
+        config: makeConfig(mode, map.route !== undefined),
       }) as never,
     );
-    store.dispatch(fitBounds(paddedBounds(map.stops)) as never);
+    // A planned route has no stops of its own on the phone (its places are the Node's): fit the view to its line.
+    const points = [
+      ...map.stops,
+      ...(map.route === undefined ? [] : (decodePolyline6(map.route.polyline6) ?? [])),
+    ];
+    if (points.length > 0) store.dispatch(fitBounds(paddedBounds(points)) as never);
   };
 
   useEffect(() => {
     const onMessage = (event: Event) => {
+      // Only the parent frame (or the host app, which has no source) may send the page its data (patch of story 7.4).
+      if (!isFromParent((event as MessageEvent).source, window.parent)) return;
       const message = parseAppMessage((event as MessageEvent).data);
       if (message === undefined) return;
       if (message.type === "theme") {
@@ -137,6 +152,29 @@ function App() {
 
   return (
     <>
+      {map?.route === undefined ? null : (
+        // The three plain sentences of the planned route (story 7.4), from the Node. Place labels only.
+        <div
+          style={{
+            position: "fixed",
+            left: 8,
+            right: 8,
+            top: 28,
+            padding: "6px 10px",
+            borderRadius: 6,
+            background: mode === "light" ? "rgba(255,255,255,0.9)" : "rgba(11,15,20,0.85)",
+            color: mode === "light" ? "#0f172a" : "#e2e8f0",
+            font: "13px system-ui, sans-serif",
+            pointerEvents: "none",
+          }}
+        >
+          {map.route.sentences.map((sentence) => (
+            <p key={sentence} style={{ margin: "2px 0" }}>
+              {sentence}
+            </p>
+          ))}
+        </div>
+      )}
       {/* Kepler's types say `object`, but the component also takes the named themes of
           @kepler.gl/styles and picks Kepler's own light UI for "light"; the default is its dark UI. */}
       <KeplerGl

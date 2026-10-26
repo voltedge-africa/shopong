@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { FastifyInstance } from "fastify";
 import { HyperdriveFileStores } from "@shopong/adapter-hyperdrive";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
@@ -16,6 +16,8 @@ import { masterKeyOf, nodeIdentityOf, openRecordComponent } from "./record.ts";
 import { ConfigError, missingRequiredFor, type ResolvedSecrets } from "./secrets.ts";
 import { openSimulatedPayments, paymentsComponent } from "./payments.ts";
 import { communitySecretFromHex, nodeHmacSha512 } from "./commitments.ts";
+import { PlaceRegistry, RouteStore } from "./places.ts";
+import { StraightLineRouting } from "./routing.ts";
 import { payerCommitmentOf, type PaymentRequestOptions } from "./payment-request-route.ts";
 import { openCheckingStore, type ConfirmationDeps } from "./payment-confirmation.ts";
 import { startChecking, type RunningChecking } from "./reconciler.ts";
@@ -220,6 +222,22 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
               : { failRecordWrite: options.faults.failRecordWrite }),
           };
 
+    // Route planning (story 7.4): the straight-line fallback behind the Routing port, the place registry and the route
+    // store in the data folder. The community secret is the Node's one secret, as for the payer commitment.
+    const communitySecret = secrets.get("COMMUNITY_SECRET");
+    const secretBytes =
+      communitySecret === undefined ? undefined : communitySecretFromHex(communitySecret);
+    const routeOptions =
+      hub === undefined
+        ? undefined
+        : {
+            hub,
+            routing: new StraightLineRouting(),
+            places: new PlaceRegistry(config.dataDir, (line) => logger.warn(line)),
+            routes: new RouteStore(config.dataDir, (line) => logger.warn(line)),
+            secretOf: () => secretBytes,
+          };
+
     app = buildApp({
       logger,
       version: readVersion(),
@@ -230,6 +248,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       ...(hub === undefined || files === undefined
         ? {}
         : { files: { hub, stores: files, auth, quotaBytes: config.fileQuotaBytes } }),
+      ...(routeOptions === undefined ? {} : { routes: routeOptions }),
       pool: {
         ...(hub === undefined ? {} : { hub }),
         simulated: payments !== undefined,
@@ -240,6 +259,14 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       },
       allowedCreators: config.allowedCreators,
       cors: { origins: config.corsOrigins, environment: config.environment },
+      ...(config.tiles.releasesDir === undefined
+        ? {}
+        : {
+            tiles: {
+              releasesDir: resolve(config.tiles.releasesDir),
+              activeRelease: config.tiles.activeRelease,
+            },
+          }),
       ...(payments === undefined ? {} : { payments }),
       ...(paymentRequests === undefined ? {} : { paymentRequests }),
       ...(confirmation === undefined ? {} : { paymentConfirmation: confirmation }),

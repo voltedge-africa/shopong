@@ -189,3 +189,29 @@ export async function commitPersonal(
   }
   return { ok: true, commitment: await keyedCommitment(communitySecret, normalised, hmac) };
 }
+
+/** The longest address the Node will commit to (characters, after tidying). */
+export const MAX_ADDRESS_LENGTH = 200;
+
+/**
+ * Tidy an address for committing: NFKC, one space between words, trimmed, lower case. Two people typing the same
+ * address get the same commitment; a different address does not. Throws `NormalisationError` when nothing is left.
+ */
+export function normaliseAddress(input: string): string {
+  const tidy = input.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
+  if (tidy === "") throw new NormalisationError("an address is needed");
+  if (tidy.length > MAX_ADDRESS_LENGTH) throw new NormalisationError("the address is too long");
+  return tidy;
+}
+
+/**
+ * Commit to a place's exact address (AGENTS.md rule 6, story 7.4). The address is normalised first, then committed
+ * with the community's secret, so the record holds the commitment and never the address.
+ */
+export async function commitAddress(
+  communitySecret: Uint8Array,
+  rawAddress: string,
+  hmac: HmacSha512,
+): Promise<Commitment> {
+  return keyedCommitment(communitySecret, normaliseAddress(rawAddress), hmac);
+}

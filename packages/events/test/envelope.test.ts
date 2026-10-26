@@ -154,11 +154,11 @@ describe("event type registry", () => {
       "ledger",
       "delivery",
     ];
-    const more = ["collection", "funding", "obligation", "solution", "agent", "file"];
+    const more = ["collection", "funding", "obligation", "solution", "agent", "file", "place"];
     expect(new Set(EVENT_TYPES.map((t) => t.split(".")[0]))).toEqual(
       new Set([...families, ...more]),
     );
-    expect(EVENT_TYPES).toHaveLength(29);
+    expect(EVENT_TYPES).toHaveLength(30);
     expect(new Set(EVENT_TYPES).size).toBe(EVENT_TYPES.length);
   });
 
