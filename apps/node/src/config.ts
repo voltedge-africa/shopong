@@ -6,7 +6,13 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 import { COMPONENT_NAMES, type ComponentName } from "./components.ts";
-import { ConfigError, resolveSecrets, SECRET_KEYS, type ResolvedSecrets } from "./secrets.ts";
+import {
+  ConfigError,
+  resolveSecrets,
+  SECRET_KEYS,
+  type PaymentsAdapterName,
+  type ResolvedSecrets,
+} from "./secrets.ts";
 import { looksLikeSecretKey } from "./redact.ts";
 
 export const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace", "silent"] as const;
@@ -75,6 +81,10 @@ export interface NodeConfig {
   allowedCreators: string[];
   /** Browser origins allowed to call the Node's routes (exact, for example `https://app.example`). Empty by default. */
   corsOrigins: string[];
+  /** Which payments adapter runs. `simulated` is the only one available (story 4.4). */
+  paymentsAdapter: PaymentsAdapterName;
+  /** Lets the simulation run in a production environment. Off by default (review item 1). */
+  allowSimulatedPayments: boolean;
 }
 
 export interface LoadedConfig {
@@ -181,6 +191,8 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
     maxCommunities: file.maxCommunities ?? DEFAULT_MAX_COMMUNITIES,
     allowedCreators: [...(file.allowedCreators ?? [])],
     corsOrigins: [...(file.cors?.origins ?? [])],
+    paymentsAdapter: "simulated",
+    allowSimulatedPayments: false,
     components: Object.fromEntries(
       COMPONENT_NAMES.map((name) => [
         name,
@@ -258,6 +270,27 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
     }
     merged.logLevel = level.data;
   }
+  const envAdapter = env["PAYMENTS_ADAPTER"];
+  if (envAdapter !== undefined && envAdapter !== "") {
+    if (envAdapter === "stitch") {
+      // Refused rather than accepted: no Stitch adapter has passed the Payments contract yet (story 4.4).
+      throw new ConfigError(
+        "PAYMENTS_ADAPTER=stitch is refused: no Stitch adapter has passed the Payments contract yet. " +
+          "Use PAYMENTS_ADAPTER=simulated, which is a simulation and is labelled as one everywhere.",
+      );
+    }
+    if (envAdapter !== "simulated") {
+      throw new ConfigError(
+        "invalid environment variable PAYMENTS_ADAPTER: expected simulated or stitch",
+      );
+    }
+  }
+  const envAllowSim = env["OCN_NODE_ALLOW_SIMULATED_PAYMENTS"];
+  if (envAllowSim)
+    merged.allowSimulatedPayments = parseEnvBoolean(
+      "OCN_NODE_ALLOW_SIMULATED_PAYMENTS",
+      envAllowSim,
+    );
   for (const name of COMPONENT_NAMES) {
     const varName = `OCN_NODE_${name.toUpperCase()}_ENABLED`;
     const raw = env[varName];
@@ -274,7 +307,20 @@ export function loadConfig(options: LoadOptions): LoadedConfig {
   const enabled = Object.fromEntries(
     COMPONENT_NAMES.map((n) => [n, merged.components[n].enabled]),
   ) as Record<ComponentName, boolean>;
-  const secrets = resolveSecrets(env, enabled, options.readSecretFile);
+  const secrets = resolveSecrets(env, enabled, options.readSecretFile, merged.paymentsAdapter);
+
+  // Simulated payments are a stand-in for Stitch. A production Node runs them only when told to (review item 1).
+  if (
+    merged.components.payments.enabled &&
+    merged.paymentsAdapter === "simulated" &&
+    merged.environment === "production" &&
+    !merged.allowSimulatedPayments
+  ) {
+    throw new ConfigError(
+      "payments are SIMULATED and this Node runs in production (OCN_NODE_ENVIRONMENT): refused to start. " +
+        "Set OCN_NODE_ALLOW_SIMULATED_PAYMENTS=true only on a test Node, or switch payments off.",
+    );
+  }
 
   return { config: merged, secrets, configFile };
 }
