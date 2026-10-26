@@ -164,6 +164,16 @@ export {
   type InvitationProblem,
   type IssueInvitationRequest,
 } from "./invitation.js";
+export {
+  OBLIGATION_GRACE_MS,
+  OBLIGATION_LABELS,
+  OBLIGATION_STATES,
+  obligationsOf,
+  stateOf,
+  type Obligation,
+  type ObligationKind,
+  type ObligationState,
+} from "./obligations.js";
 export { decodeProof, encodeProof } from "./proof.js";
 export { isCommunityKey, newCommunityKey, spaceUri } from "./space.js";
 export {
