@@ -80,3 +80,17 @@ export function areaDemandOf(
     .map(([area, count]) => ({ area, members: count }))
     .sort((a, b) => b.members - a.members || a.area.localeCompare(b.area));
 }
+
+/**
+ * Which sections of the Places card a member sees (product owner, story 7.3). The collection points, the members' areas
+ * and the demand by area are visible to every member, and each member sets their own area. Only the form that registers
+ * a collection point is for the treasurer (and a co-treasurer), who is the one that can register it.
+ */
+export function placesCardSectionsOf(canAddPlaces: boolean): {
+  readonly collectionPoints: true;
+  readonly demandByArea: true;
+  readonly yourArea: true;
+  readonly registerForm: boolean;
+} {
+  return { collectionPoints: true, demandByArea: true, yourArea: true, registerForm: canAddPlaces };
+}

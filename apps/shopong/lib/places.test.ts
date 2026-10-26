@@ -6,6 +6,7 @@ import {
   placeBodyOf,
   placeChoicesOf,
   placeFormProblem,
+  placesCardSectionsOf,
   PLACE_FORM_MESSAGES,
   type PlaceForm,
 } from "./places";
@@ -98,5 +99,25 @@ describe("placeBodyOf", () => {
     expect(Object.keys(placeBodyOf(form, "d".repeat(32)) as object).sort()).toEqual(
       ["address", "area", "label", "lat", "lng", "request"].sort(),
     );
+  });
+});
+
+describe("placesCardSectionsOf (product owner, story 7.3: areas and demand are visible to all members)", () => {
+  it("shows a member the collection points, the demand by area and their own area, but no form", () => {
+    expect(placesCardSectionsOf(false)).toEqual({
+      collectionPoints: true,
+      demandByArea: true,
+      yourArea: true,
+      registerForm: false,
+    });
+  });
+
+  it("shows the treasurer the same sections, and the form to register a place", () => {
+    expect(placesCardSectionsOf(true)).toEqual({
+      collectionPoints: true,
+      demandByArea: true,
+      yourArea: true,
+      registerForm: true,
+    });
   });
 });

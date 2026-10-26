@@ -8,7 +8,7 @@ import { View } from "react-native";
 
 import { useCommunity } from "../lib/CommunityProvider";
 import { useIdentity } from "../lib/IdentityProvider";
-import { areaDemandOf, placeChoicesOf, type PlaceForm } from "../lib/places";
+import { areaDemandOf, placeChoicesOf, placesCardSectionsOf, type PlaceForm } from "../lib/places";
 import type { RoutePlace } from "../lib/route";
 
 const EMPTY_FORM: PlaceForm = { label: "", area: "", lat: "", lng: "", address: "" };
@@ -44,6 +44,8 @@ export function PlacesCard() {
   if (community === null) return null;
 
   const choices = placeChoicesOf(places);
+  const demand = areaDemandOf(areas);
+  const sections = placesCardSectionsOf(canAddPlaces);
   const mine = areas.find((member) => member.did === did)?.area ?? "";
 
   const savePlace = async () => {
@@ -93,22 +95,24 @@ export function PlacesCard() {
       )}
       {saved === undefined ? null : <Text muted>{saved}</Text>}
 
-      {canAddPlaces ? (
+      {/* Every member sees the collection points, the areas and the demand (product owner, story 7.3). */}
+      <View className="gap-3">
+        <Text weight="bold">Collection points</Text>
+        {places.length === 0 ? (
+          <Text muted>No places are registered yet.</Text>
+        ) : (
+          places.map((place) => <Text key={place.id}>{`${place.label}, ${place.area}`}</Text>)
+        )}
+        <Text weight="bold">Members by area</Text>
+        {demand.length === 0 ? (
+          <Text muted>No member has given an area yet.</Text>
+        ) : (
+          demand.map((row) => <Text key={row.area}>{`${row.area}: ${row.members}`}</Text>)
+        )}
+      </View>
+
+      {sections.registerForm ? (
         <View className="gap-3">
-          <Text weight="bold">Collection points</Text>
-          {places.length === 0 ? (
-            <Text muted>No places are registered yet.</Text>
-          ) : (
-            places.map((place) => <Text key={place.id}>{`${place.label}, ${place.area}`}</Text>)
-          )}
-          <Text weight="bold">Members by area</Text>
-          {areaDemandOf(areas).length === 0 ? (
-            <Text muted>No member has given an area yet.</Text>
-          ) : (
-            areaDemandOf(areas).map((row) => (
-              <Text key={row.area}>{`${row.area}: ${row.members}`}</Text>
-            ))
-          )}
           <Text weight="bold">Add a collection point</Text>
           <Text muted>
             The point and the address stay on the OCN Node. The record gets the name and the suburb
