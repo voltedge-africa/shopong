@@ -58,3 +58,11 @@ _bmad/custom/*.user.toml
 
 # Downloaded sandbox data (OSM extracts); never committed
 .cache/
+
+# Map data and builder downloads (story 7.2): never committed, wherever they are created
+*.pbf
+*.osm
+*.tar
+*.zip
+tiles-scratch/
+.cache/ocn-tiles/

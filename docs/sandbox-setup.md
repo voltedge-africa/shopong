@@ -128,6 +128,34 @@ No account needed.
 4. If the dated file is no longer on Geofabrik, change `SNAPSHOT` in the script, delete the `.sha256` file, run it,
    and commit the newly recorded checksum.
 
+### 5a. Map releases (story 7.2)
+
+The tile build for the served map is `scripts/tiles/` (the Eswatini file above is only a rehearsal pin).
+
+- **Region.** The pilot region is the KwaZulu-Natal province (D-8). Geofabrik publishes no KwaZulu-Natal extract:
+  its South Africa page lists only the national file, so `scripts/tiles/pins/kwazulu-natal.json` is unpinned and the
+  build refuses. Pin a source there (file, SHA-256 and coverage box) before any South African release.
+- **Scratch.** Downloads and builds go to `$SCRATCH`, which defaults to `~/.cache/ocn-tiles`, never a shared `/tmp`
+  path. Each run checks it: it must be a real folder (not a symbolic link) owned by you, with no group or other write
+  access. It is created with mode 0700 when missing; for an existing folder run `chmod 700` on it. The builder
+  checkout is pinned to commit `b09d0ceb…`, and the native tools are reused only when that commit is checked out and
+  the SHA-256 of each recorded binary still matches; otherwise they are rebuilt.
+- **Pins.** `scripts/tiles/pins/<region>.json` names the extract, its snapshot date and SHA-256, the coverage box, the
+  pinned Valhalla builder and the attribution. The extract is downloaded to `$SCRATCH/osm` and checked (Geofabrik
+  MD5, then the pinned SHA-256) before any build. A build's own folder is removed on exit, success or failure.
+- **Build.** `RELEASES_DIR=<folder outside the repo> bash scripts/tiles/build-release.sh <pin> <release-name>`. It runs
+  the pinned builder in Docker. A release is `<RELEASES_DIR>/<release-name>/` with `manifest.json` (SHA-512 and size
+  of every file, the ODbL attribution, the source date and SHA-256), `manifest.sha512` and the tile files. The name
+  is never overwritten: the same bytes report `unchanged`, different bytes are refused with
+  "Release <name> already exists.".
+- **Verify.** `bash scripts/tiles/verify-release.sh <RELEASES_DIR> <release-name>`. The manifest's SHA-512 digest is a
+  consistency check, not a signature: it shows the manifest and files agree, not who made them (shortcut S-7.2-15).
+- **Serve.** The Node reads `tiles.releasesDir` (or `OCN_NODE_TILES_DIR`), which must sit outside the data folder,
+  and `tiles.activeRelease` (or `OCN_NODE_TILES_RELEASE`). Routes: `GET /map/active/...` and
+  `GET /map/<release>/...`, read-only, byte ranges, files the manifest lists only. TLS is a reverse proxy's job.
+- **Licence.** Tiles built from OpenStreetMap are treated as a derived database under ODbL 1.0: attribution is
+  shown, and the share-alike position needs counsel's confirmation before the first public release.
+
 ## 6. Sample supplier documents
 
 1. **[AGENT]** Already committed in `samples/`: 3 price lists (clean PDF, low-contrast photographed-style PNG,
