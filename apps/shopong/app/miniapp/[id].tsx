@@ -5,6 +5,7 @@ import { Text } from "panelui-native";
 import { BundleMiniApp } from "../../components/BundleMiniApp";
 import { MiniAppView } from "../../components/MiniAppView";
 import { NativeMiniApp } from "../../components/NativeMiniApp";
+import { OrdersHostProvider } from "../../components/OrdersHost";
 import { useAllMiniApps } from "../../components/publishedMiniApps";
 
 // One generic activity for every mini app: it looks the app up by id and renders its content,
@@ -19,7 +20,15 @@ export default function MiniAppActivity() {
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ title: app?.title ?? "Mini app" }} />
       {content?.kind === "web" ? <MiniAppView source={content.source} /> : null}
-      {content?.kind === "native" ? <NativeMiniApp load={content.load} /> : null}
+      {content?.kind === "native" && app?.id === "orders" ? (
+        // Orders reads and writes this phone's community, so it gets the community's host.
+        <OrdersHostProvider>
+          <NativeMiniApp load={content.load} />
+        </OrdersHostProvider>
+      ) : null}
+      {content?.kind === "native" && app?.id !== "orders" ? (
+        <NativeMiniApp load={content.load} />
+      ) : null}
       {content?.kind === "bundle" ? (
         <BundleMiniApp asset={content.asset()} messages={content.messages} />
       ) : null}

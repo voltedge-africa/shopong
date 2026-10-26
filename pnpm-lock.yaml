@@ -121,6 +121,9 @@ importers:
       '@shopong/miniapp-insights':
         specifier: workspace:*
         version: link:../../miniapps/vendor/insights
+      '@shopong/miniapp-orders':
+        specifier: workspace:*
+        version: link:../../miniapps/vendor/orders
       '@shopong/miniapp-shop':
         specifier: workspace:*
         version: link:../../miniapps/third-party/shop
@@ -378,6 +381,40 @@ importers:
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      uniwind:
+        specifier: 1.13.0
+        version: 1.13.0(@expo/metro-config@58.0.17(expo@58.0.19)(supports-color@8.1.1)(typescript@7.0.2))(metro-cache@0.87.1(supports-color@8.1.1))(metro-transform-worker@0.87.1(supports-color@8.1.1))(metro@0.87.1(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(tailwindcss@4.3.3)
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.0(@types/node@24.19.2)(@voidzero-dev/vite-plus-core@0.3.0(@types/node@24.19.2)(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2))(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2)
+
+  miniapps/vendor/orders:
+    dependencies:
+      '@shopong/community':
+        specifier: workspace:*
+        version: link:../../../packages/community
+      '@shopong/miniapp':
+        specifier: workspace:*
+        version: link:../../../packages/miniapp
+    devDependencies:
+      '@expo/vector-icons':
+        specifier: 15.1.1
+        version: 15.1.1(expo-font@58.0.10)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      panelui-native:
+        specifier: 0.114.0
+        version: 0.114.0(7c26523f0889a9d8603a92115630a220)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-native:
+        specifier: 0.88.0
+        version: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
       typescript:
         specifier: 7.0.2
         version: 7.0.2
