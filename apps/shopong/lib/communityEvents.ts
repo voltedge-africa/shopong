@@ -28,6 +28,7 @@ const build = (fields: {
     | "pledge.created"
     | "delivery.confirmed"
     | "collection.confirmed"
+    | "order.closed"
     | "delivery.disputed"
     | "payment.payout"
     | "payment.approved"
@@ -251,5 +252,20 @@ export function deliveryDisputedEvent(
       delivery: input.delivery,
       ...(input.note === undefined ? {} : { note: input.note }),
     },
+  });
+}
+
+/** The treasurer's close of an order (story 8.7): the order only. The summary is read from the record, not sent. */
+export function orderClosedEvent(
+  input: Base & { readonly me: Did; readonly order: string },
+): EventEnvelope {
+  return build({
+    type: "order.closed",
+    space: input.community,
+    actor: input.me,
+    proof: [],
+    claimedAt: input.now,
+    nonce: hex(input.randomBytes(16)),
+    payload: { order: input.order },
   });
 }

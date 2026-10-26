@@ -64,6 +64,11 @@ export interface PoolView {
   /** The pool as the books hold it. Shown even when the record differs. */
   readonly total: { readonly minor: string; readonly text: string };
   readonly target: { readonly minor: string; readonly text: string } | null;
+  /**
+   * The funding bar for the open order (story 8.4): the whole percent of the target that is in, capped at 100, and the
+   * sentence beside it. Null when there is no target, or a target of nothing, so there is no bar to draw.
+   */
+  readonly funding: { readonly percent: number; readonly text: string } | null;
   readonly you: {
     readonly minor: string;
     readonly text: string;
@@ -101,6 +106,14 @@ function sharesOf(target: bigint, memberIds: readonly string[]): Map<string, big
     shares.set(id, base + (BigInt(index) < extra ? 1n : 0n));
   });
   return shares;
+}
+
+/** The bar's figure: the whole percent of the target in the books, rounded down and kept between 0 and 100. */
+function fundingOf(pool: bigint, target: bigint | undefined): PoolView["funding"] {
+  if (target === undefined || target <= 0n) return null;
+  const raw = (pool * 100n) / target;
+  const percent = raw < 0n ? 0 : raw > 100n ? 100 : Number(raw);
+  return { percent, text: `${randText(pool)} of ${randText(target)} is in.` };
 }
 
 export function poolView(input: PoolInputs): PoolView {
@@ -191,6 +204,7 @@ export function poolView(input: PoolInputs): PoolView {
             minor: input.target.toString(),
             text: `The target is ${randText(input.target)}.`,
           },
+    funding: fundingOf(input.books.pool, input.target),
     you: {
       minor: yourPaid.toString(),
       text: `You have paid ${randText(yourPaid)}`,

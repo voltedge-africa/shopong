@@ -410,3 +410,118 @@ describe("patch: the current driver is judged as the record judges a driver", ()
     expect(await t.community.currentDriver(T0 + DAYS(9))).toBeUndefined();
   });
 });
+
+describe("story 8.6: the planned start, the drivers to choose from and the deliveries on the record", () => {
+  it("keeps the planned start in the view beside the route, so each member's list can show it", async () => {
+    const t = await town();
+    await t.community.registerPlace(place("a"), T0);
+    await t.community.registerPlace(place("b"), T0);
+    const driver = await t.admit(await phone());
+    await grantDriver(t, driver, 7, T0 + DAY_MS);
+    const start = T0 + 2 * DAY_MS;
+    const draft = await routeFor("a".repeat(64), "b".repeat(64));
+    const planned = await t.community.planDelivery(
+      { ...draft, driver: driver.me, windowStart: start },
+      start,
+    );
+    expect(planned.ok).toBe(true);
+    await t.community.space.update();
+    const stored = (await t.community.space.view.get("delivery/o1")) as JsonObject;
+    expect(stored.windowStart).toBe(start);
+    expect(stored.durationSeconds).toBe(1_500);
+  });
+
+  it("lists the drivers whose role stands, for the treasurer to choose from", async () => {
+    const t = await town();
+    const driver = await t.admit(await phone());
+    await t.admit(await phone());
+    await grantDriver(t, driver, 7, T0 + DAY_MS);
+    expect(await t.community.drivers(T0 + 2 * DAY_MS)).toEqual([driver.me]);
+  });
+
+  it("lists only the driver, by the exact did, when other members hold co-treasurer and supplier roles", async () => {
+    const t = await town();
+    const driver = await t.admit(await phone());
+    const coTreasurer = await t.admit(await phone());
+    const supplier = await t.admit(await phone());
+    await grantDriver(t, driver, 7, T0 + DAY_MS);
+    await recordAt(t, T0 + DAY_MS);
+    const co = await t.community.grantRole(
+      coTreasurer.me,
+      "co-treasurer",
+      { limit: { currency: "ZAR", minor: 100_000 }, days: 7 },
+      T0 + DAY_MS,
+    );
+    if (!co.ok) throw new Error(co.error.message);
+    const sup = await t.community.grantRole(supplier.me, "supplier", { days: 7 }, T0 + DAY_MS);
+    if (!sup.ok) throw new Error(sup.error.message);
+    await t.sync();
+    const listed = await t.community.drivers(T0 + 2 * DAY_MS);
+    expect(listed).toEqual([driver.me]);
+    expect(listed).not.toContain(coTreasurer.me);
+    expect(listed).not.toContain(supplier.me);
+  });
+
+  it("lists nobody as a driver once the driver role has ended", async () => {
+    const t = await town();
+    const driver = await t.admit(await phone());
+    await grantDriver(t, driver, 7, T0 + DAY_MS);
+    await recordAt(t, T0 + DAYS(9));
+    expect(await t.community.drivers(T0 + DAYS(9))).toEqual([]);
+  });
+
+  it("reads one planned delivery per order from the view, with its driver, places, duration and start", async () => {
+    const t = await town();
+    await t.community.registerPlace(place("a"), T0);
+    await t.community.registerPlace(place("b"), T0);
+    const driver = await t.admit(await phone());
+    await grantDriver(t, driver, 7, T0 + DAY_MS);
+    const start = T0 + 2 * DAY_MS;
+    const first = await routeFor("a".repeat(64), "b".repeat(64));
+    const second = await routeFor("b".repeat(64), "a".repeat(64));
+    await t.community.planDelivery(
+      { ...first, order: "o1", driver: driver.me, windowStart: start },
+      start,
+    );
+    await t.community.planDelivery(
+      { ...second, order: "o2", driver: driver.me, windowStart: start + 3_600_000 },
+      start,
+    );
+    const rows = await t.community.deliveries();
+    expect(rows.map((row) => row.order)).toEqual(["o1", "o2"]);
+    expect(rows[0]).toEqual({
+      order: "o1",
+      driver: driver.me,
+      origin: "a".repeat(64),
+      destination: "b".repeat(64),
+      durationSeconds: 1_500,
+      fingerprint: first.route.fingerprint,
+      windowStart: start,
+    });
+  });
+
+  it("shows the same planned delivery on a member's replica once it has synced", async () => {
+    const t = await town();
+    await t.community.registerPlace(place("a"), T0);
+    await t.community.registerPlace(place("b"), T0);
+    const driver = await t.admit(await phone());
+    const member = await t.admit(await phone());
+    await grantDriver(t, driver, 7, T0 + DAY_MS);
+    const start = T0 + 2 * DAY_MS;
+    const draft = await routeFor("a".repeat(64), "b".repeat(64));
+    await t.community.planDelivery({ ...draft, driver: driver.me, windowStart: start }, start);
+    await t.sync();
+    const rows = await member.deliveries();
+    expect(rows).toEqual([
+      {
+        order: "o1",
+        driver: driver.me,
+        origin: "a".repeat(64),
+        destination: "b".repeat(64),
+        durationSeconds: 1_500,
+        fingerprint: draft.route.fingerprint,
+        windowStart: start,
+      },
+    ]);
+  });
+});

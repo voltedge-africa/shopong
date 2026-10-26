@@ -19,6 +19,7 @@
     "@shopong/ports": "workspace:*"
   },
   "devDependencies": {
+    "@shopong/community": "workspace:*",
     "typescript": "7.0.2",
     "vite-plus": "catalog:"
   }

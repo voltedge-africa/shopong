@@ -1,6 +1,7 @@
 // The pay card's words (story 4.3). The card takes only what the Node says about the member's pledge: it never takes
 // a redirect parameter, so "Paid" cannot come from a return link. Every card that talks about a payment says it is a
 // test payment with no money moving, and no card names the processor, a webhook, a capability token or an idempotency key.
+import { POOL_STATUS_LABELS } from "@shopong/community";
 import { describe, expect, it } from "vite-plus/test";
 import { createSingleFlight, payCardOf, type PaymentView, SIMULATED_NOTE } from "./pay";
 
@@ -21,9 +22,10 @@ describe("the pay card, by what the Node says", () => {
     expect(card.actions).toEqual(["check"]);
   });
 
-  it("offers Pay on a pledge the Node holds with no request yet, showing the amount", () => {
+  it("says Not paid yet on a pledge the Node holds with no payment made, offering Pay with the amount", () => {
     const card = payCardOf(withStatus("none"));
-    expect(card.heading).toBe("Pledge of R150.00");
+    expect(card.heading).toBe("Not paid yet");
+    expect(card.body.join(" ")).toContain("Your pledge of R150.00 is still open.");
     expect(card.actions).toEqual(["pay"]);
     expect(card.amountText).toBe("R150.00");
   });
@@ -169,5 +171,50 @@ describe("review item 12: one tap, one tab", () => {
     const flight = createSingleFlight();
     await expect(flight.run(async () => Promise.reject(new Error("no tab")))).rejects.toThrow();
     expect(await flight.run(async () => 3)).toBe(3);
+  });
+});
+
+describe("story 8.4: an unpaid member's words, and no bank detail on the card", () => {
+  const unpaid = ["none", "cancelled", "expired", "failed"] as const;
+
+  it("the member's own card says Not paid yet, and the pool says Waiting for the same member", () => {
+    expect(payCardOf(withStatus("none")).heading).toBe("Not paid yet");
+    expect(POOL_STATUS_LABELS.waiting).toBe("Waiting");
+  });
+
+  it.each(unpaid)("%s: an unpaid card never says Paid, in any word of the card", (status) => {
+    const card = payCardOf(withStatus(status));
+    expect([card.heading, ...card.body].join(" ")).not.toMatch(/\bPaid\b/u);
+  });
+
+  it("no card shows an account number, a branch, a sort code or a phone number", () => {
+    // Every state the card can take, including the ones with no pledge yet.
+    const views: PaymentView[] = [
+      { onNode: false, queued: false },
+      { onNode: true, queued: false },
+      { onNode: true, queued: true },
+      { onNode: true, queued: false, pledgedMinor: 15000, windowOpen: false },
+      ...(
+        [
+          "none",
+          "pending",
+          "completed",
+          "cancelled",
+          "expired",
+          "failed",
+          "unreachable",
+          "clock",
+          "not_reached",
+          "busy",
+          "unreadable",
+        ] as const
+      ).map((status) => withStatus(status)),
+    ];
+    const bankOrPhone = /account (number|no)|branch|sort code|\+27|\b0\d{9}\b|\b\d{10,}\b/iu;
+    for (const view of views) {
+      const card = payCardOf(view);
+      const words = [card.heading, ...card.body, card.amountText ?? ""].join(" ");
+      expect(words).not.toMatch(bankOrPhone);
+    }
   });
 });

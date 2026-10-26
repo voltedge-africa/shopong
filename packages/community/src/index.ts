@@ -44,7 +44,29 @@ export {
   type OrderStatus,
   type StoredOrder,
 } from "./orders.js";
-export { DELIVERY_MESSAGES, plannerProblem } from "./delivery.js";
+export {
+  DELIVERY_MESSAGES,
+  deliveriesOf,
+  plannerProblem,
+  type PlannedDelivery,
+} from "./delivery.js";
+export {
+  CLOSE_MESSAGES,
+  closeBlocker,
+  closeFigures,
+  closedKey,
+  closingSummary,
+  differenceOf,
+  memberLabel,
+  missingCollectors,
+  notCollectedMessage,
+  sharesOfTotal,
+  type ClosingMember,
+  type ClosingSummary,
+  type Difference,
+  type DifferenceKind,
+  type TimelineLine,
+} from "./closing.js";
 export { MEMBER_AREA_MESSAGES, memberAreaKey } from "./areas.js";
 export { holdersOf, isRoleStanding, type HeldRole } from "./roles.js";
 export { NAMING_MESSAGES, namingProblem } from "./naming.js";

@@ -6,7 +6,7 @@
 // View keys: `places/<id>` { label, area, addressCommitment }, `delivery/<order>` { event, driver, origin, destination,
 // costing, distanceMeters, durationSeconds, tileRelease, fingerprint, plannedBy }.
 
-import type { JsonObject } from "@shopong/events";
+import type { JsonObject, JsonValue } from "@shopong/events";
 import { type EpochMs, type ViewReader } from "@shopong/ports";
 import { isTreasurer } from "./quotes.js";
 import {
@@ -90,4 +90,53 @@ export async function placeAdderProblem(
 ): Promise<string | undefined> {
   if (await isTreasurer(ctx, view, who, at)) return undefined;
   return (await coTreasurerProblem(ctx, view, who, at)) ?? DELIVERY_MESSAGES.place_not_permitted;
+}
+
+/** One planned delivery as the view holds it (story 8.6): the order's driver, its two places and the route's duration. */
+export interface PlannedDelivery {
+  readonly order: string;
+  readonly driver: string;
+  readonly origin: string;
+  readonly destination: string;
+  /** The Node's route duration, in whole seconds. The arrival estimate is the planned start plus this. */
+  readonly durationSeconds: number;
+  /** The planned start, in milliseconds since the epoch, when the planner gave one. */
+  readonly windowStart?: number;
+  /** The route's fingerprint: the Node finds the line by it (story 7.4). */
+  readonly fingerprint: string;
+}
+
+const textField = (value: JsonValue | undefined, key: string): string | undefined => {
+  const found = (value as { readonly [key: string]: JsonValue } | undefined)?.[key];
+  return typeof found === "string" ? found : undefined;
+};
+
+/** Every planned delivery in these view rows, one per order, in view-key order. A row that is not a plan is left out. */
+export function deliveriesOf(
+  rows: readonly { readonly key: string; readonly value: JsonValue }[],
+): readonly PlannedDelivery[] {
+  const out: PlannedDelivery[] = [];
+  for (const row of rows) {
+    if (!row.key.startsWith("delivery/")) continue;
+    const order = decodeURIComponent(row.key.slice("delivery/".length));
+    const driver = textField(row.value, "driver");
+    const origin = textField(row.value, "origin");
+    const destination = textField(row.value, "destination");
+    const value = row.value as { readonly [key: string]: JsonValue };
+    if (driver === undefined || origin === undefined || destination === undefined) continue;
+    if (typeof value.durationSeconds !== "number") continue;
+    const fingerprint = textField(row.value, "fingerprint");
+    if (fingerprint === undefined) continue;
+    const windowStart = typeof value.windowStart === "number" ? value.windowStart : undefined;
+    out.push({
+      order,
+      driver,
+      origin,
+      destination,
+      durationSeconds: value.durationSeconds,
+      fingerprint,
+      ...(windowStart === undefined ? {} : { windowStart }),
+    });
+  }
+  return out;
 }

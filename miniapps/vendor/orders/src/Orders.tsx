@@ -25,6 +25,7 @@ import {
 import { comparisonOf, type ComparisonView, type CompareColumn } from "./compare";
 import { OrdersHostContext, type OrderList, type OrdersHost, type PaymentHost } from "./host";
 import { FilesPanel } from "./FilesPanel";
+import { ClosePanel } from "./ClosePanel";
 import { ProofPanel } from "./ProofPanel";
 import {
   deadlineText,
@@ -277,6 +278,15 @@ function OrdersView({ host }: { host: OrdersHost }) {
 
             {host.proof !== undefined ? (
               <ProofPanel key={`proof-${name}`} host={host.proof} order={name} />
+            ) : null}
+
+            {host.proof !== undefined ? (
+              <ClosePanel
+                key={`close-${name}`}
+                host={host.proof}
+                order={name}
+                treasurer={host.canAdd}
+              />
             ) : null}
 
             {host.payouts !== undefined ? (

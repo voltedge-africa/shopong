@@ -1,3 +1,8 @@
+import type { PlannedDelivery } from "@shopong/community";
+
+import { shortDid } from "./identitySeed";
+import { arrivalSentence, arrivalWords } from "./route";
+
 export type Notification = {
   id: string;
   /** The mini app that sent it; opening the notification opens that app. */
@@ -68,4 +73,31 @@ export function timeAgo(at: number, now: number): string {
   if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)} h ago`;
   const days = Math.floor(elapsed / DAY);
   return days === 1 ? "Yesterday" : `${days} days ago`;
+}
+
+/**
+ * One member-list entry per planned delivery on the record (story 8.6): "Delivery planned to <place>", with the driver in
+ * short form and the planned start and the arrival estimate. Produced on the phone from the synced record, not pushed.
+ */
+export function deliveryNotificationsOf(input: {
+  readonly deliveries: readonly PlannedDelivery[];
+  /** The label of a registered place by its id, or undefined when the phone does not know it. */
+  readonly placeLabel: (id: string) => string | undefined;
+}): Notification[] {
+  return input.deliveries.map((delivery) => {
+    const place = input.placeLabel(delivery.destination) ?? "the collection point";
+    const driver = `Driver ${shortDid(delivery.driver)}.`;
+    const timing =
+      delivery.windowStart === undefined
+        ? `Estimated time on the road: ${arrivalWords(delivery.durationSeconds)}.`
+        : arrivalSentence(delivery.windowStart, delivery.durationSeconds);
+    return {
+      id: `delivery-${delivery.order}`,
+      appId: "delivery",
+      title: `Delivery planned to ${place}`,
+      body: `${driver} ${timing}`,
+      at: delivery.windowStart ?? 0,
+      read: false,
+    };
+  });
 }

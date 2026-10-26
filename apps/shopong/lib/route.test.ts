@@ -4,6 +4,9 @@ import { describe, expect, it } from "vite-plus/test";
 import type { RouteAnswer } from "./nodeClient";
 import {
   OFFLINE_PLAN_MESSAGE,
+  arrivalSentence,
+  arrivalWords,
+  clockOf,
   planFailureMessage,
   roadLabelOf,
   routeLoadMessage,
@@ -72,5 +75,37 @@ describe("routeLoadMessage", () => {
       },
     });
     expect(JSON.stringify(message)).not.toMatch(/"lat"|"lng"/);
+  });
+});
+
+// Story 8.6: the arrival estimate is the planned start plus the Node's route duration, labelled "about".
+describe("the arrival estimate (story 8.6)", () => {
+  const SAT_START = Date.UTC(2026, 9, 26, 12, 5); // 14:05 in South Africa (UTC+2)
+
+  it("says the Node's duration in whole minutes, labelled about", () => {
+    expect(arrivalWords(2_400)).toBe("about 40 minutes");
+    expect(arrivalWords(2_380)).toBe("about 40 minutes");
+    expect(arrivalWords(2_340)).toBe("about 39 minutes");
+    expect(arrivalWords(30)).toBe("about 1 minute");
+  });
+
+  it("says hours for a longer run", () => {
+    expect(arrivalWords(3_600)).toBe("about 1 hour");
+    expect(arrivalWords(3_900)).toBe("about 1 hour 5 minutes");
+    expect(arrivalWords(7_200)).toBe("about 2 hours");
+  });
+
+  it("shows a clock in South Africa time", () => {
+    expect(clockOf(SAT_START)).toBe("14:05");
+    expect(clockOf(Date.UTC(2026, 9, 26, 22, 30))).toBe("00:30");
+  });
+
+  it("gives the planned start and the arrival in one plain sentence, from the same rounded minutes", () => {
+    expect(arrivalSentence(SAT_START, 2_400)).toBe(
+      "Planned start 14:05. Arrival about 14:45 (about 40 minutes).",
+    );
+    expect(arrivalSentence(SAT_START, 2_380)).toBe(
+      "Planned start 14:05. Arrival about 14:45 (about 40 minutes).",
+    );
   });
 });
