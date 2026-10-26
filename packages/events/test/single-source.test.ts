@@ -2,19 +2,23 @@
 // files may not embed their own digests or canonical strings, and only
 // test/vectors.ts may load the vector file.
 import { describe, expect, it } from "vite-plus/test";
+import attachmentTest from "./attachment.test.ts?raw";
 import canonicalTest from "./canonical.test.ts?raw";
 import commitmentTest from "./commitment.test.ts?raw";
 import crossTest from "./cross-implementation.test.ts?raw";
 import envelopeTest from "./envelope.test.ts?raw";
+import personalTest from "./personal.test.ts?raw";
 import reference from "./reference.ts?raw";
 import utf8Test from "./utf8.test.ts?raw";
 import { vectors } from "./vectors.js";
 
 const sources: Record<string, string> = {
+  "attachment.test.ts": attachmentTest,
   "canonical.test.ts": canonicalTest,
   "commitment.test.ts": commitmentTest,
   "cross-implementation.test.ts": crossTest,
   "envelope.test.ts": envelopeTest,
+  "personal.test.ts": personalTest,
   "reference.ts": reference,
   "utf8.test.ts": utf8Test,
 };

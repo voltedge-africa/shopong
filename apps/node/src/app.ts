@@ -6,10 +6,11 @@ import {
   type NodeComponent,
 } from "./components.ts";
 import { createAuthorityGuard, type AuthorityConfig } from "./authority.ts";
+import { registerCommitmentRoute } from "./commitment-route.ts";
 import { keepRawJsonBody } from "./signed.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
-import type { CapabilityAuth } from "@shopong/ports";
+import type { CapabilityAuth, Commitments } from "@shopong/ports";
 
 export type OverallStatus = "ok" | "degraded";
 
@@ -29,6 +30,8 @@ export interface AppOptions {
   authority?: AuthorityConfig;
   /** The signed sync routes. Always registered; without a hub (record off) they answer 503. */
   sync?: SyncOptions;
+  /** Commits personal values for `POST /commitments` (story 2.7). Without it, that route answers 503. */
+  commitments?: Commitments;
 }
 
 async function report(options: AppOptions): Promise<HealthReport> {
@@ -72,6 +75,11 @@ export function buildApp(options: AppOptions): FastifyInstance {
 
   keepRawJsonBody(app);
   createAuthorityGuard({ auth, config: options.authority }).register(app);
+  registerCommitmentRoute(app, {
+    auth,
+    commitments: options.commitments,
+    config: options.authority,
+  });
   registerSyncRoutes(app, auth, options.sync ?? {});
 
   app.setNotFoundHandler((_request, reply) => reply.code(404).send({ error: "not-found" }));

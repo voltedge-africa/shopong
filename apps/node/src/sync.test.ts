@@ -7,7 +7,14 @@ import {
   signRequest,
   type RequestParts,
 } from "@shopong/community";
-import { createEvent, eventIdOf, webCryptoSha512, type EventEnvelope } from "@shopong/events";
+import {
+  PERSONAL_DATA_MESSAGE,
+  createEvent,
+  eventIdOf,
+  webCryptoSha512,
+  type EventEnvelope,
+} from "@shopong/events";
+import golden from "@shopong/events/vectors/golden.json" with { type: "json" };
 import type { Did, Space } from "@shopong/ports";
 import type { SyncHub } from "./sync.ts";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -257,5 +264,38 @@ describe("the Node's signed sync routes (AC 3.5)", () => {
     );
     expect(wrongSpace.statusCode).toBe(400);
     expect(held.appends()).toBe(0);
+  });
+  it("refuses a raw phone number in the payload before the append, and appends nothing (story 2.7)", async () => {
+    const { w, held, app } = await setup();
+    const event = createEvent({
+      type: "order.proposed",
+      space: w.driverCommunity.key,
+      actor: w.driver.did,
+      proof: [],
+      claimedAt: NOW,
+      nonce: randomHex(16),
+      payload: { title: "Groceries", contact: "082 123 4567" },
+    });
+    const res = await send(app, w.driver, w.driverCommunity.key, event);
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ problem: "personal_data", reason: PERSONAL_DATA_MESSAGE });
+    expect(held.appends()).toBe(0);
+  });
+
+  it("accepts an event whose personal field holds a commitment", async () => {
+    const { w, held, app } = await setup();
+    const commitment = golden.commitments[0]?.commitment ?? "";
+    const event = createEvent({
+      type: "order.proposed",
+      space: w.driverCommunity.key,
+      actor: w.driver.did,
+      proof: [],
+      claimedAt: NOW,
+      nonce: randomHex(16),
+      payload: { contact: commitment },
+    });
+    const res = await send(app, w.driver, w.driverCommunity.key, event);
+    expect(res.statusCode).toBe(200);
+    expect(held.appends()).toBe(1);
   });
 });

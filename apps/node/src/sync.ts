@@ -14,7 +14,13 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCommunityKey, NOT_THE_WRITER, REQUEST_SKEW_MS } from "@shopong/community";
-import { parseEvent, type EventEnvelope } from "@shopong/events";
+import {
+  PERSONAL_DATA_MESSAGE,
+  PersonalDataError,
+  assertNoPersonalData,
+  parseEvent,
+  type EventEnvelope,
+} from "@shopong/events";
 import type { CapabilityAuth, Did, Space, Unsubscribe, ViewChange } from "@shopong/ports";
 import type { JournalEntry } from "@shopong/record-autobase";
 import { HTTP_STATUS, nodeMessage } from "./authority.ts";
@@ -80,7 +86,8 @@ type SyncProblem =
   | "wrong_space"
   | "not_yours"
   | "not_writable"
-  | "invalid_cursor";
+  | "invalid_cursor"
+  | "personal_data";
 
 const SYNC_STATUS: { readonly [P in SyncProblem]: number } = {
   not_held: 404,
@@ -90,6 +97,7 @@ const SYNC_STATUS: { readonly [P in SyncProblem]: number } = {
   not_yours: 403,
   not_writable: 403,
   invalid_cursor: 400,
+  personal_data: 400,
 };
 
 const SYNC_MESSAGES: { readonly [P in SyncProblem]: string } = {
@@ -100,6 +108,7 @@ const SYNC_MESSAGES: { readonly [P in SyncProblem]: string } = {
   not_yours: NOT_THE_WRITER,
   not_writable: "This person cannot write to that community.",
   invalid_cursor: "That place in the record is not one this Node gave out.",
+  personal_data: PERSONAL_DATA_MESSAGE,
 };
 
 const CURSOR_PREFIX = "ocn-pull/v1:";
@@ -183,6 +192,14 @@ export function registerSyncRoutes(
 
       // Only the signer's own events, written through the signer's own replica. `apply` still decides their meaning.
       if (event.actor !== actor || space.local !== actor) return refuse("not_yours", actor);
+
+      // A raw phone or ID number is refused before the append, so the log never holds it (AGENTS rule 6, story 2.7).
+      try {
+        assertNoPersonalData(event.payload);
+      } catch (error) {
+        if (error instanceof PersonalDataError) return refuse("personal_data", actor);
+        throw error;
+      }
 
       // Acknowledged only once the append has returned, which is after it is durable in the signer's replica.
       const receipt = await space.append(event);

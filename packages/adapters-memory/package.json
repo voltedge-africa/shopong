@@ -13,6 +13,7 @@
     "test": "vp test"
   },
   "dependencies": {
+    "@shopong/events": "workspace:*",
     "@shopong/ports": "workspace:*"
   },
   "devDependencies": {

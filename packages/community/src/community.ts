@@ -2,6 +2,9 @@
 // invitation, list the members. The record is any `SharedRecord`; the app uses the in-memory one.
 
 import {
+  PERSONAL_DATA_MESSAGE,
+  PersonalDataError,
+  assertNoPersonalData,
   createEvent,
   eventIdOf,
   type EventEnvelope,
@@ -12,6 +15,7 @@ import {
 import {
   err,
   ok,
+  type AppendReceipt,
   type CapabilityAuth,
   type Did,
   type EpochMs,
@@ -104,6 +108,25 @@ function field(value: JsonValue, key: string): JsonValue | undefined {
     : undefined;
 }
 
+/**
+ * The one way this service appends an event. A payload with a raw phone or ID number is refused before
+ * `space.append`, so the log never holds it (AGENTS rule 6). `apply` checks again as the second line.
+ */
+export async function appendChecked(
+  space: Space<EventEnvelope>,
+  event: EventEnvelope,
+): Promise<Result<AppendReceipt, PortError<"personal_data" | "not_writable" | "closed">>> {
+  try {
+    assertNoPersonalData(event.payload);
+  } catch (error) {
+    if (error instanceof PersonalDataError) return err("personal_data", PERSONAL_DATA_MESSAGE);
+    throw error;
+  }
+  const receipt = await space.append(event);
+  if (!receipt.ok) return err(receipt.error.code, receipt.error.message);
+  return ok(receipt.value);
+}
+
 async function append(
   deps: CommunityDeps,
   space: Space<EventEnvelope>,
@@ -122,7 +145,7 @@ async function append(
     nonce: toHex(deps.randomBytes(16)),
     payload,
   } as never) as EventEnvelope;
-  const receipt = await space.append(event);
+  const receipt = await appendChecked(space, event);
   if (!receipt.ok) return err("refused", receipt.error.message);
   await space.update();
   const rejected = await space.view.get(`rejected/${receipt.value.id}`);
@@ -281,8 +304,15 @@ function wrap(
       } catch {
         return err("refused", QUOTE_MESSAGES.save_failed);
       }
-      const receipt = await space.append(event);
-      if (!receipt.ok) return err("refused", QUOTE_MESSAGES.not_writable);
+      const receipt = await appendChecked(space, event);
+      if (!receipt.ok) {
+        return err(
+          "refused",
+          receipt.error.code === "personal_data"
+            ? receipt.error.message
+            : QUOTE_MESSAGES.not_writable,
+        );
+      }
       await space.update();
       const rejected = await space.view.get(`rejected/${receipt.value.id}`);
       if (rejected !== undefined) {

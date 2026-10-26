@@ -11,7 +11,7 @@
 // Not here: OCR or photos (the `Ocr` port, later), ranking (story 6.9), editing or deleting a quote, and
 // choosing a supplier (`quote.selected`).
 
-import type { JsonObject } from "@shopong/events";
+import { hasIdNumberShape, hasPhoneNumberShape, type JsonObject } from "@shopong/events";
 import type { Did, EpochMs, ViewReader } from "@shopong/ports";
 import { isCoTreasurer } from "./roles.js";
 
@@ -32,8 +32,14 @@ export const QUOTE_LIMITS = {
 export const QUOTE_MESSAGES = {
   not_permitted: "Only the treasurer can add a quote.",
   no_supplier: "Name the supplier.",
+  // A 13-digit ID number already has seven digits, so these sentences cover ID numbers too.
   supplier_phone: "Leave phone numbers out of the supplier name.",
   item_phone: "Leave phone numbers out of the item name.",
+  order_phone: "Leave phone numbers out of the order name.",
+  unit_phone: "Leave phone numbers out of the unit.",
+  /** Says nothing of the key itself: a key can hold a number, and reasons are kept in the shared log. */
+  unknown_field:
+    "Remove the extra field: a quote holds only its supplier, order, items and delivery terms.",
   no_order: "Name the order this quote is for.",
   no_lines: "Add at least one item.",
   too_many_lines: `A quote can have at most ${QUOTE_LIMITS.items} items.`,
@@ -86,10 +92,6 @@ const isWhole = (value: unknown): value is number =>
 /** Runs of spaces become one space, and the ends are trimmed. Case is kept. */
 export const tidy = (text: string): string => text.trim().replace(/\s+/g, " ");
 
-/** Seven or more digits once spaces, hyphens, brackets and a leading + are ignored: a phone number. */
-const hasPhoneNumber = (text: string): boolean =>
-  /\d{7}/.test(text.replace(/[\s()-]/g, "").replace(/^\+/, ""));
-
 const lowerFirst = (sentence: string) => sentence.charAt(0).toLowerCase() + sentence.slice(1);
 
 interface Text {
@@ -104,6 +106,18 @@ function textOf(value: unknown): Text {
   return { text: tidy(raw), control: isControl(raw) };
 }
 
+/** The keys a quote may hold, at each level. Any other key is refused, whatever it holds (review H2). */
+const QUOTE_KEYS = ["supplier", "order", "lines", "delivery"] as const;
+const LINE_KEYS = ["item", "unit", "packSize", "pricePerPackCents"] as const;
+const DELIVERY_KEYS = ["feeCents", "days"] as const;
+
+/** A phone or ID number in a name, by the same shape rule the record's guard uses. */
+const personalShape = (text: string): boolean =>
+  hasPhoneNumberShape(text) || hasIdNumberShape(text);
+
+const hasOnlyKeys = (o: Record<string, unknown>, allowed: readonly string[]): boolean =>
+  Object.keys(o).every((key) => allowed.includes(key));
+
 /**
  * Checks a typed quote. `input` may be anything the form or a stored event gives: every value is
  * looked at, and every problem is returned, in the order a person would fix them.
@@ -111,6 +125,7 @@ function textOf(value: unknown): Text {
 export function checkQuote(input: unknown): QuoteCheck {
   const o = isObject(input) ? input : {};
   const problems: string[] = [];
+  let unknownField = !hasOnlyKeys(o, QUOTE_KEYS);
 
   const supplier = textOf(o.supplier);
   if (supplier.control)
@@ -118,7 +133,7 @@ export function checkQuote(input: unknown): QuoteCheck {
       "The supplier name has a character that cannot be used. Type it again on one line.",
     );
   if (supplier.text === "") problems.push(QUOTE_MESSAGES.no_supplier);
-  else if (hasPhoneNumber(supplier.text)) problems.push(QUOTE_MESSAGES.supplier_phone);
+  else if (personalShape(supplier.text)) problems.push(QUOTE_MESSAGES.supplier_phone);
   if (supplier.text.length > QUOTE_LIMITS.nameChars)
     problems.push(`Keep the supplier name to ${QUOTE_LIMITS.nameChars} characters or fewer.`);
 
@@ -126,6 +141,7 @@ export function checkQuote(input: unknown): QuoteCheck {
   if (order.control)
     problems.push("The order name has a character that cannot be used. Type it again on one line.");
   if (order.text === "") problems.push(QUOTE_MESSAGES.no_order);
+  else if (personalShape(order.text)) problems.push(QUOTE_MESSAGES.order_phone);
   if (order.text.length > QUOTE_LIMITS.nameChars)
     problems.push(`Keep the order name to ${QUOTE_LIMITS.nameChars} characters or fewer.`);
 
@@ -135,18 +151,19 @@ export function checkQuote(input: unknown): QuoteCheck {
   const lines: QuoteLine[] = [];
   rawLines.forEach((raw, index) => {
     const line = isObject(raw) ? raw : {};
+    if (!hasOnlyKeys(line, LINE_KEYS)) unknownField = true;
     const item = textOf(line.item);
     const unit = textOf(line.unit);
     // The label names the item unless the name is missing, has a control character, or is a phone
     // number: a rejected reason is kept in the shared log, so it must not repeat a phone number.
     const label =
-      item.text === "" || item.control || hasPhoneNumber(item.text)
+      item.text === "" || item.control || personalShape(item.text)
         ? `Line ${index + 1}`
         : `Line ${index + 1} (${item.text})`;
 
     if (item.control) problems.push(`${label}: the item name has a character that cannot be used.`);
     if (item.text === "") problems.push(`${label}: name the item.`);
-    else if (hasPhoneNumber(item.text)) problems.push(`${label}: ${QUOTE_MESSAGES.item_phone}`);
+    else if (personalShape(item.text)) problems.push(`${label}: ${QUOTE_MESSAGES.item_phone}`);
     if (item.text.length > QUOTE_LIMITS.nameChars)
       problems.push(
         `${label}: ${lowerFirst(`Keep the item name to ${QUOTE_LIMITS.nameChars} characters or fewer.`)}`,
@@ -154,6 +171,7 @@ export function checkQuote(input: unknown): QuoteCheck {
 
     if (unit.control) problems.push(`${label}: the unit has a character that cannot be used.`);
     if (unit.text === "") problems.push(`${label}: say the unit, for example bag or litre.`);
+    else if (personalShape(unit.text)) problems.push(`${label}: ${QUOTE_MESSAGES.unit_phone}`);
     if (unit.text.length > QUOTE_LIMITS.nameChars)
       problems.push(
         `${label}: ${lowerFirst(`Keep the unit to ${QUOTE_LIMITS.nameChars} characters or fewer.`)}`,
@@ -184,6 +202,7 @@ export function checkQuote(input: unknown): QuoteCheck {
   });
 
   const delivery = isObject(o.delivery) ? o.delivery : {};
+  if (!hasOnlyKeys(delivery, DELIVERY_KEYS)) unknownField = true;
   if (!isWhole(delivery.feeCents) || delivery.feeCents < 0)
     problems.push(QUOTE_MESSAGES.delivery_fee);
   else if (delivery.feeCents > QUOTE_LIMITS.feeCents)
@@ -191,6 +210,7 @@ export function checkQuote(input: unknown): QuoteCheck {
   if (!isWhole(delivery.days) || delivery.days < 0) problems.push(QUOTE_MESSAGES.delivery_days);
   else if (delivery.days > QUOTE_LIMITS.days) problems.push(QUOTE_MESSAGES.delivery_days_max);
 
+  if (unknownField) problems.unshift(QUOTE_MESSAGES.unknown_field);
   if (problems.length > 0) return { ok: false, problems };
   return {
     ok: true,

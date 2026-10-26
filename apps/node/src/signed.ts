@@ -157,3 +157,30 @@ export async function checkSignedRequest(
   if (refused !== undefined) return { ok: false, problem: refused, actor: verdict.actor };
   return { ok: true, actor: verdict.actor, now: verdict.now };
 }
+
+/**
+ * Fixed-window counts per caller and named limit (story 2.7, review H3): at most `max` uses in each `windowMs`,
+ * a window starting at its first use. Kept in memory beside the one-time numbers (shortcut S-2.7-14).
+ */
+export class FixedWindows {
+  readonly #windows = new Map<string, { startedAt: EpochMs; count: number }>();
+  readonly #clock: () => EpochMs;
+
+  constructor(clock: () => EpochMs) {
+    this.#clock = clock;
+  }
+
+  /** Counts one use. False, and nothing counted, once `max` uses have fallen in the current window. */
+  spend(limit: string, key: string, max: number, windowMs: number): boolean {
+    const now = this.#clock();
+    const id = `${limit}\n${key}`;
+    const window = this.#windows.get(id);
+    if (window === undefined || now - window.startedAt >= windowMs) {
+      this.#windows.set(id, { startedAt: now, count: 1 });
+      return true;
+    }
+    if (window.count >= max) return false;
+    window.count += 1;
+    return true;
+  }
+}

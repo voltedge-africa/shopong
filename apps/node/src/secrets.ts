@@ -45,6 +45,13 @@ export const SECRET_DEFINITIONS: readonly SecretDefinition[] = [
     description: "Ledfra API token",
   },
   {
+    key: "COMMUNITY_SECRET",
+    owner: "record",
+    required: false,
+    description:
+      "Community secret for personal-data commitments: 32 bytes as 64 hex characters (story 2.7). Never leaves the Node",
+  },
+  {
     key: "STABLECOIN_SIGNING_KEY",
     owner: "stablecoin",
     required: false,

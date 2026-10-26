@@ -13,7 +13,12 @@
 // `joined/<invitation id>` { member }, `roles/<did>/<role>` (see roles.ts), `quotes/<order>/<supplier>`
 // (see quotes.ts), `rejected/<event id>` { type, reason }.
 
-import type { EventEnvelope, JsonObject } from "@shopong/events";
+import {
+  PERSONAL_DATA_MESSAGE,
+  checkPersonalFields,
+  type EventEnvelope,
+  type JsonObject,
+} from "@shopong/events";
 import type { Apply, CapabilityAuth, Did, RecordEntry, ViewWriter } from "@shopong/ports";
 import { invitePassOnAllowed } from "./chain.js";
 import { verifyAuthority } from "./authority.js";
@@ -110,6 +115,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     }
     const checked = checkQuote(event.payload);
     if (!checked.ok) return checked.problems.join(" ");
+    // The second line for a quote: `checkQuote` gives the quote's own sentences, this catches anything else.
+    if (checkPersonalFields(event.payload).length > 0) return PERSONAL_DATA_MESSAGE;
     await view.put(quoteKey(checked.value.order, checked.value.supplier), quoteJson(checked.value));
     return undefined;
   }
@@ -117,6 +124,12 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
   return async (entries, view, host) => {
     for (const entry of entries) {
       const event = entry.event;
+      // Personal values first, before any effect (AGENTS rule 6). A quote is checked by `quoteAdded`, which
+      // gives the quote's own sentences first and then this same guard.
+      if (event.type !== "quote.added" && checkPersonalFields(event.payload).length > 0) {
+        await view.put(`rejected/${entry.id}`, { type: event.type, reason: PERSONAL_DATA_MESSAGE });
+        continue;
+      }
       if (
         event.type !== "member.invited" &&
         event.type !== "member.joined" &&

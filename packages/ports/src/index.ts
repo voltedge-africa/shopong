@@ -1,4 +1,5 @@
 export * from "./common.js";
+export * from "./commitments.js";
 export * from "./capability-auth.js";
 export * from "./shared-record.js";
 export * from "./ledger.js";
