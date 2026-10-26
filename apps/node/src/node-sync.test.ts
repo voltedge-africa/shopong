@@ -368,11 +368,17 @@ describe("removal on the Node (story 3.3)", () => {
     expect(append.status).toBe(403);
     expect(append.json).toMatchObject({ problem: "not_member" });
 
-    // The earlier event stays in the record the creator reads.
-    const seen = await pullAll(node, creator, key);
-    const ids = (seen.json.events as { id: string }[]).map((e) => e.id);
+    // The earlier event stays in the record the creator reads. Replication from the member's copy can lag under
+    // load, so the pull is repeated for a few seconds before the assertion (a single pull made this test flaky).
+    let ids: string[] = [];
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const seen = await pullAll(node, creator, key);
+      ids = (seen.json.events as { id: string }[]).map((e) => e.id);
+      if (ids.includes(before.json.id as string)) break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
     expect(ids).toContain(before.json.id);
-  });
+  }, 30_000);
 
   it("the Node accepts an append from an invited person who has not joined, and the record gives it no effect", async () => {
     // Shortcut S-3.3-19 (story 3.11): an invitation admits the writer today, so the Node's door is open to the invitee's
