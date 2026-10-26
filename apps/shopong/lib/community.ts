@@ -16,6 +16,9 @@ import {
   type Invitation,
   type InvitationError,
   type Member,
+  type Quote,
+  type QuoteError,
+  type QuoteReceipt,
   type RoleCheck,
   type RoleDraft,
   type RoleError,
@@ -58,6 +61,10 @@ export type CommunityService = {
   roles: () => Promise<readonly RoleRecord[]>;
   /** "What can I do?" */
   checkAction: (request: ActionRequest) => Promise<Result<RoleCheck, RoleError>>;
+  /** Record a typed quote (story 6.8). Only the treasurer can. */
+  addQuote: (input: unknown) => Promise<Result<QuoteReceipt, QuoteError>>;
+  /** The quotes recorded for one order. */
+  quotesFor: (order: string) => Promise<readonly Quote[]>;
   /** The last refusals on this phone, newest first (story 2.5). Kept on the device only. */
   refusals: () => readonly Refusal[];
 };
@@ -138,6 +145,13 @@ export function createCommunityService(
         return logged("What can I do?", err("outside", "Your role doesn't cover that."));
       }
       return logged("What can I do?", await current.checkAction(request, now()));
+    },
+    async addQuote(input) {
+      if (current === null) return logged("Add a quote", err("refused", "Make a community first."));
+      return logged("Add a quote", await current.addQuote(input, now()));
+    },
+    async quotesFor(order) {
+      return current === null ? [] : current.quotesFor(order);
     },
     refusals: () => log,
   };
