@@ -12,6 +12,7 @@
 // `target mod n` members get one more cent.
 
 import type { CurrencyCode } from "@shopong/ports";
+import { SUPPLIER_PAID_NOTE, supplierPaidText, type PaidPayout } from "./payout.js";
 
 export const POOL_STATUS_LABELS = {
   paid: "Paid",
@@ -46,6 +47,8 @@ export interface PoolInputs {
   readonly you: string;
   /** The target in cents from the record, or undefined when the record has none. */
   readonly target: bigint | undefined;
+  /** The payments the record shows as paid to a supplier (story 8.5), in the record's order. */
+  readonly paid?: readonly PaidPayout[];
 }
 
 export type PoolFlagKind =
@@ -64,6 +67,22 @@ export interface PoolView {
   /** The pool as the books hold it. Shown even when the record differs. */
   readonly total: { readonly minor: string; readonly text: string };
   readonly target: { readonly minor: string; readonly text: string } | null;
+  /**
+   * The funding bar for the open order (story 8.4): the whole percent of the target that is in, capped at 100, and the
+   * sentence beside it. Null when there is no target, or a target of nothing, so there is no bar to draw.
+   */
+  readonly funding: { readonly percent: number; readonly text: string } | null;
+  /**
+   * The supplier payment the record shows as made (story 8.5), the same for every member: who was paid, how much, and that
+   * it is simulated. Null until the record shows one.
+   */
+  readonly supplierPaid: {
+    readonly supplier: string;
+    readonly order: string;
+    readonly amount: { readonly minor: string; readonly text: string };
+    readonly text: string;
+    readonly note: string;
+  } | null;
   readonly you: {
     readonly minor: string;
     readonly text: string;
@@ -101,6 +120,14 @@ function sharesOf(target: bigint, memberIds: readonly string[]): Map<string, big
     shares.set(id, base + (BigInt(index) < extra ? 1n : 0n));
   });
   return shares;
+}
+
+/** The bar's figure: the whole percent of the target in the books, rounded down and kept between 0 and 100. */
+function fundingOf(pool: bigint, target: bigint | undefined): PoolView["funding"] {
+  if (target === undefined || target <= 0n) return null;
+  const raw = (pool * 100n) / target;
+  const percent = raw < 0n ? 0 : raw > 100n ? 100 : Number(raw);
+  return { percent, text: `${randText(pool)} of ${randText(target)} is in.` };
 }
 
 export function poolView(input: PoolInputs): PoolView {
@@ -175,6 +202,7 @@ export function poolView(input: PoolInputs): PoolView {
     return status("waiting");
   };
 
+  const paid = input.paid?.[0];
   const yourPaid = input.books.members.get(input.you) ?? 0n;
   const yourShare = known.has(input.you) ? shares?.get(input.you) : undefined;
 
@@ -190,6 +218,18 @@ export function poolView(input: PoolInputs): PoolView {
         : {
             minor: input.target.toString(),
             text: `The target is ${randText(input.target)}.`,
+          },
+    // Once the supplier is paid the pool is spent on purpose: a bar that fell back to empty would read as a loss.
+    funding: paid === undefined ? fundingOf(input.books.pool, input.target) : null,
+    supplierPaid:
+      paid === undefined
+        ? null
+        : {
+            supplier: paid.supplier,
+            order: paid.order,
+            amount: { minor: String(paid.amountMinor), text: randText(BigInt(paid.amountMinor)) },
+            text: supplierPaidText(paid),
+            note: SUPPLIER_PAID_NOTE,
           },
     you: {
       minor: yourPaid.toString(),

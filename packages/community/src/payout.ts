@@ -216,3 +216,76 @@ export function choosePayoutSupplier(
   if (row === undefined) return { ok: false, message: PAYOUT_MESSAGES.no_quote };
   return { ok: true, value: { supplier: pick, amountMinor: row.totalCents, recommendation } };
 }
+
+// Supplier paid (story 8.5). The Node mirrors every posting into the record as `ledger.posted` (story 4.6). A posting whose
+// key is a recorded payment's id and whose lines debit the supplier's payable by that payment's amount is the record's
+// proof that the pool paid the supplier. `apply` notes it under `payouts-paid/<payment id>`, so every replica derives the
+// same answer from the same record, and no phone guesses it.
+
+/** The record type of a mirrored posting (story 4.6). */
+export const POSTING_TYPE = "ledger.posted";
+/** The chart base of the supplier payable account, as the mirror writes it (`packages/ledger-sqlite` SUPPLIER_PAYABLE). */
+export const SUPPLIER_PAYABLE_BASE = "liabilities:supplier/payable";
+export const PAID_PREFIX = "payouts-paid/";
+export const paidKey = (payout: string) => `${PAID_PREFIX}${payout}`;
+/** Said beside every "Supplier paid", because the bank is the simulation (shortcut S-4.7-1). */
+export const SUPPLIER_PAID_NOTE = "Test payment (simulated): no real money moved.";
+
+/** A payment the record shows as paid out of the pool. */
+export interface PaidPayout {
+  readonly payout: string;
+  readonly order: string;
+  readonly supplier: string;
+  readonly amountMinor: number;
+  /** The record event id of the mirrored posting. */
+  readonly event: string;
+}
+
+/** The plain sentence for a paid supplier: who, how much. */
+export function supplierPaidText(paid: Pick<PaidPayout, "supplier" | "amountMinor">): string {
+  return `Supplier paid: ${paid.supplier} was paid ${randText(BigInt(paid.amountMinor))} from the pool.`;
+}
+
+/** Whether a mirrored posting's lines debit the supplier payable by exactly `amountMinor` rand cents (ZAR). */
+export function paysSupplier(entries: unknown, amountMinor: number): boolean {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((line) => {
+    if (typeof line !== "object" || line === null) return false;
+    const l = line as Record<string, unknown>;
+    return (
+      l.account === SUPPLIER_PAYABLE_BASE &&
+      l.direction === "debit" &&
+      l.currency === "ZAR" &&
+      l.minor === amountMinor
+    );
+  });
+}
+
+/** Every payment the record shows as paid, from the view (the same on every replica). */
+export async function paidPayoutsOf(view: ViewReader): Promise<PaidPayout[]> {
+  const found: PaidPayout[] = [];
+  for (const row of await view.list(PAID_PREFIX)) {
+    const payout = row.key.slice(PAID_PREFIX.length);
+    const paid = row.value as { event?: unknown } | null;
+    const recorded = (await view.get(payoutKey(payout))) as
+      | { order?: unknown; supplier?: unknown; amountMinor?: unknown }
+      | undefined;
+    if (
+      recorded === undefined ||
+      typeof recorded.order !== "string" ||
+      typeof recorded.supplier !== "string" ||
+      typeof recorded.amountMinor !== "number" ||
+      typeof paid?.event !== "string"
+    ) {
+      continue;
+    }
+    found.push({
+      payout,
+      order: recorded.order,
+      supplier: recorded.supplier,
+      amountMinor: recorded.amountMinor,
+      event: paid.event,
+    });
+  }
+  return found;
+}

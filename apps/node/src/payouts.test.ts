@@ -13,6 +13,9 @@ import {
   DAY_MS,
   PAYOUT_TYPE,
   approvalBytes,
+  approvalsOf,
+  paidPayoutsOf,
+  poolView,
   checkInvitation,
   communityDefinition,
   coTreasurerJoinRecorded,
@@ -30,6 +33,7 @@ import { configureChart, feesOf, openSqliteLedger, poolAccountOf } from "@shopon
 import type { Did, Ledger, ViewReader } from "@shopong/ports";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import { buildApp } from "./app.ts";
+import { reconcile, type ReconcilerDeps } from "./reconciler.ts";
 import { nodeHmacSha512 } from "./commitments.ts";
 import { createLogger, type LogSink } from "./logger.ts";
 import {
@@ -340,6 +344,8 @@ interface Harness {
   bankCalls: { externalReference: string; approvers: readonly string[] }[];
   auth: IsoUcanCapabilityAuth;
   folder: string;
+  /** The simulated bank the Node pays through. */
+  simulated: SimulatedStitch;
 }
 
 /**
@@ -436,7 +442,7 @@ async function harness(
     payouts,
   });
   await app.ready();
-  return { app, t, hub, ledger, store, now, logs, bank, bankCalls, auth, folder };
+  return { app, t, hub, ledger, store, now, logs, bank, bankCalls, auth, folder, simulated };
 }
 
 /** A request signed by `who` at the Node's clock, sent to the Node. */
@@ -1066,5 +1072,266 @@ describe("an approval given before a removed person rejoined does not count [S-4
       "That approval was given before you rejoined. Ask for a fresh one. (simulated)",
     );
     expect(h.bankCalls).toHaveLength(0);
+  });
+});
+
+/** The record as one member's own replica holds it, after the replicas have met. */
+async function viewOf(t: Town, who: Phone): Promise<ViewReader> {
+  await t.sync();
+  const space = t.members2.get(who.did)!.space;
+  await space.update();
+  return space.view;
+}
+
+describe("Supplier paid, derived from the record on two replicas [story 8.5]", () => {
+  /** A funded pool, a payment with two approvals (the treasurer and a co-treasurer), and the supplier's bank details. */
+  async function ready(funds = 80_000, amount = 50_000) {
+    const t = await town({ approvals: 2, coTreasurers: 1, limit: 1000 });
+    const payment = await recordPayment(t, amount);
+    await approveAs(t, t.creator, payment, amount);
+    await approveAs(t, t.coTreasurers[0]!, payment, amount);
+    const h = await harness(t, { funds });
+    expect((await bankDetails(h, t.creator)).status).toBe(200);
+    return { t, h, payment, amount };
+  }
+
+  it("nothing says 'Supplier paid' before the payment is sent, on either replica", async () => {
+    const { t } = await ready();
+    expect(await paidPayoutsOf(await viewOf(t, t.creator))).toEqual([]);
+    expect(await paidPayoutsOf(await viewOf(t, t.coTreasurers[0]!))).toEqual([]);
+  });
+
+  it("after the payment, the creator's replica and the co-treasurer's replica derive the same paid payment", async () => {
+    const { t, h, payment, amount } = await ready();
+    expect((await pay(h, t.creator, payment)).status).toBe(200);
+    const mine = await paidPayoutsOf(await viewOf(t, t.creator));
+    const theirs = await paidPayoutsOf(await viewOf(t, t.coTreasurers[0]!));
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({
+      payout: payment,
+      order: ORDER,
+      supplier: SUPPLIER,
+      amountMinor: amount,
+    });
+    expect(theirs).toEqual(mine);
+  });
+
+  it("the pool view shows 'Supplier paid' to a member, the amount, and that it is simulated", async () => {
+    const { t, h, payment, amount } = await ready();
+    await pay(h, t.creator, payment);
+    const paid = await paidPayoutsOf(await viewOf(t, t.coTreasurers[0]!));
+    const books = { pool: BigInt(await pool(h)), members: new Map<string, bigint>() };
+    const view = poolView({
+      currency: "ZAR",
+      books,
+      record: books,
+      memberIds: ["a", "b"],
+      you: "a",
+      target: BigInt(amount),
+      paid,
+    });
+    expect(view.supplierPaid).toMatchObject({
+      supplier: SUPPLIER,
+      order: ORDER,
+      amount: { minor: "50000", text: "R500.00" },
+      text: "Supplier paid: Makro Soweto was paid R500.00 from the pool.",
+      note: "Test payment (simulated): no real money moved.",
+    });
+    expect(view.funding).toBeNull();
+    // Before any payment the same inputs show nothing.
+    expect(
+      poolView({ currency: "ZAR", books, record: books, memberIds: ["a"], you: "a", target: 1n })
+        .supplierPaid,
+    ).toBeNull();
+  });
+
+  it("the same request twice leaves one posting, one payout and one 'Supplier paid'", async () => {
+    const { t, h, payment } = await ready();
+    await pay(h, t.creator, payment);
+    await pay(h, t.creator, payment);
+    expect(h.bankCalls).toHaveLength(1);
+    expect(h.hub.mirrored.filter((e) => e.type === "ledger.posted")).toHaveLength(1);
+    expect(await paidPayoutsOf(await viewOf(t, t.coTreasurers[0]!))).toHaveLength(1);
+  });
+
+  it("a short pool pays nothing and shows no 'Supplier paid'", async () => {
+    const { t, h, payment } = await ready(30_000);
+    const refused = await pay(h, t.creator, payment);
+    expect(refused.status).not.toBe(200);
+    expect(String(refused.body.reason)).toContain("Nothing was paid.");
+    expect(await paidPayoutsOf(await viewOf(t, t.creator))).toEqual([]);
+    expect(h.bankCalls).toHaveLength(0);
+  });
+
+  it("one approval where two are needed pays nothing and shows no 'Supplier paid'", async () => {
+    const t = await town({ approvals: 2, coTreasurers: 1, limit: 1000 });
+    const payment = await recordPayment(t, 50_000);
+    await approveAs(t, t.creator, payment, 50_000);
+    const h = await harness(t, { funds: 80_000 });
+    await bankDetails(h, t.creator);
+    const refused = await pay(h, t.creator, payment);
+    expect(refused.status).not.toBe(200);
+    expect(String(refused.body.reason)).toContain("Two people must approve this payment.");
+    expect(await paidPayoutsOf(await viewOf(t, t.coTreasurers[0]!))).toEqual([]);
+    expect(h.bankCalls).toHaveLength(0);
+  });
+
+  it("a member cannot make a payment look paid by writing a posting of their own", async () => {
+    const { t, payment, amount } = await ready();
+    const co = t.coTreasurers[0]!;
+    await writeAs(
+      t,
+      co,
+      "ledger.posted",
+      {
+        by: NODE_IDENTITY,
+        key: payment,
+        description: "Payment to a supplier (simulated)",
+        entries: [
+          {
+            account: "liabilities:supplier/payable",
+            direction: "debit",
+            currency: "ZAR",
+            minor: amount,
+          },
+        ],
+      },
+      T0 + DAYS(3),
+    );
+    expect(await paidPayoutsOf(await viewOf(t, t.creator))).toEqual([]);
+  });
+
+  it("a posting for another amount does not mark the payment as paid", async () => {
+    const { t, payment, amount } = await ready();
+    await writeAs(
+      t,
+      t.creator,
+      "ledger.posted",
+      {
+        by: NODE_IDENTITY,
+        key: payment,
+        description: "Payment to a supplier (simulated)",
+        entries: [
+          {
+            account: "liabilities:supplier/payable",
+            direction: "debit",
+            currency: "ZAR",
+            minor: amount - 1,
+          },
+        ],
+      },
+      T0 + DAYS(3),
+    );
+    expect(await paidPayoutsOf(await viewOf(t, t.creator))).toEqual([]);
+  });
+});
+
+describe("the ledger and the record agree after a payout [story 8.5]", () => {
+  async function paidHarness() {
+    const t = await town({ approvals: 2, coTreasurers: 1, limit: 1000 });
+    const payment = await recordPayment(t, 50_000);
+    await approveAs(t, t.creator, payment, 50_000);
+    await approveAs(t, t.coTreasurers[0]!, payment, 50_000);
+    const h = await harness(t, { funds: 80_000 });
+    await bankDetails(h, t.creator);
+    expect((await pay(h, t.creator, payment)).status).toBe(200);
+    return { t, h, payment };
+  }
+
+  it("the posting's amount equals the payout's amount and the record's, and all three carry the event id", async () => {
+    const { t, h, payment } = await paidHarness();
+    const posting = await h.ledger.findByIdempotencyKey(payment);
+    expect(posting?.idempotencyKey).toBe(payment);
+    const booked = posting!.entries.find((e) => e.direction === "debit")!;
+    expect(booked.amount.minor).toBe(50_000);
+
+    const payout = h.simulated.payOut.payouts();
+    expect(payout).toHaveLength(1);
+    expect(payout[0]?.externalReference).toBe(payment);
+    expect(payout[0]?.amount.minor).toBe(booked.amount.minor);
+
+    const [recorded] = await paidPayoutsOf(await viewOf(t, t.coTreasurers[0]!));
+    expect(recorded?.payout).toBe(payment);
+    expect(recorded?.amountMinor).toBe(booked.amount.minor);
+    const mirror = h.hub.mirrored.find((e) => (e.payload as { key?: string }).key === payment);
+    expect(mirror).toBeDefined();
+  });
+
+  /** The reconciler's view of the Node: the one community, with the mirrored events as the creator's journal. */
+  function reconcilerDeps(h: Harness, mirrored: readonly EventEnvelope[]): ReconcilerDeps {
+    const hub = {
+      heldCommunities: () => [h.t.key],
+      creatorOf: () => h.t.creator.did,
+      journalOf: async () =>
+        mirrored.map((event, index) => ({
+          position: index + 1,
+          id: String(index),
+          writer: h.t.creator.did,
+          event,
+        })),
+    };
+    return {
+      simulated: h.simulated,
+      ledger: h.ledger,
+      hub: hub as unknown as ReconcilerDeps["hub"],
+      masterKey: new Uint8Array(32),
+      nodeIdentity: NODE_IDENTITY,
+      store: {} as ReconcilerDeps["store"],
+      now: () => T0,
+      log: () => undefined,
+    };
+  }
+
+  it("the reconciler lists nothing when the bank, the books and the record agree", async () => {
+    const { h } = await paidHarness();
+    expect(await reconcile(reconcilerDeps(h, h.hub.mirrored))).toEqual([]);
+  });
+
+  it("the reconciler flags a payout the record does not show, without paying again", async () => {
+    const { h } = await paidHarness();
+    const items = await reconcile(reconcilerDeps(h, []));
+    expect(items.map((i) => i.kind)).toEqual(["payout_not_in_record"]);
+    expect(items[0]?.text).toContain("Supplier paid");
+    expect(items[0]?.text).toContain("(simulated)");
+    expect(h.bankCalls).toHaveLength(1);
+  });
+
+  it("the reconciler flags a supplier payment the record shows but the bank never received", async () => {
+    const { h, t } = await paidHarness();
+    const bare = createSimulatedStitch({
+      webhookKey: new Uint8Array(32).map((_, i) => (i * 11 + 7) & 0xff),
+      hmac: nodeHmacSha512,
+      clock: { now: () => T0 },
+      stateFile: join(h.folder, "empty-bank.json"),
+      log: () => undefined,
+    });
+    const deps = { ...reconcilerDeps(h, h.hub.mirrored), simulated: bare };
+    const items = await reconcile(deps);
+    expect(items.map((i) => i.kind)).toEqual(["record_paid_no_payout"]);
+    expect(items[0]?.communityKey).toBe(t.key);
+  });
+});
+
+describe("the demonstration pool: two approvers, a funded pool of R4,180.00 [story 8.5]", () => {
+  it("is founded with two approvals and a co-treasurer whose limit covers the order, and pays once both approve", async () => {
+    const TOTAL = 418_000;
+    // The app's start-a-stokvel card suggests two approvals; the founding event writes the setting.
+    const t = await town({ approvals: 2, coTreasurers: 1, limit: 5000 });
+    expect(await approvalsOf(await t.view())).toBe(2);
+    const payment = await recordPayment(t, TOTAL);
+    await approveAs(t, t.creator, payment, TOTAL);
+    const h = await harness(t, { funds: TOTAL });
+    await bankDetails(h, t.creator);
+    // One approval is not enough: nobody pays alone.
+    const alone = await pay(h, t.creator, payment);
+    expect(alone.status).not.toBe(200);
+    expect(String(alone.body.reason)).toContain("Two people must approve this payment.");
+    expect(await paidPayoutsOf(await viewOf(t, t.creator))).toEqual([]);
+    // The co-treasurer's limit (R5,000.00) covers the order, so their approval counts and the pool pays.
+    expect((await approveAs(t, t.coTreasurers[0]!, payment, TOTAL)).rejected).toBeUndefined();
+    expect((await pay(h, t.creator, payment)).status).toBe(200);
+    expect(await pool(h)).toBe(0);
+    const [paid] = await paidPayoutsOf(await viewOf(t, t.coTreasurers[0]!));
+    expect(paid?.amountMinor).toBe(TOTAL);
   });
 });

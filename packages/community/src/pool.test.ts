@@ -287,3 +287,54 @@ describe("poolView: record amounts with no matching member (triage 6 and 7)", ()
     expect(JSON.stringify(view.members)).not.toContain("paid");
   });
 });
+
+describe("poolView: the funding bar (story 8.4)", () => {
+  it("says how much of the target is in, in rand, and the whole percent", () => {
+    const view = poolView(
+      inputs({
+        books: { pool: 5_000n, members: new Map([[A, 5_000n]]) },
+        record: { pool: 5_000n, members: new Map([[A, 5_000n]]) },
+        target: 20_000n,
+      }),
+    );
+    expect(view.funding).toEqual({ percent: 25, text: "R50.00 of R200.00 is in." });
+  });
+
+  it("rounds the percent down, so the bar never says more is in than is", () => {
+    const view = poolView(
+      inputs({
+        books: { pool: 1n, members: new Map() },
+        record: { pool: 1n, members: new Map() },
+        target: 3n,
+      }),
+    );
+    expect(view.funding?.percent).toBe(33);
+  });
+
+  it("caps the bar at 100 percent when more is in than the target", () => {
+    const view = poolView(
+      inputs({
+        books: { pool: 25_000n, members: new Map() },
+        record: { pool: 25_000n, members: new Map() },
+        target: 20_000n,
+      }),
+    );
+    expect(view.funding).toEqual({ percent: 100, text: "R250.00 of R200.00 is in." });
+  });
+
+  it("shows no bar when there is no target, or a target of nothing", () => {
+    expect(poolView(inputs()).funding).toBeNull();
+    expect(poolView(inputs({ target: 0n })).funding).toBeNull();
+  });
+
+  it("shows 0 percent, never a negative bar, when the books hold less than nothing", () => {
+    const view = poolView(
+      inputs({
+        books: { pool: -150n, members: new Map() },
+        record: { pool: -150n, members: new Map() },
+        target: 20_000n,
+      }),
+    );
+    expect(view.funding?.percent).toBe(0);
+  });
+});

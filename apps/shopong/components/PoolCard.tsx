@@ -18,6 +18,22 @@ function useClock(): number {
   return now;
 }
 
+/** How far the pool has got towards the order's price: the Node's percent, drawn as a bar (story 8.4). */
+function FundingBar({ funding }: { funding: { percent: number; text: string } }) {
+  return (
+    <View className="gap-1">
+      <View
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: 100, now: funding.percent }}
+        className="h-3 w-full overflow-hidden rounded-full bg-muted"
+      >
+        <View className="h-full rounded-full bg-primary" style={{ width: `${funding.percent}%` }} />
+      </View>
+      <Text muted>{funding.text}</Text>
+    </View>
+  );
+}
+
 export function PoolCard() {
   const { pool, refreshPool } = useCommunity();
   const now = useClock();
@@ -39,9 +55,21 @@ export function PoolCard() {
               </Alert.Content>
             </Alert>
           ))}
+          {sections.supplierPaid.length > 0 ? (
+            <Alert variant="info">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Supplier paid</Alert.Title>
+                {sections.supplierPaid.map((line) => (
+                  <Alert.Description key={line}>{line}</Alert.Description>
+                ))}
+              </Alert.Content>
+            </Alert>
+          ) : null}
           {sections.figures.map((line) => (
             <Text key={line}>{line}</Text>
           ))}
+          {sections.funding !== null ? <FundingBar funding={sections.funding} /> : null}
           {sections.people.map((line) => (
             <Text key={line} muted>
               {line}

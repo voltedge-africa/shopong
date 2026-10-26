@@ -99,6 +99,11 @@ export class SimulatedPayOut implements PayOut {
     return ok(view(record));
   }
 
+  /** Every payout the simulation holds, as `getPayout` would show it. For the Node's reconciler (story 8.5). */
+  payouts(): Payout[] {
+    return this.#store.all("pay_out").map(view);
+  }
+
   async getPayout(id: string): Promise<Payout | undefined> {
     const record = this.#store.get(id, "pay_out");
     return record === undefined ? undefined : view(record);

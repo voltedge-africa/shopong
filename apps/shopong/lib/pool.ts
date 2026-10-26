@@ -32,13 +32,31 @@ export interface PoolSections {
   readonly figures: readonly string[];
   readonly people: readonly string[];
   readonly flags: readonly string[];
+  /** The funding bar's figure and sentence, as the Node sent them; null when there is no bar to draw (story 8.4). */
+  readonly funding: { readonly percent: number; readonly text: string } | null;
+  /** The record's "Supplier paid" sentences (story 8.5), the same for every member; empty until the record shows one. */
+  readonly supplierPaid: readonly string[];
 }
 
 export function poolSections(screen: PoolScreen): PoolSections {
   if (screen.state === "loading")
-    return { notice: [], figures: ["Loading the pool."], people: [], flags: [] };
+    return {
+      notice: [],
+      figures: ["Loading the pool."],
+      people: [],
+      flags: [],
+      funding: null,
+      supplierPaid: [],
+    };
   if (screen.state !== "shown")
-    return { notice: [], figures: [screen.message], people: [], flags: [] };
+    return {
+      notice: [],
+      figures: [screen.message],
+      people: [],
+      flags: [],
+      funding: null,
+      supplierPaid: [],
+    };
   const { view } = screen;
   // The Node says so beside the figures when they include simulated payments (review item 1).
   const note = (view as { readonly simulatedNote?: unknown }).simulatedNote;
@@ -58,13 +76,15 @@ export function poolSections(screen: PoolScreen): PoolSections {
       ),
     ],
     flags: view.flags.map((flag) => flag.text),
+    funding: view.funding ?? null,
+    supplierPaid: view.supplierPaid ? [view.supplierPaid.text, view.supplierPaid.note] : [],
   };
 }
 
 /** Every sentence the card shows, top to bottom. */
 export function poolLines(screen: PoolScreen): string[] {
-  const { notice, figures, people, flags } = poolSections(screen);
-  return [...notice, ...figures, ...people, ...flags];
+  const { notice, figures, people, flags, supplierPaid } = poolSections(screen);
+  return [...notice, ...supplierPaid, ...figures, ...people, ...flags];
 }
 
 /** A figure older than this is marked as possibly out of date (triage 2). */
