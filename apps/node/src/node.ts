@@ -20,6 +20,7 @@ import { PlaceRegistry, RouteStore } from "./places.ts";
 import { StraightLineRouting } from "./routing.ts";
 import { payerCommitmentOf, type PaymentRequestOptions } from "./payment-request-route.ts";
 import { openCheckingStore, type ConfirmationDeps } from "./payment-confirmation.ts";
+import { openDiscrepancyStore } from "./discrepancies.ts";
 import { openPayoutStore, type PayoutOptions } from "./payouts.ts";
 import { startChecking, type RunningChecking } from "./reconciler.ts";
 import { readVersion } from "./version.ts";
@@ -230,6 +231,9 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
             store: openCheckingStore(config.dataDir, (message) =>
               logger.warn({ simulated: true, mode: SIMULATED_MODE }, message),
             ),
+            discrepancies: openDiscrepancyStore(config.dataDir, (message) =>
+              logger.warn({ simulated: true, mode: SIMULATED_MODE }, message),
+            ),
             now: Date.now,
             ...(options.faults?.beforeRecord === undefined
               ? {}
@@ -301,7 +305,13 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       ...(confirmation === undefined ? {} : { paymentConfirmation: confirmation }),
       ...(confirmation === undefined || hub === undefined
         ? {}
-        : { checking: { hub, store: confirmation.store } }),
+        : {
+            checking: {
+              hub,
+              store: confirmation.store,
+              discrepancies: confirmation.discrepancies,
+            },
+          }),
       ...(books === undefined
         ? {}
         : {
@@ -324,6 +334,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
         masterKey: confirmation.masterKey,
         nodeIdentity: confirmation.nodeIdentity,
         store: confirmation.store,
+        discrepancies: confirmation.discrepancies,
         now: confirmation.now,
         log: (message, fields) => logger.info(fields, message),
       });

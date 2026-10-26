@@ -960,3 +960,113 @@ describe("the pool says simulated, and the treasurer's list (review items 1, 7, 
     expect(String(unsigned.json.reason)).toContain("(simulated)");
   });
 });
+
+describe("discrepancies for the treasurer (story 10.3)", () => {
+  async function discrepanciesOf(
+    node: RunningNode,
+    who: Phone | undefined,
+    key: string,
+  ): Promise<Reply> {
+    return call(node, who, "GET", `/communities/${key}/discrepancies`);
+  }
+
+  it("opens a bank-paid, not-in-books discrepancy with the event id and both values, and only the treasurer sees it", async () => {
+    const node = await start();
+    const { creator, joiner, key } = await community(node);
+    const { request, pledgeId } = await pledge(node, joiner, key);
+    await simulated(node).payIn.ingestWebhook(
+      await simulated(node).payIn.settle(request.id, "completed"),
+    );
+    await node.checking!.runNow();
+    const reply = await discrepanciesOf(node, creator, key);
+    expect(reply.status).toBe(200);
+    expect(reply.json.simulated).toBe(true);
+    const open = reply.json.open as Array<Record<string, unknown>>;
+    const found = open.find((d) => d.kind === "bank_paid_not_in_books");
+    expect(found).toBeDefined();
+    expect(found!.eventId).toBe(await bookedId(node, key, joiner, pledgeId, 50_000));
+    expect(found!.provider).toBe("paid");
+    expect(found!.books).toBe("not posted");
+    expect(found!.record).toBe("not shown as paid");
+    expect(String(found!.text)).toContain("(simulated)");
+    expect(String(found!.text)).toContain("R500.00");
+
+    expect((await discrepanciesOf(node, joiner, key)).status).toBe(403);
+    expect((await discrepanciesOf(node, undefined, key)).status).toBe(401);
+  });
+
+  it("does not open a second copy on the next run, and keeps the entry open", async () => {
+    const node = await start();
+    const { creator, joiner, key } = await community(node);
+    const { request } = await pledge(node, joiner, key);
+    await simulated(node).payIn.ingestWebhook(
+      await simulated(node).payIn.settle(request.id, "completed"),
+    );
+    await node.checking!.runNow();
+    const first = (await discrepanciesOf(node, creator, key)).json.open as unknown[];
+    await node.checking!.runNow();
+    const second = (await discrepanciesOf(node, creator, key)).json.open as unknown[];
+    expect(second.length).toBe(first.length);
+    expect(second.length).toBeGreaterThan(0);
+  });
+
+  it("resolves with a recorded reason: refuses none, a second time, a member and an unknown id; the entry moves to resolved", async () => {
+    const node = await start();
+    const { creator, joiner, key } = await community(node);
+    const { request } = await pledge(node, joiner, key);
+    await simulated(node).payIn.ingestWebhook(
+      await simulated(node).payIn.settle(request.id, "completed"),
+    );
+    await node.checking!.runNow();
+    const open = (await discrepanciesOf(node, creator, key)).json.open as Array<{ id: string }>;
+    const id = open[0]!.id;
+    const resolvePath = `/communities/${key}/discrepancies/${id}/resolve`;
+
+    const noReason = await call(node, creator, "POST", resolvePath, { reason: "" });
+    expect(noReason.status).toBe(400);
+    expect(noReason.json.problem).toBe("reason_required");
+    expect(String(noReason.json.reason)).toContain("(simulated)");
+
+    const byMember = await call(node, joiner, "POST", resolvePath, { reason: "checked" });
+    expect(byMember.status).toBe(403);
+    expect(byMember.json.problem).toBe("not_treasurer");
+
+    const unknown = await call(
+      node,
+      creator,
+      "POST",
+      `/communities/${key}/discrepancies/${"e".repeat(128)}/resolve`,
+      {
+        reason: "checked",
+      },
+    );
+    expect(unknown.status).toBe(404);
+
+    const done = await call(node, creator, "POST", resolvePath, {
+      reason: "Checked with the bank statement; the books are right.",
+    });
+    expect(done.status).toBe(200);
+    expect(done.json.simulated).toBe(true);
+    expect((done.json.item as { resolution: { reason: string } }).resolution.reason).toBe(
+      "Checked with the bank statement; the books are right.",
+    );
+
+    const again = await call(node, creator, "POST", resolvePath, { reason: "again" });
+    expect(again.status).toBe(409);
+
+    const listed = await discrepanciesOf(node, creator, key);
+    expect((listed.json.open as Array<{ id: string }>).map((d) => d.id)).not.toContain(id);
+    expect((listed.json.resolved as Array<{ id: string }>).map((d) => d.id)).toContain(id);
+    expect(await poolMinor(node, key)).toBe(0);
+  });
+
+  it("answers a stranger and an unknown community the same way", async () => {
+    const node = await start();
+    const { creator, key } = await community(node);
+    const stranger = await phone();
+    const outsider = await discrepanciesOf(node, stranger, key);
+    const unknown = await discrepanciesOf(node, creator, randomKey());
+    expect(outsider.status).toBe(403);
+    expect(unknown.json.problem).toBe(outsider.json.problem);
+  });
+});

@@ -2,7 +2,8 @@
 // the provider (the simulated Stitch), the books (the ledger) and the shared record, and lists each difference in plain
 // words for the treasurer's "Needs checking" list. SIMULATED: every item says so.
 //
-// It writes nothing except the list itself (`payment-checking.json`). A difference is never repaired here: the books
+// It writes nothing except the list itself (`payment-checking.json`) and the discrepancies it opens (`discrepancies.json`,
+// story 10.3). A difference is never repaired here: the books
 // and the record stay as they are until a person decides (AGENTS rule 5 is kept by the ids, which are never reused).
 // It runs once when the Node starts and then every 15 minutes. A run that fails is logged and the last list is kept.
 //
@@ -12,6 +13,7 @@
 import type { SimulatedStitch } from "@shopong/adapter-stitch-sim";
 import { eventIdOf, webCryptoSha512 } from "@shopong/events";
 import type { Did, Ledger } from "@shopong/ports";
+import type { DiscrepancyStore } from "./discrepancies.ts";
 import { LEDGER_POSTED, memberIdOf } from "./pool-read.ts";
 import {
   PAYMENT_COMPLETED,
@@ -34,6 +36,8 @@ export interface ReconcilerDeps {
   readonly masterKey: Uint8Array;
   readonly nodeIdentity: Did;
   readonly store: CheckingStore;
+  /** The discrepancy list (story 10.3). Without it a run still refreshes the checking list, but opens no discrepancy. */
+  readonly discrepancies?: DiscrepancyStore;
   readonly now: () => number;
   readonly log: (message: string, fields: Record<string, unknown>) => void;
 }
@@ -78,19 +82,35 @@ async function indexRecord(hub: ConfirmationHub, nodeIdentity: Did): Promise<Rec
   return { pledges, outcomes, mirrored };
 }
 
+/** A difference found by a run: the list line, plus the event id and the three readings the discrepancy shows. */
+export interface Mismatch extends CheckItem {
+  readonly eventId: string;
+  readonly record: string;
+  readonly books: string;
+  readonly provider: string;
+}
+
+/** The provider's status, in the words the treasurer reads. */
+function providerWord(status: string): string {
+  if (status === "completed") return "paid";
+  if (status === "failed") return "failed";
+  return status;
+}
+
 /**
  * Lists every difference between the provider, the books and the record, for each simulated request. Read-only except
  * for the provider's own expiry, which its reads apply. Returns the list in the order it was found.
  */
-export async function reconcile(deps: ReconcilerDeps): Promise<CheckItem[]> {
+export async function reconcile(deps: ReconcilerDeps): Promise<Mismatch[]> {
   const record = await indexRecord(deps.hub, deps.nodeIdentity);
-  const items: CheckItem[] = [];
+  const items: Mismatch[] = [];
 
   for (const request of deps.simulated.payIn.requests()) {
     const reference = request.externalReference;
     const amount = randText(request.amount.minor);
     const pledge = record.pledges.get(reference);
     const seen = record.outcomes.get(reference) ?? { completed: false, failed: false };
+    const provider = providerWord(request.status);
 
     // What the books say about a completion of this payment, once the pledge is known.
     let booked = false;
@@ -112,59 +132,112 @@ export async function reconcile(deps: ReconcilerDeps): Promise<CheckItem[]> {
         booked = (await deps.ledger.findByIdempotencyKey(bookedId)) !== undefined;
       }
     }
+    // The event id that joins the readings: the completion's id when the books would hold one, else the pledge's.
+    const eventId = bookedId ?? reference;
+    const books = booked ? "posted" : "not posted";
+    const shownPaid = seen.completed ? "paid" : "not shown as paid";
+    const flag = (
+      kind: string,
+      communityKey: string | undefined,
+      text: string,
+      sides: { record: string; books: string; provider: string },
+    ) =>
+      items.push({
+        kind,
+        ...(communityKey === undefined ? {} : { communityKey }),
+        text,
+        eventId,
+        ...sides,
+      });
 
     if (request.status === "completed") {
       if (pledge === undefined) {
-        items.push({
-          kind: "paid_no_pledge",
-          text: `The simulated bank shows a ${amount} payment as paid, but no pledge in this Node's communities matches it. Nothing has changed. Ask the admin to check ${SIM}.`,
-        });
+        flag(
+          "paid_no_pledge",
+          undefined,
+          `The simulated bank shows a ${amount} payment as paid, but no pledge in this Node's communities matches it. Nothing has changed. Ask the admin to check ${SIM}.`,
+          {
+            record: "no matching pledge",
+            books: "no matching pledge",
+            provider,
+          },
+        );
         continue;
       }
-      const community = { communityKey: pledge.communityKey };
+      const communityKey = pledge.communityKey;
       if (!booked) {
-        items.push({
-          kind: "bank_paid_not_in_books",
-          ...community,
-          text: `The simulated bank shows a ${amount} payment as paid, but the pool books do not have it. Nothing has changed. Ask the admin to check ${SIM}.`,
-        });
+        flag(
+          "bank_paid_not_in_books",
+          communityKey,
+          `The simulated bank shows a ${amount} payment as paid, but the pool books do not have it. Nothing has changed. Ask the admin to check ${SIM}.`,
+          {
+            record: shownPaid,
+            books,
+            provider,
+          },
+        );
       } else if (bookedId !== undefined && !record.mirrored.has(bookedId)) {
-        items.push({
-          kind: "books_not_in_record",
-          ...community,
-          text: `The pool books have a ${amount} payment from a simulated bank payment that the shared record does not show. Nothing has changed. Ask the admin to check ${SIM}.`,
-        });
+        flag(
+          "books_not_in_record",
+          communityKey,
+          `The pool books have a ${amount} payment from a simulated bank payment that the shared record does not show. Nothing has changed. Ask the admin to check ${SIM}.`,
+          {
+            record: shownPaid,
+            books,
+            provider,
+          },
+        );
       }
       if (!seen.completed) {
-        items.push({
-          kind: "bank_paid_not_in_record",
-          ...community,
-          text: `The simulated bank shows a ${amount} payment as paid, but the shared record does not show it as paid. Nothing has changed. Ask the admin to check ${SIM}.`,
-        });
+        flag(
+          "bank_paid_not_in_record",
+          communityKey,
+          `The simulated bank shows a ${amount} payment as paid, but the shared record does not show it as paid. Nothing has changed. Ask the admin to check ${SIM}.`,
+          {
+            record: shownPaid,
+            books,
+            provider,
+          },
+        );
       }
       continue;
     }
 
     if (booked) {
-      items.push({
-        kind: "books_not_paid_at_bank",
-        communityKey: pledge!.communityKey,
-        text: `The pool books have a ${amount} payment that the simulated bank does not show as paid. Nothing has changed. Ask the admin to check ${SIM}.`,
-      });
+      flag(
+        "books_not_paid_at_bank",
+        pledge!.communityKey,
+        `The pool books have a ${amount} payment that the simulated bank does not show as paid. Nothing has changed. Ask the admin to check ${SIM}.`,
+        {
+          record: shownPaid,
+          books,
+          provider,
+        },
+      );
     }
     if (seen.completed) {
-      items.push({
-        kind: "record_paid_not_at_bank",
-        ...(pledge === undefined ? {} : { communityKey: pledge.communityKey }),
-        text: `The shared record shows a ${amount} payment as paid, but the simulated bank does not. Nothing has changed. Ask the admin to check ${SIM}.`,
-      });
+      flag(
+        "record_paid_not_at_bank",
+        pledge?.communityKey,
+        `The shared record shows a ${amount} payment as paid, but the simulated bank does not. Nothing has changed. Ask the admin to check ${SIM}.`,
+        {
+          record: "paid",
+          books,
+          provider,
+        },
+      );
     }
     if (request.status === "failed" && pledge !== undefined && !seen.failed) {
-      items.push({
-        kind: "bank_failed_not_in_record",
-        communityKey: pledge.communityKey,
-        text: `The simulated bank shows a ${amount} payment as failed, but the shared record does not show it. Nothing has changed. Ask the admin to check ${SIM}.`,
-      });
+      flag(
+        "bank_failed_not_in_record",
+        pledge.communityKey,
+        `The simulated bank shows a ${amount} payment as failed, but the shared record does not show it. Nothing has changed. Ask the admin to check ${SIM}.`,
+        {
+          record: "not shown",
+          books,
+          provider,
+        },
+      );
     }
   }
   return items;
@@ -190,7 +263,10 @@ export function startChecking(
     if (inFlight !== undefined) return inFlight;
     inFlight = (async () => {
       const items = await reconcile(deps);
-      deps.store.replaceChecking(deps.now(), items);
+      const at = deps.now();
+      deps.store.replaceChecking(at, items);
+      // Every difference is opened (or refreshed) as a discrepancy. None is ever repaired or closed by a run.
+      deps.discrepancies?.open(items, at);
       deps.log("payment check finished (simulated)", { simulated: true, items: items.length });
       return items;
     })().finally(() => {
