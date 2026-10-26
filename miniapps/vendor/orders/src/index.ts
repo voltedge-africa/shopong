@@ -1,6 +1,15 @@
 import type { MiniAppManifest } from "@shopong/miniapp";
 
-export { OrdersHostContext, type AttachmentHost, type OrdersHost, type PaymentHost } from "./host";
+export {
+  OrdersHostContext,
+  type AttachmentHost,
+  type BankForm,
+  type OrdersHost,
+  type PaymentHost,
+  type PayoutHost,
+  type PayoutsReading,
+} from "./host";
+export { type PaymentRecord } from "./payouts";
 export {
   attachOrReason,
   checkWords,

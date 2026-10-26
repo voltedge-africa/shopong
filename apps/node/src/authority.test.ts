@@ -407,6 +407,45 @@ describe("POST /authority/check (AC 2.5)", () => {
     expect(res.json()).toMatchObject({ problem: "not_configured" });
   });
 
+  it("answers for the community a request names, from the records the Node holds (closes S-2.5-15)", async () => {
+    const w = await community();
+    // The Node's guard runs on the device clock when no single community is configured, so the times here are real.
+    const now = Date.now();
+    const granted = await w.founder.grantRole(w.driver.did, "driver", { days: 7 }, now - DAY_MS);
+    if (!granted.ok) throw new Error(granted.error.message);
+    await w.network.replicate<EventEnvelope>(w.founder.space, w.driverCommunity.space);
+    const [record] = await w.driverCommunity.roles();
+    const token = record?.grants[0]?.token;
+    if (token === undefined) throw new Error("no grant");
+    const sink = captureSink();
+    const app = buildApp({
+      logger: createLogger({ level: "info", sink }),
+      version: "test",
+      components: [],
+      authorityOf: async (key) =>
+        key === w.founder.key
+          ? { creator: w.creator.did, spaceKey: key, view: w.founder.space.view }
+          : undefined,
+    });
+    running = app;
+    const allowed = await send(
+      app,
+      w.driver,
+      { token, required: { with: spaceUri(w.founder.key), can: "delivery/confirm" } },
+      { time: now },
+    );
+    expect(allowed.statusCode).toBe(200);
+    expect(allowed.json()).toMatchObject({ allowed: true, role: "driver" });
+    const elsewhere = await send(
+      app,
+      w.driver,
+      { token, required: { with: spaceUri("ef".repeat(32)), can: "delivery/confirm" } },
+      { time: now },
+    );
+    expect(elsewhere.statusCode).toBe(503);
+    expect(elsewhere.json()).toMatchObject({ problem: "not_configured" });
+  });
+
   it("never writes a token or a signature to the Node's log", async () => {
     const n = await node(T0 + 2 * DAY_MS);
     const allowed = await send(n.app, n.driver, { token: n.token, required: n.required });

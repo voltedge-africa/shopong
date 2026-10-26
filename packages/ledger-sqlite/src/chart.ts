@@ -82,7 +82,9 @@ export function chartOf(
 ): readonly { account: AccountSlug; guarded: boolean }[] {
   return [
     { account: poolAccountOf(communityKey), guarded: true },
-    { account: supplierPayableOf(communityKey), guarded: true },
+    // Not guarded (story 4.7): a supplier payout debits the payable, which has no credit before it. The pool is guarded,
+    // so a payout that the pool cannot cover is refused before any money moves.
+    { account: supplierPayableOf(communityKey), guarded: false },
     { account: feesOf(communityKey), guarded: false },
   ];
 }

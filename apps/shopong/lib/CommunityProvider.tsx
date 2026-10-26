@@ -12,6 +12,9 @@ import {
 } from "react";
 import { Platform } from "react-native";
 import {
+  approvalBytes,
+  checkApprovalsSetting,
+  DEFAULT_APPROVALS,
   checkPledge,
   EMPTY_NAME_MESSAGE,
   newCommunityKey,
@@ -30,11 +33,19 @@ import {
   type RoleRecord,
 } from "@shopong/community";
 import type { Did, JsonValue, PortError, Result } from "@shopong/ports";
-import type { PaymentView } from "@shopong/miniapp-orders";
+import type { BankForm, PaymentRecord, PaymentView, PayoutsReading } from "@shopong/miniapp-orders";
 
 import { createCommunityService, type CommunityService } from "./community";
 import { paymentStatusOfFailure } from "./paymentStatus";
-import { founderEvent, inviteEvent, joinEvent, pledgeEvent } from "./communityEvents";
+import { quoteEventOf, quotesToShow, type SavedQuote } from "./quotes";
+import {
+  approvalEvent,
+  founderEvent,
+  inviteEvent,
+  joinEvent,
+  payoutEvent,
+  pledgeEvent,
+} from "./communityEvents";
 import { nodeFailureMessage, unqueuedMessage } from "./nodeMessages";
 import { NODE_ADDRESS } from "./nodeAddress";
 import { createNodeClient, type NodeClient, type RouteAnswer } from "./nodeClient";
@@ -74,7 +85,8 @@ type CommunityContextValue = {
   invitations: readonly Invitation[];
   /** The roles recorded for me, ended ones included. */
   roles: readonly RoleRecord[];
-  create: (name: string) => Promise<string | undefined>;
+  /** Makes the community. `approvals` is how many people must approve a supplier payment (1 to 5; two when left out). */
+  create: (name: string, approvals?: number) => Promise<string | undefined>;
   invite: (invitee: string) => Promise<string | undefined>;
   check: (text: string) => Promise<Result<CheckedInvitation, InvitationError>>;
   grant: (grantee: string, role: string, options: GrantOptions) => Promise<string | undefined>;
@@ -118,6 +130,21 @@ type CommunityContextValue = {
   paymentOf: (order: string) => Promise<PaymentView>;
   /** Asks the Node for the bank request for this member's pledge. Resolves the bank page's address, or a plain reason. */
   payOrder: (order: string) => Promise<{ ok: true; url: string } | { ok: false; message: string }>;
+  /** The payments recorded for an order, with approvals and what the Node has sent (story 4.7). */
+  paymentsOf: (order: string) => Promise<PayoutsReading>;
+  /** Records the treasurer's payment for a supplier's quote, for approval. Resolves with the reason refused, or `undefined`. */
+  proposePayment: (
+    order: string,
+    supplier: string,
+    amountMinor: number,
+    recommendation: string,
+  ) => Promise<string | undefined>;
+  /** Signs this person's approval of a payment after they confirmed it, and sends it to the record. */
+  approvePayment: (payout: string) => Promise<string | undefined>;
+  /** Asks the Node to pay the supplier now. Resolves with the Node's plain reason when refused. */
+  payPayment: (payout: string) => Promise<string | undefined>;
+  /** Keeps a supplier's bank details on the Node. The treasurer only. */
+  saveSupplierBank: (supplier: string, bank: BankForm) => Promise<string | undefined>;
   /** The places this community registered, by id and label (story 7.4). Never a coordinate or an address. */
   placesOf: () => Promise<readonly RoutePlace[]>;
   /**
@@ -171,6 +198,7 @@ const messageOf = (result: Result<unknown, PortError>) =>
 export function CommunityProvider({ children }: { children: ReactNode }) {
   const { did, auth } = useIdentity();
   const [sync, setSync] = useState<SyncState>({ result: "none", pending: 0 });
+  const [syncVersion, setSyncVersion] = useState(0);
   const [offlineHint, setOfflineHint] = useState(false);
   const [nodeCommunity, setNodeCommunity] = useState<NodeCommunity | null>(null);
   const [nodeMembers, setNodeMembers] = useState<readonly Member[]>([]);
@@ -233,7 +261,11 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         node: client,
         queue: createQueueStore(did),
         auth,
-        onChange: () => setSync(service.state()),
+        onChange: () => {
+          setSync(service.state());
+          // The Orders list re-reads when the synced view changes (quotes shown after a pull, S-4.7 quote display).
+          setSyncVersion((version) => version + 1);
+        },
       });
       const stores = createAttachmentStores(did);
       const files = createAttachmentService({
@@ -322,7 +354,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   }, [nodeFor, tick, refreshPool]);
 
   const create = useCallback(
-    async (name: string) => {
+    async (name: string, approvals?: number) => {
       if (name.trim() === "") return EMPTY_NAME_MESSAGE;
       const bundle = nodeFor();
       // With a Node, the community is registered there first, under the key the phone keeps for it.
@@ -332,7 +364,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         const registered = await bundle.client.createCommunity(key);
         if (!registered.ok) return nodeFailureMessage(registered.failure, "make the community");
       }
-      const made = await serviceFor().create(name, key);
+      const made = await serviceFor().create(name, key, approvals);
       if (made.ok) {
         setCommunity({ key: made.value.key, name: made.value.name });
         setIsCreator(made.value.creator === made.value.me);
@@ -345,6 +377,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
             me: creator,
             now: Date.now(),
             randomBytes: getRandomBytes,
+            ...(approvals === undefined ? {} : { approvals }),
           });
           setNodeCommunity({ key, creator });
           const queued = await bundle.sync.enqueue(key, event);
@@ -484,17 +517,6 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     [serviceFor],
   );
 
-  const addQuote = useCallback(
-    async (input: unknown) => {
-      const made = await serviceFor().addQuote(input);
-      setRefusals(serviceFor().refusals());
-      return messageOf(made);
-    },
-    [serviceFor],
-  );
-
-  const quotesFor = useCallback((order: string) => serviceFor().quotesFor(order), [serviceFor]);
-
   const filesSurface = useMemo<FilesSurface | null>(() => {
     if (nodeCommunity === null) return null;
     const key = nodeCommunity.key;
@@ -528,6 +550,56 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     community !== null &&
     (isCreator ||
       roles.some((role) => role.role === "co-treasurer" && role.expiresAt > Date.now()));
+
+  const addQuote = useCallback(
+    async (input: unknown) => {
+      const bundle = nodeFor();
+      // With a Node, the quote is sent to the record as a `quote.added` event (S-4.7 quote sync). Without one, the
+      // phone's own copy keeps it, as before.
+      if (
+        bundle !== null &&
+        bundle.client !== undefined &&
+        did !== null &&
+        nodeCommunity !== null
+      ) {
+        if (!canAddQuotes) return "Only the treasurer can add a quote.";
+        const made = quoteEventOf({
+          community: nodeCommunity.key,
+          me: did as Did,
+          now: Date.now(),
+          randomBytes: getRandomBytes,
+          input,
+        });
+        if (!made.ok) return made.problems.join(" ");
+        const queued = await bundle.sync.enqueue(nodeCommunity.key, made.value);
+        if (!queued.ok) return unqueuedMessage("The quote was saved", queued.reason);
+        // Shown at once from this phone's own copy, before the Node pulls it back (quotesToShow).
+        ownQuotes.current.push({ eventId: queued.id, payload: made.value.payload as JsonValue });
+        void tick({ once: true });
+        return undefined;
+      }
+      const made = await serviceFor().addQuote(input);
+      setRefusals(serviceFor().refusals());
+      return messageOf(made);
+    },
+    [serviceFor, nodeFor, did, nodeCommunity, canAddQuotes, tick],
+  );
+
+  const quotesFor = useCallback(
+    async (order: string) => {
+      const bundle = nodeFor();
+      // With a Node: the synced record's quotes, plus this phone's own saved quotes not yet pulled back. A quote the
+      // record refuses is left out. The version changes on each sync change, so a list that holds this function re-reads.
+      if (bundle !== null && nodeCommunity !== null) {
+        const view = bundle.sync.viewOf(nodeCommunity.key) ?? new Map<string, JsonValue>();
+        return quotesToShow({ view, own: ownQuotes.current, order }).quotes;
+      }
+      return serviceFor().quotesFor(order);
+    },
+    // syncVersion is a dependency on purpose: each sync change makes a new function, so the Orders list re-reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [serviceFor, nodeFor, nodeCommunity, syncVersion],
+  );
 
   /** The event id of the newest pledge this phone queued for each order (keyed by the order's tidied name). */
   const queuedPledges = useRef(new Map<string, string>());
@@ -652,6 +724,202 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     [nodeFor, did, nodeCommunity],
   );
 
+  /** The Node's answers for payments this phone has sent, by payment id (kept for this run of the app). */
+  const sentPayments = useRef(new Map<string, string>());
+  /** The event ids of the payments and approvals this phone sent, so the record's refusals of them can be shown (S-4.7 fix 7). */
+  const proposalEvents = useRef<string[]>([]);
+  /** The quotes this phone saved and queued for the Node, shown until the record holds them (see quotesToShow). */
+  const ownQuotes = useRef<SavedQuote[]>([]);
+  const approvalEvents = useRef(new Map<string, string>());
+
+  const paymentsOf = useCallback(
+    async (order: string): Promise<PayoutsReading> => {
+      const view = nodeCommunity === null ? undefined : nodeFor()?.sync.viewOf(nodeCommunity.key);
+      const me = did ?? "";
+      if (view === undefined) {
+        return {
+          payments: [],
+          required: DEFAULT_APPROVALS,
+          sent: sentPayments.current,
+          me,
+          treasurer: canAddQuotes,
+        };
+      }
+      const approvers = new Map<string, string[]>();
+      const found: PaymentRecord[] = [];
+      for (const [key, value] of view) {
+        if (key.startsWith("approvals/")) {
+          const [, payout, approver] = key.split("/");
+          if (payout !== undefined && approver !== undefined) {
+            approvers.set(payout, [...(approvers.get(payout) ?? []), approver]);
+          }
+        } else if (key.startsWith("payouts/") && typeof value === "object" && value !== null) {
+          const record = value as Record<string, unknown>;
+          if (
+            typeof record.order === "string" &&
+            typeof record.supplier === "string" &&
+            typeof record.amountMinor === "number" &&
+            typeof record.by === "string"
+          ) {
+            found.push({
+              payout: key.slice("payouts/".length),
+              order: record.order,
+              supplier: record.supplier,
+              amountMinor: record.amountMinor,
+              by: record.by,
+              approvers: [],
+            });
+          }
+        }
+      }
+      const payments = found
+        .filter((payment) => payment.order === tidy(order))
+        .map((payment) => ({ ...payment, approvers: approvers.get(payment.payout) ?? [] }));
+      const required = checkApprovalsSetting(view.get("settings/approvals")) ?? DEFAULT_APPROVALS;
+      // The record's refusals of this phone's own approvals and payments (S-4.7 fix 7): read from `rejected/<event id>`.
+      const approvalNotices = new Map<string, string>();
+      for (const [payout, eventId] of approvalEvents.current) {
+        const marker = view.get(`rejected/${eventId}`) as { reason?: unknown } | undefined;
+        if (typeof marker?.reason === "string") approvalNotices.set(payout, marker.reason);
+      }
+      const proposalNotices: string[] = [];
+      for (const eventId of proposalEvents.current) {
+        const marker = view.get(`rejected/${eventId}`) as { reason?: unknown } | undefined;
+        if (typeof marker?.reason === "string") proposalNotices.push(marker.reason);
+      }
+      return {
+        payments,
+        required,
+        sent: sentPayments.current,
+        me,
+        treasurer: canAddQuotes,
+        approvalNotices,
+        proposalNotices,
+      };
+    },
+    [nodeFor, nodeCommunity, did, canAddQuotes],
+  );
+
+  const proposePayment = useCallback(
+    async (order: string, supplier: string, amountMinor: number, recommendation: string) => {
+      const bundle = nodeFor();
+      if (
+        bundle === null ||
+        bundle.client === undefined ||
+        did === null ||
+        nodeCommunity === null
+      ) {
+        return "Make or join a community on the OCN Node first, in Settings.";
+      }
+      if (!canAddQuotes) return "Only the treasurer can pay a supplier.";
+      // The payment carries the commitment of the bank details now on the Node: the approvers sign it (S-4.7 fix 3).
+      const commitment = await bundle.client.supplierBankCommitment(nodeCommunity.key, supplier);
+      if (!commitment.ok)
+        return nodeFailureMessage(commitment.failure, "send the payment for approval");
+      const event = payoutEvent({
+        community: nodeCommunity.key,
+        me: did as Did,
+        now: Date.now(),
+        randomBytes: getRandomBytes,
+        order: tidy(order),
+        supplier,
+        amountMinor,
+        recommendation,
+        bank: commitment.value.commitment,
+      });
+      const queued = await bundle.sync.enqueue(nodeCommunity.key, event);
+      if (!queued.ok) return unqueuedMessage("The payment was sent for approval", queued.reason);
+      proposalEvents.current.push(queued.id);
+      void tick({ once: true });
+      return undefined;
+    },
+    [nodeFor, did, nodeCommunity, canAddQuotes, tick],
+  );
+
+  const approvePayment = useCallback(
+    async (payout: string) => {
+      const bundle = nodeFor();
+      if (
+        bundle === null ||
+        bundle.client === undefined ||
+        did === null ||
+        nodeCommunity === null
+      ) {
+        return "Make or join a community on the OCN Node first, in Settings.";
+      }
+      const stored = bundle.sync.viewOf(nodeCommunity.key)?.get(`payouts/${payout}`) as
+        | { order?: unknown; supplier?: unknown; amountMinor?: unknown; bank?: unknown }
+        | undefined;
+      if (
+        stored === undefined ||
+        typeof stored.order !== "string" ||
+        typeof stored.supplier !== "string" ||
+        typeof stored.amountMinor !== "number" ||
+        typeof stored.bank !== "string"
+      ) {
+        return "This payment has not reached this phone yet. Try again in a moment.";
+      }
+      // The approval names the bank commitment the payment carries, so the details cannot change under it (S-4.7 fix 3).
+      const terms = {
+        order: stored.order,
+        supplier: stored.supplier,
+        amountMinor: stored.amountMinor,
+        bank: stored.bank,
+      };
+      // Each approver signs their own approval: the bytes name this community, this payment and these terms.
+      const signed = await auth?.sign(
+        did as Did,
+        approvalBytes(nodeCommunity.key, payout, did as Did, terms),
+      );
+      if (signed === undefined || !signed.ok)
+        return "Your identity could not sign this approval. Try again.";
+      const event = approvalEvent({
+        community: nodeCommunity.key,
+        me: did as Did,
+        now: Date.now(),
+        randomBytes: getRandomBytes,
+        payout,
+        ...terms,
+        signature: signed.value,
+      });
+      const queued = await bundle.sync.enqueue(nodeCommunity.key, event);
+      if (!queued.ok) return unqueuedMessage("Your approval was signed", queued.reason);
+      approvalEvents.current.set(payout, queued.id);
+      void tick({ once: true });
+      return undefined;
+    },
+    [nodeFor, did, auth, nodeCommunity, tick],
+  );
+
+  const payPayment = useCallback(
+    async (payout: string) => {
+      const bundle = nodeFor();
+      if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
+        return "Make or join a community on the OCN Node first, in Settings.";
+      }
+      const reply = await bundle.client.payOut(nodeCommunity.key, payout);
+      if (!reply.ok) return nodeFailureMessage(reply.failure, "pay the supplier");
+      sentPayments.current.set(payout, reply.value.reason);
+      return undefined;
+    },
+    [nodeFor, nodeCommunity],
+  );
+
+  const saveSupplierBank = useCallback(
+    async (supplier: string, bank: BankForm) => {
+      const bundle = nodeFor();
+      if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
+        return "Make or join a community on the OCN Node first, in Settings.";
+      }
+      if (supplier === "" || bank.name === "" || bank.bankId === "" || bank.accountNumber === "") {
+        return "Fill in the supplier, the account holder, the bank and the account number.";
+      }
+      const reply = await bundle.client.saveSupplierBank(nodeCommunity.key, supplier, bank);
+      if (!reply.ok) return nodeFailureMessage(reply.failure, "save the bank details");
+      return undefined;
+    },
+    [nodeFor, nodeCommunity],
+  );
   const placesOf = useCallback(async (): Promise<readonly RoutePlace[]> => {
     const current = serviceFor().community();
     if (current === null) return [];
@@ -764,6 +1032,11 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       routeScreen,
       paymentOf,
       payOrder,
+      paymentsOf,
+      proposePayment,
+      approvePayment,
+      payPayment,
+      saveSupplierBank,
     }),
     [
       community,
@@ -799,6 +1072,11 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       routeScreen,
       paymentOf,
       payOrder,
+      paymentsOf,
+      proposePayment,
+      approvePayment,
+      payPayment,
+      saveSupplierBank,
     ],
   );
   return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;

@@ -158,7 +158,9 @@ describe("event type registry", () => {
     expect(new Set(EVENT_TYPES.map((t) => t.split(".")[0]))).toEqual(
       new Set([...families, ...more]),
     );
-    expect(EVENT_TYPES).toHaveLength(30);
+    // The first-release types, plus `payment.payout` and `payment.approved` (story 4.7), and the types main added
+    // (`file.attached` story 3.7, `place.registered`, `delivery.planned`, `delivery.confirmed`, stories 7.4).
+    expect(EVENT_TYPES).toHaveLength(32);
     expect(new Set(EVENT_TYPES).size).toBe(EVENT_TYPES.length);
   });
 

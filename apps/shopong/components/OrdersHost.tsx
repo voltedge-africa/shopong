@@ -12,6 +12,7 @@ import {
   type AttachmentHost,
   type OrdersHost,
   type PaymentHost,
+  type PayoutHost,
 } from "@shopong/miniapp-orders";
 
 import { useCommunity } from "../lib/CommunityProvider";
@@ -60,8 +61,20 @@ async function pickImage(): Promise<PickedFile | undefined> {
 }
 
 export function OrdersHostProvider({ children }: { children: ReactNode }) {
-  const { canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder, files } =
-    useCommunity();
+  const {
+    canAddQuotes,
+    addQuote,
+    quotesFor,
+    pledgeOrder,
+    paymentOf,
+    payOrder,
+    paymentsOf,
+    proposePayment,
+    approvePayment,
+    payPayment,
+    saveSupplierBank,
+    files,
+  } = useCommunity();
   const host = useMemo<OrdersHost>(() => {
     const payments: PaymentHost = {
       paymentOf,
@@ -78,6 +91,14 @@ export function OrdersHostProvider({ children }: { children: ReactNode }) {
           return "The bank page could not be opened. Try Pay again.";
         }
       },
+    };
+    // Supplier payments (story 4.7): the Node and the record decide; the screen only shows their answers.
+    const payouts: PayoutHost = {
+      paymentsOf,
+      propose: proposePayment,
+      approve: approvePayment,
+      pay: payPayment,
+      saveBank: saveSupplierBank,
     };
     const attachments: AttachmentHost | undefined =
       files === null
@@ -100,7 +121,20 @@ export function OrdersHostProvider({ children }: { children: ReactNode }) {
             check: files.check,
             retry: files.retry,
           };
-    return { canAdd: canAddQuotes, addQuote, quotesFor, payments, attachments };
-  }, [canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder, files]);
+    return { canAdd: canAddQuotes, addQuote, quotesFor, payments, payouts, attachments };
+  }, [
+    canAddQuotes,
+    addQuote,
+    quotesFor,
+    pledgeOrder,
+    paymentOf,
+    payOrder,
+    paymentsOf,
+    proposePayment,
+    approvePayment,
+    payPayment,
+    saveSupplierBank,
+    files,
+  ]);
   return <OrdersHostContext.Provider value={host}>{children}</OrdersHostContext.Provider>;
 }

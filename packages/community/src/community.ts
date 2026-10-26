@@ -443,6 +443,8 @@ export async function createCommunity(
   name: string,
   now: EpochMs,
   key: string = newCommunityKey(deps.randomBytes),
+  /** How many people must approve a supplier payment (story 4.7): 1 to 5. Absent, the founding event says nothing and two apply. */
+  approvals?: number,
 ): Promise<Result<Community, CommunityError>> {
   const trimmed = name.trim();
   if (trimmed === "") return err("empty_name", EMPTY_NAME_MESSAGE);
@@ -453,7 +455,9 @@ export async function createCommunity(
     space,
     key,
     "member.joined",
-    { invitation: FOUNDER_INVITATION },
+    approvals === undefined
+      ? { invitation: FOUNDER_INVITATION }
+      : { invitation: FOUNDER_INVITATION, approvals },
     [],
     now,
   );
