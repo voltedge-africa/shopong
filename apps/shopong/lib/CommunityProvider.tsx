@@ -25,6 +25,7 @@ import {
   type ActionRequest,
   type CheckedInvitation,
   type HeldRole,
+  type PlannedDelivery,
   type Refusal,
   type GrantOptions,
   type Invitation,
@@ -187,15 +188,21 @@ type CommunityContextValue = {
   /** The places this community registered, by id and label (story 7.4). Never a coordinate or an address. */
   placesOf: () => Promise<readonly RoutePlace[]>;
   /**
-   * Plans the route between two registered places on the Node, then records `delivery.planned` for the delivery. The
-   * Node refuses a plain member, and a plain sentence says so. Offline, nothing is planned.
+   * Plans the route of an order between two registered places, for the chosen driver, on the Node, then records
+   * `delivery.planned` (story 8.6). The Node refuses a plain member, and a plain sentence says so. Offline, nothing is planned.
    */
   planRoute: (
+    order: string,
     origin: string,
     destination: string,
+    driver: string,
   ) => Promise<{ ok: true; route: RouteAnswer } | { ok: false; message: string }>;
-  /** The community's planned route: its line and sentences from the Node, by the fingerprint the record holds. */
-  routeScreen: () => Promise<RouteScreen>;
+  /** An order's planned route: its line and sentences from the Node, by the fingerprint the record holds (story 8.6). */
+  routeScreen: (order: string) => Promise<RouteScreen>;
+  /** The planned deliveries on the record, one per order, as this phone's copy holds them (story 8.6). */
+  plannedDeliveries: () => Promise<readonly PlannedDelivery[]>;
+  /** The drivers whose role stands now: the ones the treasurer may name for a delivery (story 8.6). */
+  driversOf: () => Promise<readonly string[]>;
   /** Whether I may register a collection point: the treasurer's standing, as for quotes (story 7.3). */
   canAddPlaces: boolean;
   /**
@@ -210,10 +217,6 @@ type CommunityContextValue = {
   /** Records my suburb or town. Resolves the plain reason it was refused, or `undefined`. */
   setMemberArea: (area: string) => Promise<string | undefined>;
 };
-
-/** The one delivery the community plans for now; orders are not yet in the record (see shortcuts S-7.4-8). */
-const DELIVERY_ORDER = "current";
-const DELIVERY_VIEW_KEY = `delivery/${encodeURIComponent(DELIVERY_ORDER)}`;
 
 /** What the session needs to talk to the Node: the client (absent without an address), the sync service and the files. */
 type NodeBundle = {
@@ -1267,7 +1270,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   }, [serviceFor]);
 
   const planRoute = useCallback(
-    async (origin: string, destination: string) => {
+    async (order: string, origin: string, destination: string, driver: string) => {
       const bundle = nodeFor();
       const current = serviceFor().community();
       if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
@@ -1275,22 +1278,21 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       }
       if (current === null) return { ok: false as const, message: "Make a community first." };
       await current.space.update();
-      const driver = await serviceFor().currentDriver(Date.now());
-      if (driver === undefined) {
-        return { ok: false as const, message: "Assign a driver before planning a route." };
-      }
       const reply = await bundle.client.planRoute(nodeCommunity.key, {
-        order: DELIVERY_ORDER,
+        order,
         origin,
         destination,
       });
       if (!reply.ok) return { ok: false as const, message: planFailureMessage(reply.failure) };
       const route = reply.value;
+      // The planned start is the minute the planner taps Plan, on the phone's clock (shortcut S-8.6-1).
+      const windowStart = Math.floor(Date.now() / 60_000) * 60_000;
       const recorded = await serviceFor().planDelivery({
-        order: DELIVERY_ORDER,
+        order,
         driver,
         origin,
         destination,
+        windowStart,
         route: {
           costing: route.costing,
           distanceMeters: route.distanceMeters,
@@ -1306,22 +1308,30 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     [nodeFor, nodeCommunity, serviceFor],
   );
 
-  const routeScreen = useCallback(async (): Promise<RouteScreen> => {
-    const current = serviceFor().community();
-    if (current === null) return { state: "none" };
-    await current.space.update();
-    const stored = (await current.space.view.get(DELIVERY_VIEW_KEY)) as
-      | { fingerprint?: unknown }
-      | undefined;
-    if (typeof stored?.fingerprint !== "string") return { state: "none" };
-    const bundle = nodeFor();
-    if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
-      return { state: "unreachable", message: OFFLINE_PLAN_MESSAGE };
-    }
-    return routeScreenOf(
-      await bundle.client.route(nodeCommunity.key, DELIVERY_ORDER, stored.fingerprint),
-    );
-  }, [nodeFor, nodeCommunity, serviceFor]);
+  const routeScreen = useCallback(
+    async (order: string): Promise<RouteScreen> => {
+      const plan = (await serviceFor().deliveries()).find((row) => row.order === order);
+      if (plan === undefined) return { state: "none" };
+      const bundle = nodeFor();
+      if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
+        return { state: "unreachable", message: OFFLINE_PLAN_MESSAGE };
+      }
+      return routeScreenOf(await bundle.client.route(nodeCommunity.key, order, plan.fingerprint));
+    },
+    [nodeFor, nodeCommunity, serviceFor],
+  );
+
+  // Each sync change makes a new function, so the lists re-read the record (as ordersOf does).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const plannedDeliveries = useCallback(
+    async () => serviceFor().deliveries(),
+    [serviceFor, syncVersion],
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const driversOf = useCallback(
+    async () => serviceFor().drivers(Date.now()),
+    [serviceFor, syncVersion],
+  );
 
   // A registration form's key, kept while the same form is sent again (a retry after a lost answer, S-7.4-15).
   const placeRequest = useRef<{ form: string; request: string } | null>(null);
@@ -1442,6 +1452,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       placesOf,
       planRoute,
       routeScreen,
+      plannedDeliveries,
+      driversOf,
       canAddPlaces: canAddQuotes,
       registerPlace,
       nodePlacesOf,
@@ -1494,6 +1506,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       placesOf,
       planRoute,
       routeScreen,
+      plannedDeliveries,
+      driversOf,
       registerPlace,
       nodePlacesOf,
       memberAreasOf,
