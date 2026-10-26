@@ -3,14 +3,14 @@ title: 'Roles with limits as delegated capabilities'
 type: 'feature'
 ticket: 4
 created: '2026-10-26'
-status: 'in-progress'
+status: 'built'
 baseline_revision: '859dc6c8b42f4a81411445c79de6d7e84daf56c3'
 route: 'full'
 route_source: 'auto'
 risk: 'high'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 context: []
 ---
@@ -89,6 +89,22 @@ Every shortcut these choices take goes in `_bmad-output/initiative-ocn/shortcuts
 ## Plan Change Log
 
 ## Review Triage Log
+
+Pass 1 (quick lens, one Haiku reviewer; a second reviewer on an opencode model timed out with no findings). 9 findings: 0 high, 5 low or medium patched, 4 rejected or deferred.
+
+| Finding | Verdict | Route | Evidence |
+|---|---|---|---|
+| Role refusals in `apply` use the invitation sentence, not "This role can't be checked." | medium | patch | Real: `recordRoleGrant` returned `INVITATION_MESSAGES.unreadable`, and the tests locked it in. Fixed to the role sentence. |
+| Payload `expiresAt` vs token expiry, the token-issuer vs actor check, and the ceiling-consistency check have no tests that fail if deleted | medium | patch | Real gap: the checks exist but nothing exercised them. Four tests added; each check was removed in turn and its test failed. |
+| Only the first capability of a role token is checked | low | patch | The UCAN adapter only makes one-capability tokens, so not reachable today; a one-line defensive refusal added. |
+| "What can I do?" says Allowed for inviting through a second co-treasurer, but the invitation is refused (two-link limit) | medium | patch | Real inconsistency. `checkAction` now refuses unless the member/join grant is a direct creator grant; test added; recorded as S-2.4-17. |
+| Lint: floating promise in the grant handler | low | patch | Fixed with `void`. |
+| A superseded higher grant still passes on; any holder can replace another's recorded role | medium | defer | Real, and inherent until revocation (2.6) and the Node's check against the current record (2.5). Recorded as S-2.4-15 and S-2.4-16. |
+| The grantee never sees their role in the app (no real join between phones) | low | rejected | Known: S-2.3-3 and S-2.4-12; the tests simulate phones. |
+| Pass-on refusals cannot be tried from the screens | low | rejected | Known: only the creator sees the grant form (S-2.4-12). |
+| "Say how much" is returned before the other reasons | low | rejected | Harmless: the screen asks for the amount before it checks. |
+
+Also checked by hand: the pass-on rule (S-2.3-24) switched off makes three tests fail; on web, the community card shows the grant form, "Invite them to the community first", "You already hold every role" and "Your role doesn't cover that" for the matrix rows reachable on one device; console clean. Not run: Android, iOS, a real second phone.
 
 ## Design Notes
 
