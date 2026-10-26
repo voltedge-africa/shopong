@@ -18,6 +18,7 @@ export const POOL_STATUS_LABELS = {
   part_paid: "Part paid",
   waiting: "Waiting",
   no_target: "No target yet",
+  not_member: "Not a member of this pool",
 } as const;
 
 export type PoolStatusKind = keyof typeof POOL_STATUS_LABELS;
@@ -47,7 +48,11 @@ export interface PoolInputs {
   readonly target: bigint | undefined;
 }
 
-export type PoolFlagKind = "mismatch" | "unmatched_member" | "member_mismatch";
+export type PoolFlagKind =
+  | "mismatch"
+  | "unmatched_member"
+  | "unmatched_record_member"
+  | "member_mismatch";
 
 export interface PoolFlag {
   readonly kind: PoolFlagKind;
@@ -121,6 +126,22 @@ export function poolView(input: PoolInputs): PoolView {
     });
   }
 
+  // A record amount for an id the books do not hold, or an id that is not admitted, is a difference too (never hidden).
+  const booked = new Set(input.books.members.keys());
+  const recorded = [...input.record.members.keys()];
+  if (recorded.some((id) => !known.has(id))) {
+    flags.push({
+      kind: "unmatched_record_member",
+      text: "A member amount in the shared record has no matching member in the community.",
+    });
+  }
+  if (recorded.some((id) => !booked.has(id))) {
+    flags.push({
+      kind: "unmatched_record_member",
+      text: "A member amount in the shared record has no matching member account in the books.",
+    });
+  }
+
   let otherMismatch = false;
   for (const id of ids) {
     const books = input.books.members.get(id) ?? 0n;
@@ -144,6 +165,8 @@ export function poolView(input: PoolInputs): PoolView {
   }
 
   const statusOf = (id: string): PoolStatus => {
+    // An id off the member list is never Paid, whatever the books say (triage 7).
+    if (!known.has(id)) return status("not_member");
     if (shares === undefined) return status("no_target");
     const paid = input.books.members.get(id) ?? 0n;
     const share = shares.get(id) ?? 0n;
@@ -153,7 +176,7 @@ export function poolView(input: PoolInputs): PoolView {
   };
 
   const yourPaid = input.books.members.get(input.you) ?? 0n;
-  const yourShare = shares?.get(input.you);
+  const yourShare = known.has(input.you) ? shares?.get(input.you) : undefined;
 
   return {
     currency: input.currency,

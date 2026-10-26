@@ -514,9 +514,20 @@ export class ReplicaHub implements SyncHub {
     return this.#registry[communityKey]?.creator;
   }
 
-  /** The admitted members of a community, in admission order. Empty when the Node does not hold it. */
-  membersOf(communityKey: string): readonly Did[] {
-    return [...(this.#registry[communityKey]?.members ?? [])];
+  /**
+   * The members of a community the Node admits and the record does not show as removed, in admission order (story 4.6
+   * fix: a removed member is out of the split and the list, by the same check as `isMember`). Empty when not held.
+   */
+  async membersOf(communityKey: string): Promise<readonly Did[]> {
+    const entry = this.#registry[communityKey];
+    if (entry === undefined) return [];
+    const indexed = await this.#indexedOf(communityKey)!;
+    await indexed.update();
+    const active: Did[] = [];
+    for (const did of entry.members) {
+      if ((await indexed.view.get(`${REMOVED_PREFIX}${did}`)) === undefined) active.push(did);
+    }
+    return active;
   }
 
   /**

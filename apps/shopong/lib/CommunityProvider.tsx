@@ -216,17 +216,18 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           );
         }
       }
-      await refreshPool();
       nextTryAt.current = wait === undefined ? 0 : Date.now() + wait;
       setSync(bundle.sync.state());
     },
-    [nodeFor, nodeCommunity, refreshPool],
+    [nodeFor, nodeCommunity],
   );
 
   // Start the queue, send and pull on a timer while the app is open, and again when netinfo sees a connection.
   useEffect(() => {
     nodeFor();
     const timer = setInterval(() => void tick(), TICK_MS);
+    // The pool is asked on its own clock, outside the sync backoff, so its figures age honestly (triage 2).
+    const poolTimer = setInterval(() => void refreshPool(), TICK_MS);
     // netinfo may repeat "connected" while the phone stays online: only the change counts, and the backoff holds after one try.
     const unsubscribe = NetInfo.addEventListener((state) => {
       const offline = state.isConnected === false;
@@ -237,9 +238,10 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     });
     return () => {
       clearInterval(timer);
+      clearInterval(poolTimer);
       unsubscribe();
     };
-  }, [nodeFor, tick]);
+  }, [nodeFor, tick, refreshPool]);
 
   const create = useCallback(
     async (name: string) => {

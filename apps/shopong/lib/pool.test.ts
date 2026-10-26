@@ -3,7 +3,7 @@
 import type { PoolView } from "@shopong/community";
 import { describe, expect, it } from "vite-plus/test";
 import type { NodeReply } from "./nodeClient";
-import { poolLines, poolScreenOf } from "./pool";
+import { freshnessOf, poolLines, poolScreenOf } from "./pool";
 
 const view: PoolView = {
   currency: "ZAR",
@@ -142,5 +142,23 @@ describe("poolLines: the plain words the card shows", () => {
     expect(
       poolLines({ state: "unavailable", message: "The books can't be read right now." }),
     ).toEqual(["The books can't be read right now."]);
+  });
+});
+
+describe("the freshness of the figures (triage 2 and 9)", () => {
+  // Local-time clock: the words are the phone's own, so the test builds its dates in local time too.
+  const at = (hours: number, minutes: number, seconds = 0) =>
+    new Date(2026, 9, 26, hours, minutes, seconds).getTime();
+
+  it("says when the figures were last checked, to the minute", () => {
+    expect(freshnessOf(at(9, 5), at(9, 5, 20))).toEqual({
+      checkedText: "Last checked 09:05",
+      stale: false,
+    });
+  });
+
+  it("marks the figures as possibly out of date only after 30 seconds", () => {
+    expect(freshnessOf(at(9, 5), at(9, 5, 30)).stale).toBe(false);
+    expect(freshnessOf(at(9, 5), at(9, 5, 31)).stale).toBe(true);
   });
 });

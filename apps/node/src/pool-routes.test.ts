@@ -7,8 +7,8 @@ import { MemoryLedger } from "@shopong/adapters-memory";
 import {
   configureChart,
   configureMemberAccount,
-  memberLiability,
-  POOL_BANK,
+  memberLiabilityOf,
+  poolAccountOf,
 } from "@shopong/ledger-sqlite";
 import {
   encodeProof,
@@ -45,12 +45,9 @@ afterEach(async () => {
 const MASTER_KEY = Buffer.from(FAKE_SECRETS.RECORD_MASTER_KEY, "hex");
 const clock = { now: () => Date.now() };
 
-/** A fresh in-memory ledger, the chart configured. */
+/** A fresh in-memory ledger. Each community's chart is configured when its first posting is made. */
 async function books(): Promise<MemoryLedger> {
-  const ledger = new MemoryLedger({ clock });
-  const configured = await configureChart(ledger);
-  if (!configured.ok) throw new Error(configured.error.message);
-  return ledger;
+  return new MemoryLedger({ clock });
 }
 
 async function start(ledger?: Ledger): Promise<RunningNode> {
@@ -106,7 +103,7 @@ const randomKey = (): string => newCommunityKey((n) => crypto.getRandomValues(ne
 async function eventOf(
   key: string,
   who: Phone,
-  type: "member.joined" | "member.invited" | "quote.selected" | "ledger.posted",
+  type: "member.joined" | "member.invited" | "quote.selected" | "ledger.posted" | "member.removed",
   payload: Record<string, unknown>,
   proof: string[] = [],
   at = Date.now(),
@@ -132,14 +129,8 @@ async function post(node: RunningNode, who: Phone, key: string, event: unknown):
   return last;
 }
 
-/** A community with its creator (founder) and a second member admitted and joined. */
-async function twoMembers(node: RunningNode) {
-  const creator = await phone();
-  const key = randomKey();
-  expect((await call(node, creator, "POST", "/communities", { key })).status).toBe(200);
-  const founder = await eventOf(key, creator, "member.joined", { invitation: "founder" });
-  expect((await post(node, creator, key, founder)).status).toBe(200);
-
+/** The creator invites a new person and that person joins: returns the new member. */
+async function admit(node: RunningNode, creator: Phone, key: string): Promise<Phone> {
   const joiner = await phone();
   const issued = await issueInvitation({
     auth: creator.auth,
@@ -166,6 +157,17 @@ async function twoMembers(node: RunningNode) {
     encodeProof(issued.value.token),
   ]);
   expect((await post(node, joiner, key, joined)).status).toBe(200);
+  return joiner;
+}
+
+/** A community with its creator (founder) and a second member admitted and joined. */
+async function twoMembers(node: RunningNode) {
+  const creator = await phone();
+  const key = randomKey();
+  expect((await call(node, creator, "POST", "/communities", { key })).status).toBe(200);
+  const founder = await eventOf(key, creator, "member.joined", { invitation: "founder" });
+  expect((await post(node, creator, key, founder)).status).toBe(200);
+  const joiner = await admit(node, creator, key);
   return { creator, joiner, key };
 }
 
@@ -178,11 +180,13 @@ async function payIn(
   cents: number,
   options: { mirror?: boolean; key?: string } = {},
 ) {
-  const memberId = memberIdOf(MASTER_KEY, who.did);
-  await configureMemberAccount(ledger, memberId);
+  const memberId = memberIdOf(MASTER_KEY, key, who.did);
+  const chart = await configureChart(ledger, key);
+  if (!chart.ok) throw new Error(chart.error.message);
+  await configureMemberAccount(ledger, key, memberId);
   const entries: LedgerEntry[] = [
-    { account: POOL_BANK, direction: "debit", amount: money("ZAR", cents) },
-    { account: memberLiability(memberId), direction: "credit", amount: money("ZAR", cents) },
+    { account: poolAccountOf(key), direction: "debit", amount: money("ZAR", cents) },
+    { account: memberLiabilityOf(key, memberId), direction: "credit", amount: money("ZAR", cents) },
   ];
   const idempotencyKey = options.key ?? randomHex(64);
   if (options.mirror === false) {
@@ -282,7 +286,7 @@ describe("GET /communities/:key/pool", () => {
     const node = await start(ledger);
     const { creator, key } = await twoMembers(node);
     const idempotencyKey = await payIn(node, ledger, key, creator, 50_000, { mirror: false });
-    const memberId = memberIdOf(MASTER_KEY, creator.did);
+    const memberId = memberIdOf(MASTER_KEY, key, creator.did);
     const again = await postAndMirror(
       { ledger, hub: node.hub!, nodeIdentity: node.nodeIdentity! },
       {
@@ -290,8 +294,12 @@ describe("GET /communities/:key/pool", () => {
         idempotencyKey,
         description: "Pay-in",
         entries: [
-          { account: POOL_BANK, direction: "debit", amount: money("ZAR", 50_000) },
-          { account: memberLiability(memberId), direction: "credit", amount: money("ZAR", 50_000) },
+          { account: poolAccountOf(key), direction: "debit", amount: money("ZAR", 50_000) },
+          {
+            account: memberLiabilityOf(key, memberId),
+            direction: "credit",
+            amount: money("ZAR", 50_000),
+          },
         ],
       },
     );
@@ -305,10 +313,14 @@ describe("GET /communities/:key/pool", () => {
     const node = await start(ledger);
     const { creator, key } = await twoMembers(node);
     const idempotencyKey = await payIn(node, ledger, key, creator, 10_000);
-    const memberId = memberIdOf(MASTER_KEY, creator.did);
+    const memberId = memberIdOf(MASTER_KEY, key, creator.did);
     const entries: LedgerEntry[] = [
-      { account: POOL_BANK, direction: "debit", amount: money("ZAR", 10_000) },
-      { account: memberLiability(memberId), direction: "credit", amount: money("ZAR", 10_000) },
+      { account: poolAccountOf(key), direction: "debit", amount: money("ZAR", 10_000) },
+      {
+        account: memberLiabilityOf(key, memberId),
+        direction: "credit",
+        amount: money("ZAR", 10_000),
+      },
     ];
     for (let i = 0; i < 2; i++) {
       const done = await postAndMirror(
@@ -399,13 +411,18 @@ describe("GET /communities/:key/pool", () => {
     const node = await start(ledger);
     const { creator, key } = await twoMembers(node);
     const stranger = "e".repeat(128);
-    await configureMemberAccount(ledger, stranger);
+    await configureChart(ledger, key);
+    await configureMemberAccount(ledger, key, stranger);
     await ledger.post({
       idempotencyKey: randomHex(64),
       description: "Old pay-in",
       entries: [
-        { account: POOL_BANK, direction: "debit", amount: money("ZAR", 700) },
-        { account: memberLiability(stranger), direction: "credit", amount: money("ZAR", 700) },
+        { account: poolAccountOf(key), direction: "debit", amount: money("ZAR", 700) },
+        {
+          account: memberLiabilityOf(key, stranger),
+          direction: "credit",
+          amount: money("ZAR", 700),
+        },
       ],
     });
     const reply = await pool(node, creator, key);
@@ -442,7 +459,7 @@ describe("GET /communities/:key/pool", () => {
     const ledger = await books();
     const node = await start(ledger);
     const { creator, key } = await twoMembers(node);
-    const memberId = memberIdOf(MASTER_KEY, creator.did);
+    const memberId = memberIdOf(MASTER_KEY, key, creator.did);
     const done = await postAndMirror(
       { ledger, hub: node.hub!, nodeIdentity: node.nodeIdentity! },
       {
@@ -450,8 +467,12 @@ describe("GET /communities/:key/pool", () => {
         idempotencyKey: randomHex(64),
         description: "Pay-in from 0821234567",
         entries: [
-          { account: POOL_BANK, direction: "debit", amount: money("ZAR", 100) },
-          { account: memberLiability(memberId), direction: "credit", amount: money("ZAR", 100) },
+          { account: poolAccountOf(key), direction: "debit", amount: money("ZAR", 100) },
+          {
+            account: memberLiabilityOf(key, memberId),
+            direction: "credit",
+            amount: money("ZAR", 100),
+          },
         ],
       },
     );
@@ -475,6 +496,95 @@ describe("GET /communities/:key/pool", () => {
     expect((mirrored[0]!.event.payload as { by?: string }).by).toBe(node.nodeIdentity);
   });
 
+  it("keeps two communities' money apart: a payment in A never moves B's pool or mismatch", async () => {
+    const ledger = await books();
+    const node = await start(ledger);
+    const creator = await phone();
+    const a = randomKey();
+    const b = randomKey();
+    for (const key of [a, b]) {
+      expect((await call(node, creator, "POST", "/communities", { key })).status).toBe(200);
+      const founder = await eventOf(key, creator, "member.joined", { invitation: "founder" });
+      expect((await post(node, creator, key, founder)).status).toBe(200);
+    }
+    await payIn(node, ledger, a, creator, 12_345);
+    const inA = await pool(node, creator, a);
+    const inB = await pool(node, creator, b);
+    expect(inA.json.total).toEqual({ minor: "12345", text: "The pool holds R123.45." });
+    expect(inB.json.total).toEqual({ minor: "0", text: "The pool holds R0.00." });
+    expect(inB.json.you).toMatchObject({ minor: "0", text: "You have paid R0.00" });
+    expect(inB.json.flags).toEqual([]);
+
+    await payIn(node, ledger, a, creator, 700, { mirror: false });
+    const again = await pool(node, creator, b);
+    expect(again.json.flags).toEqual([]);
+  });
+
+  it("leaves a removed member out of the equal split and out of the member list", async () => {
+    const ledger = await books();
+    const node = await start(ledger);
+    const { creator, key } = await twoMembers(node);
+    await admit(node, creator, key);
+    const fourth = await admit(node, creator, key);
+    expect(
+      (
+        await post(
+          node,
+          creator,
+          key,
+          await eventOf(key, creator, "quote.selected", {
+            order: "o1",
+            supplier: "s1",
+            totalMinor: 30_000,
+          }),
+        )
+      ).status,
+    ).toBe(200);
+    const before = await pool(node, creator, key);
+    expect(before.json.members).toHaveLength(4);
+    expect(before.json.you).toMatchObject({ share: "7500" });
+
+    const removal = await eventOf(key, creator, "member.removed", { member: fourth.did });
+    expect((await post(node, creator, key, removal)).status).toBe(200);
+    const after = await pool(node, creator, key);
+    expect(after.json.members).toHaveLength(3);
+    expect(after.json.you).toMatchObject({ share: "10000" });
+  });
+
+  it("does not flag a mirror that lands a moment late (one re-read after 200 ms)", async () => {
+    const ledger = await books();
+    const node = await start(ledger);
+    const { creator, key } = await twoMembers(node);
+    const idempotencyKey = await payIn(node, ledger, key, creator, 50_000, { mirror: false });
+    const memberId = memberIdOf(MASTER_KEY, key, creator.did);
+    const landLate = () =>
+      postAndMirror(
+        { ledger, hub: node.hub!, nodeIdentity: node.nodeIdentity! },
+        {
+          communityKey: key,
+          idempotencyKey,
+          description: "Pay-in",
+          entries: [
+            { account: poolAccountOf(key), direction: "debit", amount: money("ZAR", 50_000) },
+            {
+              account: memberLiabilityOf(key, memberId),
+              direction: "credit",
+              amount: money("ZAR", 50_000),
+            },
+          ],
+        },
+      );
+    let landed: Promise<unknown> | undefined;
+    const timer = setTimeout(() => {
+      landed = landLate();
+    }, 100);
+    const reply = await pool(node, creator, key);
+    clearTimeout(timer);
+    await landed;
+    expect(reply.json.flags).toEqual([]);
+    expect(reply.json.total).toEqual({ minor: "50000", text: "The pool holds R500.00." });
+  });
+
   it("rebuilds the same books from the record alone", async () => {
     const ledger = await books();
     const node = await start(ledger);
@@ -483,6 +593,7 @@ describe("GET /communities/:key/pool", () => {
     await payIn(node, ledger, key, joiner, 5_500);
 
     const rebuilt = await books();
+    await configureChart(rebuilt, key);
     for (const entry of await node.hub!.journalOf(key)) {
       if (entry.event.type !== "ledger.posted") continue;
       const payload = entry.event.payload as {
@@ -500,17 +611,26 @@ describe("GET /communities/:key/pool", () => {
         idempotencyKey: payload.key,
         description: payload.description,
         entries: payload.entries.map((e) => ({
-          account: e.account === "liabilities:member" ? memberLiability(e.member!) : e.account,
+          account:
+            e.account === "liabilities:member"
+              ? memberLiabilityOf(key, e.member!)
+              : e.account === "assets:bank/pool"
+                ? poolAccountOf(key)
+                : e.account,
           direction: e.direction,
           amount: money(e.currency, e.minor),
         })),
       });
       expect(posted.ok).toBe(true);
     }
-    expect((await rebuilt.balance(POOL_BANK, "ZAR")).balance.minor).toBe(35_500);
+    expect((await rebuilt.balance(poolAccountOf(key), "ZAR")).balance.minor).toBe(35_500);
     expect(
-      (await rebuilt.balance(memberLiability(memberIdOf(MASTER_KEY, joiner.did)), "ZAR")).balance
-        .minor,
+      (
+        await rebuilt.balance(
+          memberLiabilityOf(key, memberIdOf(MASTER_KEY, key, joiner.did)),
+          "ZAR",
+        )
+      ).balance.minor,
     ).toBe(5_500);
     expect(await rebuilt.trialBalance()).toEqual(await ledger.trialBalance());
   });

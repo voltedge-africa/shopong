@@ -10,6 +10,7 @@
 // write fails, the books and the record differ until the same posting is retried: the pool view shows that difference
 // as a flag until then (it is never hidden).
 //
+// Every line must be an account of this community (story 4.6 fix): another community's books are refused here.
 // Payloads carry only opaque ids and amounts (no PII). Phones cannot write `ledger.posted`: the events route refuses it.
 
 import {
@@ -19,6 +20,7 @@ import {
   PersonalDataError,
   type EventEnvelope,
 } from "@shopong/events";
+import { MEMBER_BASE, splitAccount } from "@shopong/ledger-sqlite";
 import {
   err,
   type Did,
@@ -29,28 +31,7 @@ import {
   type PostReceipt,
   type Result,
 } from "@shopong/ports";
-import { LEDGER_POSTED, MEMBER_LIABILITY, MEMBER_ACCOUNT_PREFIX } from "./pool-read.ts";
-
-/**
- * A posting line as the record holds it. A member's liability is written as the account type plus the opaque member id
- * in its own field, so the id is a whole value (exempt from the personal-data shape check) and the record's own check
- * does not refuse the mirror. `memberAccountOf` puts the slug back.
- */
-export function mirroredLine(entry: LedgerEntry): Record<string, string | number> {
-  const base = {
-    direction: entry.direction,
-    currency: entry.amount.currency,
-    minor: entry.amount.minor,
-  };
-  if (entry.account.startsWith(MEMBER_ACCOUNT_PREFIX)) {
-    return {
-      account: MEMBER_LIABILITY,
-      member: entry.account.slice(MEMBER_ACCOUNT_PREFIX.length),
-      ...base,
-    };
-  }
-  return { account: entry.account, ...base };
-}
+import { LEDGER_POSTED } from "./pool-read.ts";
 
 /** The part of the replica hub the mirror needs. `ReplicaHub` implements it. */
 export interface MirrorHub {
@@ -81,8 +62,27 @@ export interface PostingRequest {
 export type MirrorFailure = PostError | PortError<"mirror_failed">;
 
 /**
- * Posts the posting to the books, then mirrors it into the record. `replayed` is true when the books already had it.
- * The mirror is written in both cases, so a retry after a failed mirror repairs the record.
+ * A posting line as the record holds it: the chart base, with a member's opaque id in its own `member` field, so the
+ * id is a whole value (exempt from the personal-data shape check). Undefined for an account of another community.
+ */
+export function mirroredLine(
+  communityKey: string,
+  entry: LedgerEntry,
+): Record<string, string | number> | undefined {
+  const split = splitAccount(communityKey, entry.account);
+  if (split === undefined) return undefined;
+  const base = {
+    direction: entry.direction,
+    currency: entry.amount.currency,
+    minor: entry.amount.minor,
+  };
+  if (split.base === MEMBER_BASE) return { account: MEMBER_BASE, member: split.memberId!, ...base };
+  return { account: split.base, ...base };
+}
+
+/**
+ * Posts the posting to the books, then mirrors it into the record. The mirror is written in both the first and a retry
+ * of the same posting, so a retry after a failed mirror repairs the record.
  */
 export async function postAndMirror(
   options: MirrorOptions,
@@ -90,6 +90,10 @@ export async function postAndMirror(
 ): Promise<
   Result<{ receipt: PostReceipt; mirrored: { id: string; duplicate: boolean } }, MirrorFailure>
 > {
+  const lines = request.entries.map((entry) => mirroredLine(request.communityKey, entry));
+  if (lines.some((line) => line === undefined)) {
+    return err("invalid_request", "an account is not in this community's books");
+  }
   const writer = options.hub.creatorOf(request.communityKey);
   if (writer === undefined) {
     return err(
@@ -122,7 +126,7 @@ export async function postAndMirror(
       by: options.nodeIdentity,
       key: request.idempotencyKey,
       description: request.description,
-      entries: request.entries.map(mirroredLine),
+      entries: lines,
     },
   } as never) as EventEnvelope;
 

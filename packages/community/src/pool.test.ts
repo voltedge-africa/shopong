@@ -244,3 +244,46 @@ describe("poolView: money is exact", () => {
     expect(view.total.text).toBe("The pool holds -R1.50.");
   });
 });
+
+describe("poolView: record amounts with no matching member (triage 6 and 7)", () => {
+  it("flags a record member amount whose id is not in the books", () => {
+    const view = poolView(
+      inputs({
+        books: { pool: 0n, members: new Map() },
+        record: { pool: 0n, members: new Map([[A, 2_500n]]) },
+      }),
+    );
+    expect(view.flags).toContainEqual({
+      kind: "unmatched_record_member",
+      text: "A member amount in the shared record has no matching member account in the books.",
+    });
+  });
+
+  it("flags a record member amount whose id is not an admitted member", () => {
+    const view = poolView(
+      inputs({
+        books: { pool: 0n, members: new Map() },
+        record: { pool: 0n, members: new Map([[C, 2_500n]]) },
+      }),
+    );
+    expect(view.flags).toContainEqual({
+      kind: "unmatched_record_member",
+      text: "A member amount in the shared record has no matching member in the community.",
+    });
+  });
+
+  it("never shows an id that is not on the member list as Paid", () => {
+    const view = poolView(
+      inputs({
+        books: { pool: 20_000n, members: new Map([[C, 20_000n]]) },
+        record: { pool: 20_000n, members: new Map([[C, 20_000n]]) },
+        target: 20_000n,
+        you: C,
+      }),
+    );
+    expect(view.you.status).toEqual({ kind: "not_member", label: "Not a member of this pool" });
+    expect(view.you.share).toBeNull();
+    expect(view.members.map((m) => m.status.kind)).toEqual(["waiting", "waiting"]);
+    expect(JSON.stringify(view.members)).not.toContain("paid");
+  });
+});

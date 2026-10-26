@@ -59,3 +59,17 @@ export function poolLines(screen: PoolScreen): string[] {
   const { figures, people, flags } = poolSections(screen);
   return [...figures, ...people, ...flags];
 }
+
+/** A figure older than this is marked as possibly out of date (triage 2). */
+export const STALE_AFTER_MS = 30_000;
+
+/** When the figures were last checked, to the minute, and whether they are now older than `STALE_AFTER_MS`. */
+export function freshnessOf(
+  checkedAt: number,
+  now: number,
+): { checkedText: string; stale: boolean } {
+  const when = new Date(checkedAt);
+  const hh = String(when.getHours()).padStart(2, "0");
+  const mm = String(when.getMinutes()).padStart(2, "0");
+  return { checkedText: `Last checked ${hh}:${mm}`, stale: now - checkedAt > STALE_AFTER_MS };
+}

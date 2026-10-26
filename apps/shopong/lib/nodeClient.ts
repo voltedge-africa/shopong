@@ -95,7 +95,7 @@ export function failureOf(status: number, body: unknown): NodeFailure {
       ? json.reason
       : "The OCN Node did not accept it.";
   // The books being unreadable is a plain sentence from the Node, not a sign that the Node cannot be reached (story 4.6).
-  if (status === 503 && problem === "books_unavailable") {
+  if (status === 503 && (problem === "books_unavailable" || problem === "record_off")) {
     return { kind: "refused", status, problem, reason };
   }
   if (status >= 500) return { kind: "offline", reason: "The OCN Node is not answering." };

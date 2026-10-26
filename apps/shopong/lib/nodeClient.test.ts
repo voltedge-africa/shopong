@@ -199,3 +199,18 @@ describe("the phone's pool call (story 4.6)", () => {
     if (!reply.ok) expect(reply.failure.kind).toBe("offline");
   });
 });
+
+describe("the Node's record-off answer (triage 9)", () => {
+  it("reads a 503 record_off as the Node's own plain reason, not as an unreachable Node", async () => {
+    const phone = await phoneWith(() => ({
+      status: 503,
+      body: { problem: "record_off", reason: "The Node record is not running." },
+    }));
+    const reply = await phone.client.pool(KEY);
+    expect(reply.ok).toBe(false);
+    if (!reply.ok) {
+      expect(reply.failure.kind).toBe("refused");
+      expect(reply.failure.reason).toBe("The Node record is not running.");
+    }
+  });
+});
