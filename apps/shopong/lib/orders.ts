@@ -3,17 +3,23 @@
 // first, at the record's log time, so a refused proposal is never sent. The Orders screen reads the orders from the
 // synced view, so an order the Node refused does not show as recorded.
 import {
+  ORDER_MESSAGES,
   checkOrder,
   orderGateProblem,
   orderKey,
   orderPayloadOf,
   proposalProblem,
+  SELECTION_MESSAGES,
+  selectionPayloadOf,
   storedOrderOf,
+  supplierTotalOf,
   type GatedAction,
   type StoredOrder,
 } from "@shopong/community";
 import { createEvent, type EventEnvelope } from "@shopong/events";
 import type { Did, JsonValue } from "@shopong/ports";
+
+import { quotesOfView } from "./quotes";
 
 type Result<T> =
   | { readonly ok: true; readonly value: T }
@@ -109,4 +115,43 @@ export function approveEventOf(input: {
     nonce: hex(input.randomBytes(16)),
     payload: { order: input.order },
   } as never) as EventEnvelope;
+}
+
+/**
+ * The `quote.selected` event for a supplier the treasurer chose on an approved order (story 8.3), or the plain reasons it
+ * cannot be sent. The total is the ranking's own, from this phone's copy of the order and its quotes; the record recomputes
+ * it and keeps the latest choice.
+ */
+export function chooseEventOf(input: {
+  readonly community: string;
+  readonly me: Did;
+  readonly now: number;
+  readonly randomBytes: (length: number) => Uint8Array;
+  readonly order: string;
+  readonly supplier: string;
+  readonly view: ReadonlyMap<string, JsonValue>;
+}): Result<EventEnvelope> {
+  const order = storedOrderOf(input.view.get(orderKey(input.order)));
+  if (order === undefined) return { ok: false, problems: [ORDER_MESSAGES.unknown_order] };
+  if (order.status !== "open") return { ok: false, problems: [SELECTION_MESSAGES.not_approved] };
+  const priced = supplierTotalOf(quotesOfView(input.view, order.name), order.items, input.supplier);
+  if (!priced.ok) return { ok: false, problems: [priced.problem] };
+  try {
+    const event = createEvent({
+      type: "quote.selected",
+      space: input.community,
+      actor: input.me,
+      proof: [],
+      claimedAt: input.now,
+      nonce: hex(input.randomBytes(16)),
+      payload: selectionPayloadOf({
+        order: order.name,
+        supplier: input.supplier,
+        totalMinor: priced.totalMinor,
+      }),
+    } as never) as EventEnvelope;
+    return { ok: true, value: event };
+  } catch {
+    return { ok: false, problems: [SELECTION_MESSAGES.save_failed] };
+  }
 }

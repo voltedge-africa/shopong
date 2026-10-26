@@ -106,6 +106,9 @@ async function eventOf(
   type:
     | "member.joined"
     | "member.invited"
+    | "order.proposed"
+    | "order.approved"
+    | "quote.added"
     | "quote.selected"
     | "ledger.posted"
     | "member.removed"
@@ -175,6 +178,59 @@ async function twoMembers(node: RunningNode) {
   expect((await post(node, creator, key, founder)).status).toBe(200);
   const joiner = await admit(node, creator, key);
   return { creator, joiner, key };
+}
+
+/**
+ * The treasurer proposes and approves one order, records one supplier's quote for it at `totalCents` (one line, one unit),
+ * and chooses that supplier (story 8.3). The pool target is then the chosen quote's total for the order's wanted items.
+ */
+async function chooseSupplier(
+  node: RunningNode,
+  creator: Phone,
+  key: string,
+  supplier: string,
+  totalCents: number,
+): Promise<void> {
+  const proposal = await post(
+    node,
+    creator,
+    key,
+    await eventOf(key, creator, "order.proposed", {
+      name: "April groceries",
+      items: [{ item: "Sugar", quantity: 1 }],
+      budgetPerMemberMinor: 10_000,
+      deadline: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    }),
+  );
+  expect(proposal.status).toBe(200);
+  const id = String(proposal.json.id);
+  expect(
+    (await post(node, creator, key, await eventOf(key, creator, "order.approved", { order: id })))
+      .status,
+  ).toBe(200);
+  const quote = await post(
+    node,
+    creator,
+    key,
+    await eventOf(key, creator, "quote.added", {
+      supplier,
+      order: "April groceries",
+      lines: [{ item: "Sugar", unit: "bag", packSize: 1, pricePerPackCents: totalCents }],
+      delivery: { feeCents: 0, days: 0 },
+    }),
+  );
+  expect(quote.status).toBe(200);
+  const choice = await post(
+    node,
+    creator,
+    key,
+    await eventOf(key, creator, "quote.selected", {
+      order: "April groceries",
+      supplier,
+      totalMinor: totalCents,
+    }),
+  );
+  expect(choice.status).toBe(200);
 }
 
 /** The pool is the creator's: the books hold a pay-in for `who` of `rands` rand, mirrored to the record. */
@@ -349,20 +405,7 @@ describe("GET /communities/:key/pool", () => {
     const node = await start(ledger);
     const { creator, joiner, key } = await twoMembers(node);
     await payIn(node, ledger, key, creator, 12_345);
-    expect(
-      (
-        await post(
-          node,
-          creator,
-          key,
-          await eventOf(key, creator, "quote.selected", {
-            order: "o1",
-            supplier: "s1",
-            totalMinor: 40_000,
-          }),
-        )
-      ).status,
-    ).toBe(200);
+    await chooseSupplier(node, creator, key, "s1", 40_000);
 
     const asJoiner = await pool(node, joiner, key);
     expect(asJoiner.status).toBe(200);
@@ -392,16 +435,7 @@ describe("GET /communities/:key/pool", () => {
     const ledger = await books();
     const node = await start(ledger);
     const { creator, joiner, key } = await twoMembers(node);
-    await post(
-      node,
-      creator,
-      key,
-      await eventOf(key, creator, "quote.selected", {
-        order: "o1",
-        supplier: "s1",
-        totalMinor: 20_000,
-      }),
-    );
+    await chooseSupplier(node, creator, key, "s1", 20_000);
     await payIn(node, ledger, key, creator, 10_000);
     await payIn(node, ledger, key, joiner, 10_000);
     const reply = await pool(node, creator, key);
@@ -410,6 +444,66 @@ describe("GET /communities/:key/pool", () => {
     );
     expect(statuses).toEqual(["Paid", "Paid"]);
     expect(reply.json.you).toMatchObject({ share: "10000", status: { kind: "paid" } });
+  });
+
+  it("the target is the chosen supplier's quote total, and a later choice replaces it (story 8.3)", async () => {
+    const ledger = await books();
+    const node = await start(ledger);
+    const { creator, key } = await twoMembers(node);
+    await chooseSupplier(node, creator, key, "s1", 40_000);
+    expect((await pool(node, creator, key)).json.target).toEqual({
+      minor: "40000",
+      text: "The target is R400.00.",
+    });
+    await chooseSupplier(node, creator, key, "s2", 25_000);
+    expect((await pool(node, creator, key)).json.target).toEqual({
+      minor: "25000",
+      text: "The target is R250.00.",
+    });
+  });
+
+  it("a member's choice does not set the target", async () => {
+    const ledger = await books();
+    const node = await start(ledger);
+    const { creator, joiner, key } = await twoMembers(node);
+    await chooseSupplier(node, creator, key, "s1", 40_000);
+    const asMember = await post(
+      node,
+      joiner,
+      key,
+      await eventOf(key, joiner, "quote.selected", {
+        order: "April groceries",
+        supplier: "s1",
+        totalMinor: 25_000,
+      }),
+    );
+    expect(asMember.status).toBe(200);
+    expect((await pool(node, creator, key)).json.target).toEqual({
+      minor: "40000",
+      text: "The target is R400.00.",
+    });
+  });
+
+  it("a choice of a supplier with no quote is refused, and the target stays", async () => {
+    const ledger = await books();
+    const node = await start(ledger);
+    const { creator, key } = await twoMembers(node);
+    await chooseSupplier(node, creator, key, "s1", 40_000);
+    const nobody = await post(
+      node,
+      creator,
+      key,
+      await eventOf(key, creator, "quote.selected", {
+        order: "April groceries",
+        supplier: "Nobody Ltd",
+        totalMinor: 1,
+      }),
+    );
+    expect(nobody.status).toBe(200);
+    expect((await pool(node, creator, key)).json.target).toEqual({
+      minor: "40000",
+      text: "The target is R400.00.",
+    });
   });
 
   it("flags a member account with no matching member in the record", async () => {
@@ -546,20 +640,7 @@ describe("GET /communities/:key/pool", () => {
     const { creator, key } = await twoMembers(node);
     await admit(node, creator, key);
     const fourth = await admit(node, creator, key);
-    expect(
-      (
-        await post(
-          node,
-          creator,
-          key,
-          await eventOf(key, creator, "quote.selected", {
-            order: "o1",
-            supplier: "s1",
-            totalMinor: 30_000,
-          }),
-        )
-      ).status,
-    ).toBe(200);
+    await chooseSupplier(node, creator, key, "s1", 30_000);
     const before = await pool(node, creator, key);
     expect(before.json.members).toHaveLength(4);
     expect(before.json.you).toMatchObject({ share: "7500" });

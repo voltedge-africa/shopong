@@ -6,9 +6,10 @@
 //   the record   the money postings the Node mirrored into this community's record (`ledger.posted`, written by
 //                `ledger-mirror.ts`), summed the same way.
 //
-// The target is the record's latest `quote.selected` written by a treasurer (the creator, or a co-treasurer whose role
-// stands at log time), with `totalMinor` a safe, non-negative whole number of cents. `apply` does not check that type
-// yet, so the treasurer test is what keeps a member from setting the target (see shortcut S-4.6-4).
+// The target is the supplier's total for the open order, as the record holds the latest accepted `quote.selected` for it
+// (story 8.3). `apply` checks the choice against the order and its quote, and recomputes the total from them, so the
+// target is the ranked total for the order's wanted items. A choice is read only while its treasurer (the creator, or a
+// co-treasurer) still stands at log time, and only if that person has not been removed.
 //
 // Member ids in the books are opaque and scoped to the community: HMAC-SHA512 of the community key and the member's DID
 // under the Node's master key, so the ledger holds no DID and no phone or ID number (AGENTS.md rule 6).
@@ -24,7 +25,9 @@ import {
 import {
   isTreasurer,
   logTimeOf,
+  ordersOf,
   poolView,
+  selectionOf,
   type PoolReading,
   type PoolView,
 } from "@shopong/community";
@@ -36,8 +39,6 @@ import type { JournalEntry } from "@shopong/record-autobase";
 export const LEDGER_POSTED = "ledger.posted";
 /** How long to wait before re-reading a books-and-record difference (story 4.6 fix). */
 export const RECHECK_MS = 200;
-/** The record type that carries the target. */
-export const TARGET_TYPE = "quote.selected";
 /** How a member's liability is written in the record: the chart base, with the id in the line's own `member` field. */
 export const MEMBER_LIABILITY = MEMBER_BASE;
 
@@ -117,25 +118,25 @@ function recordReading(
   return { pool, members };
 }
 
-/** The target from the record: the latest `quote.selected` by a treasurer, judged at log time. */
+/**
+ * The target from the record: the latest accepted choice for each open order (story 8.3). Only one order is open at a time
+ * (S-8.2-2), so this is one choice. The choice is judged at the head's log time (shortcut S-4.6-13): its treasurer must
+ * still stand as the creator or a co-treasurer, and must not have been removed (story 4.6 fix, triage 3).
+ */
 async function targetOf(
-  journal: readonly JournalEntry<EventEnvelope>[],
   view: ViewReader | undefined,
   standing: { auth: CapabilityAuth; creator: Did; spaceKey: string },
 ): Promise<bigint | undefined> {
   if (view === undefined) return undefined;
-  // Each selection is judged at the head's log time (shortcut S-4.6-13), by the creator-or-co-treasurer standing, and a
-  // removed person's selection does not count (story 4.6 fix, triage 3).
   const at = (await logTimeOf(view)) ?? 0;
   let target: bigint | undefined;
-  for (const entry of journal) {
-    if (entry.event.type !== TARGET_TYPE) continue;
-    if ((await view.get(`removed/${entry.event.actor}`)) !== undefined) continue;
-    if (!(await isTreasurer(standing, view, entry.event.actor, at))) continue;
-    const total = (entry.event.payload as { totalMinor?: unknown }).totalMinor;
-    if (typeof total === "number" && Number.isSafeInteger(total) && total >= 0) {
-      target = BigInt(total);
-    }
+  for (const order of await ordersOf(view)) {
+    if (order.status !== "open") continue;
+    const choice = await selectionOf(view, order.name);
+    if (choice === undefined) continue;
+    if ((await view.get(`removed/${choice.by}`)) !== undefined) continue;
+    if (!(await isTreasurer(standing, view, choice.by, at))) continue;
+    target = BigInt(choice.totalMinor);
   }
   return target;
 }
@@ -181,7 +182,7 @@ async function readOnce(request: PoolReadRequest): Promise<Parameters<typeof poo
 
   const journal = await hub.journalOf(communityKey);
   const view = await hub.indexedView(communityKey);
-  const target = await targetOf(journal, view, {
+  const target = await targetOf(view, {
     auth: request.auth,
     creator: registration.creator,
     spaceKey: communityKey,

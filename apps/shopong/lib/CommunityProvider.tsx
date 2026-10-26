@@ -34,6 +34,10 @@ import {
   type RoleCheck,
   type RoleError,
   type RoleRecord,
+  type Selection,
+  SELECTION_MESSAGES,
+  selectionKey,
+  storedSelectionOf,
   type StoredOrder,
 } from "@shopong/community";
 import type { EventEnvelope } from "@shopong/events";
@@ -43,7 +47,14 @@ import type { BankForm, PaymentRecord, PaymentView, PayoutsReading } from "@shop
 import { createCommunityService, type CommunityService } from "./community";
 import { paymentStatusOfFailure } from "./paymentStatus";
 import { quoteEventOf, quotesToShow, type SavedQuote } from "./quotes";
-import { approveEventOf, gateProblemIn, memberCountIn, orderEventOf, ordersInView } from "./orders";
+import {
+  approveEventOf,
+  chooseEventOf,
+  gateProblemIn,
+  memberCountIn,
+  orderEventOf,
+  ordersInView,
+} from "./orders";
 import {
   approvalEvent,
   collectionConfirmedEvent,
@@ -118,6 +129,10 @@ type CommunityContextValue = {
   proposeOrder: (input: unknown) => Promise<string | undefined>;
   /** Approve a proposed order by its event id (story 8.2). Resolves with the plain reason refused, or undefined. */
   approveOrder: (id: string) => Promise<string | undefined>;
+  /** Choose a supplier for an approved order (story 8.3). Resolves with the plain reason refused, or undefined when queued or recorded. */
+  chooseSupplier: (order: string, supplier: string) => Promise<string | undefined>;
+  /** The treasurer's latest choice for an order, as this phone's copy of the record holds it (story 8.3). */
+  selectionOf: (order: string) => Promise<Selection | undefined>;
   /** The files on an order (story 3.7). Null until this phone has a Node session for the community. */
   files: FilesSurface | null;
   /** The delivery of an order (story 7.6). Null until this phone has a Node session for the community. */
@@ -863,6 +878,54 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     [serviceFor, nodeFor, did, nodeCommunity, canAddQuotes, tick],
   );
 
+  const chooseSupplier = useCallback(
+    async (order: string, supplier: string) => {
+      if (!canAddQuotes) return SELECTION_MESSAGES.not_permitted;
+      const bundle = nodeFor();
+      // With a Node, the choice is checked against this phone's copy and sent as a `quote.selected` event (story 8.3).
+      if (
+        bundle !== null &&
+        bundle.client !== undefined &&
+        did !== null &&
+        nodeCommunity !== null
+      ) {
+        const made = chooseEventOf({
+          community: nodeCommunity.key,
+          me: did as Did,
+          now: Date.now(),
+          randomBytes: getRandomBytes,
+          order,
+          supplier,
+          view: bundle.sync.viewOf(nodeCommunity.key) ?? new Map<string, JsonValue>(),
+        });
+        if (!made.ok) return made.problems.join(" ");
+        const queued = await bundle.sync.enqueue(nodeCommunity.key, made.value);
+        if (!queued.ok) return unqueuedMessage("The choice was saved", queued.reason);
+        void tick({ once: true });
+        return undefined;
+      }
+      const made = await serviceFor().chooseSupplier(order, supplier);
+      setRefusals(serviceFor().refusals());
+      return messageOf(made);
+    },
+    [serviceFor, nodeFor, did, nodeCommunity, canAddQuotes, tick],
+  );
+
+  const selectionOf = useCallback(
+    async (order: string) => {
+      const bundle = nodeFor();
+      // With a Node: the choice in the synced record. A choice this phone has only queued is not shown until the Node has it.
+      if (bundle !== null && nodeCommunity !== null) {
+        const view = bundle.sync.viewOf(nodeCommunity.key) ?? new Map<string, JsonValue>();
+        return storedSelectionOf(view.get(selectionKey(order)));
+      }
+      return serviceFor().selectionOf(order);
+    },
+    // syncVersion is a dependency on purpose: each sync change makes a new function, so the Orders screen re-reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [serviceFor, nodeFor, nodeCommunity, syncVersion],
+  );
+
   /** The event id of the newest pledge this phone queued for each order (keyed by the order's tidied name). */
   const queuedPledges = useRef(new Map<string, string>());
 
@@ -1358,6 +1421,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       ordersOf,
       proposeOrder,
       approveOrder,
+      chooseSupplier,
+      selectionOf,
       files: filesSurface,
       proof: proofSurface,
       refusals,
@@ -1408,6 +1473,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       ordersOf,
       proposeOrder,
       approveOrder,
+      chooseSupplier,
+      selectionOf,
       filesSurface,
       proofSurface,
       refusals,

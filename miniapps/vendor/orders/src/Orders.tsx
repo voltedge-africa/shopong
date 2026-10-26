@@ -1,17 +1,33 @@
 // Orders: the quotes for one order, side by side. The treasurer types each supplier's prices and delivery
 // terms and what the order needs; everyone can read them. The lowest total is shown by a simple rule, with
-// the margin and the rule in plain words (story 6.9). Nothing is chosen here: a person chooses the supplier.
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+// the margin and the rule in plain words (story 6.9). The quotes are compared in a table, items down the side
+// and suppliers across (story 8.3). The treasurer chooses one supplier; the chosen total is the pool's target.
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { Alert, Button, Input, Text } from "panelui-native";
-import { amountProblem, rankQuotes, tidy, type Quote, type StoredOrder } from "@shopong/community";
+import {
+  amountProblem,
+  rankQuotes,
+  tidy,
+  type Quote,
+  type Selection,
+  type StoredOrder,
+} from "@shopong/community";
 
+import { comparisonOf, type ComparisonView, type CompareColumn } from "./compare";
 import { OrdersHostContext, type OrderList, type OrdersHost, type PaymentHost } from "./host";
 import { FilesPanel } from "./FilesPanel";
 import { ProofPanel } from "./ProofPanel";
 import {
   deadlineText,
-  deliveryText,
   emptyLine,
   parseRand,
   proposalInput,
@@ -58,6 +74,8 @@ function OrdersView({ host }: { host: OrdersHost }) {
   const [loadFailed, setLoadFailed] = useState(false);
   /** Bumped after this phone saves a quote, or on Try again, so the list is read again. */
   const [saves, setSaves] = useState(0);
+  /** The treasurer's latest choice of supplier for the order on screen (story 8.3). */
+  const [chosen, setChosen] = useState<Selection | undefined>();
   const reload = useCallback(() => setSaves((count) => count + 1), []);
   const refreshList = useCallback(() => setListVersion((count) => count + 1), []);
 
@@ -91,7 +109,8 @@ function OrdersView({ host }: { host: OrdersHost }) {
     () => (name === "" ? undefined : orderRanking(quotes, wants, name)),
     [quotes, wants, name],
   );
-  // The same ranking as the card, with cents, for choosing the supplier to pay (story 4.7). Only when the needs are valid.
+  // The same ranking as the card, with cents: the comparison's totals and the choice of a supplier (stories 4.7, 8.3).
+  // Only when the needs are valid.
   const rawRanking = useMemo(() => {
     if (name === "" || ranking === undefined || !ranking.ok) return undefined;
     const checked = rankQuotes(
@@ -101,10 +120,29 @@ function OrdersView({ host }: { host: OrdersHost }) {
     return checked.ok ? checked.value : undefined;
   }, [quotes, wants, name, ranking]);
 
-  // Changing the order clears the quotes at once, so another order's quotes never show under this name.
+  // Changing the order clears the quotes and the choice at once, so another order's never show under this name.
   useEffect(() => {
     setQuotes([]);
+    setChosen(undefined);
   }, [name]);
+
+  useEffect(() => {
+    // The treasurer's latest choice for this order, as this phone's copy of the record holds it (story 8.3).
+    let current = true;
+    if (name !== "") {
+      host.selectionOf(name).then(
+        (found) => {
+          if (current) setChosen(found);
+        },
+        () => {
+          if (current) setChosen(undefined);
+        },
+      );
+    }
+    return () => {
+      current = false;
+    };
+  }, [host, name, saves]);
 
   useEffect(() => {
     // A reply for an order that is no longer the one on screen is dropped.
@@ -207,11 +245,27 @@ function OrdersView({ host }: { host: OrdersHost }) {
               </View>
             ) : quotes.length === 0 ? (
               <Text muted>No quotes for this order yet.</Text>
-            ) : (
-              quotes.map((quote) => <QuoteCard key={quote.supplier} quote={quote} />)
-            )}
+            ) : null}
 
             {ranking !== undefined && !loadFailed ? <RankingCard ranking={ranking} /> : null}
+
+            {quotes.length > 0 && !loadFailed ? (
+              <QuoteComparison
+                view={comparisonOf({
+                  quotes,
+                  wanted: order.items,
+                  ranking: rawRanking,
+                  chosen,
+                  canChoose: host.canAdd,
+                })}
+                onChoose={(supplier) =>
+                  host.chooseSupplier(name, supplier).then((problem) => {
+                    reload();
+                    return problem;
+                  })
+                }
+              />
+            ) : null}
 
             {host.payments !== undefined ? (
               <PayPanel key={`pay-${name}`} payments={host.payments} order={name} />
@@ -230,7 +284,8 @@ function OrdersView({ host }: { host: OrdersHost }) {
                 key={`payouts-${name}`}
                 host={host.payouts}
                 order={name}
-                ranking={rawRanking}
+                selection={chosen}
+                recommendation={rawRanking?.recommendation.kind ?? "none"}
                 treasurer={host.canAdd}
               />
             ) : null}
@@ -367,16 +422,144 @@ function ProposeOrder({
   );
 }
 
-function QuoteCard({ quote }: { quote: Quote }) {
+/** One row of the comparison: a label, then one cell per supplier, each column the same width. */
+function CompareRow({
+  label,
+  cells,
+  bold = false,
+}: {
+  label: string;
+  cells: readonly ReactNode[];
+  bold?: boolean;
+}) {
   return (
-    <View className="gap-1 rounded-xl border border-border p-3">
-      <Text weight="bold">{quote.supplier}</Text>
-      {quote.lines.map((line, index) => (
-        <Text key={index}>
-          {`${line.item}, ${line.unit}: ${randText(line.pricePerPackCents)} for a pack of ${line.packSize}`}
-        </Text>
+    <View className="flex-row border-t border-border">
+      <View className="w-44 p-2">
+        <Text weight={bold ? "bold" : undefined}>{label}</Text>
+      </View>
+      {cells.map((cell, index) => (
+        <View key={index} className="w-44 gap-1 border-l border-border p-2">
+          {cell}
+        </View>
       ))}
-      <Text muted>{`Delivery: ${deliveryText(quote.delivery)}`}</Text>
+    </View>
+  );
+}
+
+/**
+ * The quotes for the order, side by side: the items down the side, the suppliers across, and the totals and delivery terms
+ * at the bottom. Scrolls sideways on a narrow phone (story 8.3). The treasurer can choose one complete supplier.
+ */
+function QuoteComparison({
+  view,
+  onChoose,
+}: {
+  view: ComparisonView;
+  onChoose: (supplier: string) => Promise<string | undefined>;
+}) {
+  const [problem, setProblem] = useState<string | undefined>();
+  const [pending, setPending] = useState(false);
+  const choose = async (supplier: string) => {
+    setPending(true);
+    setProblem(undefined);
+    try {
+      setProblem(await onChoose(supplier));
+    } catch {
+      setProblem("Something went wrong. Try again.");
+    } finally {
+      setPending(false);
+    }
+  };
+  const columns: readonly CompareColumn[] = view.columns;
+  const canChooseAny = columns.some((column) => column.canChoose && !column.chosen);
+
+  return (
+    <View className="gap-2 rounded-xl border border-border p-3">
+      <Text weight="bold">Compare the quotes</Text>
+      <Text muted>
+        Scroll sideways to see every supplier. Two spellings of a name are two suppliers.
+      </Text>
+      {view.chosenText !== undefined ? <Text weight="bold">{view.chosenText}</Text> : null}
+      <ScrollView horizontal>
+        <View>
+          <CompareRow
+            label="Supplier"
+            bold
+            cells={columns.map((column) => (
+              <View key={column.supplier} className="gap-1">
+                <Text weight="bold">
+                  {column.rank === undefined
+                    ? column.supplier
+                    : `${column.rank}. ${column.supplier}`}
+                </Text>
+                {column.chosen ? <Text weight="bold">Chosen</Text> : null}
+              </View>
+            ))}
+          />
+          {view.items.map((item, row) => (
+            <CompareRow
+              key={item}
+              label={item}
+              cells={columns.map((column) => {
+                const cell = column.cells[row];
+                return (
+                  <View key={column.supplier} className="gap-1">
+                    {cell?.cost !== undefined ? <Text>{cell.cost}</Text> : null}
+                    <Text muted>{cell?.detail ?? ""}</Text>
+                  </View>
+                );
+              })}
+            />
+          ))}
+          <CompareRow
+            label="Total"
+            bold
+            cells={columns.map((column) => (
+              <Text key={column.supplier} weight="bold">
+                {column.total ?? "Not ranked"}
+              </Text>
+            ))}
+          />
+          <CompareRow
+            label="Delivery"
+            cells={columns.map((column) => (
+              <Text key={column.supplier}>{column.delivery}</Text>
+            ))}
+          />
+          {columns.some((column) => column.note !== undefined) ? (
+            <CompareRow
+              label="Notes"
+              cells={columns.map((column) => (
+                <Text key={column.supplier} muted>
+                  {column.note ?? ""}
+                </Text>
+              ))}
+            />
+          ) : null}
+          {canChooseAny ? (
+            <CompareRow
+              label="Choose"
+              cells={columns.map((column) =>
+                column.canChoose && !column.chosen ? (
+                  <Button
+                    key={column.supplier}
+                    variant="outline"
+                    disabled={pending}
+                    onPress={() => void choose(column.supplier)}
+                  >
+                    Choose this supplier
+                  </Button>
+                ) : (
+                  <Text key={column.supplier} muted>
+                    {column.chosen ? "This is the chosen supplier." : ""}
+                  </Text>
+                ),
+              )}
+            />
+          ) : null}
+        </View>
+      </ScrollView>
+      {problem !== undefined ? <Text>{problem}</Text> : null}
     </View>
   );
 }

@@ -99,6 +99,16 @@ export {
   type Recommendation,
   type Wanted,
 } from "./rank.js";
+export {
+  SELECTION_MESSAGES,
+  selectionJson,
+  selectionKey,
+  selectionOf,
+  selectionPayloadOf,
+  storedSelectionOf,
+  supplierTotalOf,
+  type Selection,
+} from "./selection.js";
 export { chainOf, invitePassOnAllowed } from "./chain.js";
 export {
   CLAIM_MESSAGE,

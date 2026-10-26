@@ -374,7 +374,6 @@ export const STEPS: readonly StepDefinition[] = [
           order: "o1",
           supplier: CHOSEN_SUPPLIER.key,
           totalMinor: total,
-          reason: "lowest total price",
         },
         {
           at: at(t, 0),

@@ -28,6 +28,7 @@ import {
   type RoleRecord,
   OrderError,
   OrderReceipt,
+  Selection,
   StoredOrder,
 } from "@shopong/community";
 import { createMemoryRecordNetwork, type MemoryRecordNetwork } from "@shopong/adapters-memory";
@@ -97,6 +98,10 @@ export type CommunityService = {
   proposeOrder: (input: unknown) => Promise<Result<OrderReceipt, OrderError>>;
   /** Approve a proposed order by its event id (story 8.2). Only the treasurer can. */
   approveOrder: (id: string) => Promise<Result<OrderReceipt, OrderError>>;
+  /** Choose a supplier for an approved order (story 8.3). Only the treasurer can. */
+  chooseSupplier: (order: string, supplier: string) => Promise<Result<QuoteReceipt, QuoteError>>;
+  /** The treasurer's latest choice for an order, as the record holds it. */
+  selectionOf: (order: string) => Promise<Selection | undefined>;
   /** The orders on the record, as this phone's copy holds them. */
   orders: () => Promise<readonly StoredOrder[]>;
   /** The last refusals on this phone, newest first (story 2.5). Kept on the device only. */
@@ -229,6 +234,14 @@ export function createCommunityService(
       if (current === null)
         return logged("Approve an order", err("refused", "Make a community first."));
       return logged("Approve an order", await current.approveOrder(id, now()));
+    },
+    async chooseSupplier(order, supplier) {
+      if (current === null)
+        return logged("Choose a supplier", err("refused", "Make a community first."));
+      return logged("Choose a supplier", await current.chooseSupplier(order, supplier, now()));
+    },
+    async selectionOf(order) {
+      return current === null ? undefined : current.selectionOf(order);
     },
     async orders() {
       return current === null ? [] : current.orders();

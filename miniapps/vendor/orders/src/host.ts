@@ -3,7 +3,7 @@
 // package never reaches into the app.
 
 import { createContext } from "react";
-import type { Quote, StoredOrder } from "@shopong/community";
+import type { Quote, Selection, StoredOrder } from "@shopong/community";
 import type { PaymentView } from "./pay";
 import type { PaymentRecord } from "./payouts";
 import type { FileCheck, FilePurpose, FileRowView } from "./files";
@@ -99,6 +99,13 @@ export interface OrdersHost {
   propose(input: unknown): Promise<string | undefined>;
   /** Approve a proposed order by its id (the treasurer). Resolves with the plain reason refused, or `undefined`. */
   approve(id: string): Promise<string | undefined>;
+  /**
+   * Choose a supplier for an approved order (story 8.3, the treasurer). The total is the ranking's own. Resolves with the
+   * plain reason refused, or `undefined` when it was sent or recorded.
+   */
+  chooseSupplier(order: string, supplier: string): Promise<string | undefined>;
+  /** The treasurer's latest choice for the order, as this phone's copy of the record holds it (story 8.3). */
+  selectionOf(order: string): Promise<Selection | undefined>;
   /** The quotes recorded for one order, as this phone's record holds them now. */
   quotesFor(order: string): Promise<readonly Quote[]>;
   /** Record a quote. Resolves with the plain reasons it was refused, or `undefined` when it was recorded. */

@@ -648,6 +648,30 @@ const orderApproved: PayloadValidator = (payload) => [
   ),
 ];
 
+/**
+ * `quote.selected` (story 8.3): the treasurer's choice of a supplier for an order, with the total the choice was made at as
+ * a whole number of cents. The record recomputes the total from the quote and the order's items, and ignores a claim that
+ * differs, so this shape is the only check the registry makes on the figure.
+ */
+const quoteSelected: PayloadValidator = (payload) => [
+  ...onlyKeys(payload, ["order", "supplier", "totalMinor"]),
+  ...requireString(
+    payload,
+    "order",
+    boundedText(1, ORDER_LIMITS.nameChars),
+    `must be an order name of 1 to ${ORDER_LIMITS.nameChars} characters, on one line`,
+  ),
+  ...requireString(
+    payload,
+    "supplier",
+    boundedText(1, ORDER_LIMITS.nameChars),
+    `must be a supplier name of 1 to ${ORDER_LIMITS.nameChars} characters, on one line`,
+  ),
+  ...(boundedInt(payload.totalMinor, 0, Number.MAX_SAFE_INTEGER)
+    ? []
+    : [{ path: "$.payload.totalMinor", message: "must be a whole number of cents, 0 or more" }]),
+];
+
 export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator } = {
   ...(Object.fromEntries(EVENT_TYPES.map((t) => [t, anyObject])) as {
     [T in EventType]: PayloadValidator;
@@ -668,4 +692,5 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "community.named": communityNamed,
   "order.proposed": orderProposed,
   "order.approved": orderApproved,
+  "quote.selected": quoteSelected,
 };

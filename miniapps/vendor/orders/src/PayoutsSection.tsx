@@ -1,11 +1,11 @@
-// Pay a supplier from the pool (story 4.7), on the Orders screen. The treasurer picks the supplier and sends the payment for
-// approval, then pays once enough people have approved. Each approver reads what they are approving and confirms it before
+// Pay a supplier from the pool (story 4.7), on the Orders screen. The treasurer sends the payment for the supplier chosen in
+// the comparison (story 8.3) for approval, then pays once enough people have approved. Each approver reads what they are approving and confirms it before
 // their approval is signed; the treasurer confirms before the payment is sent (AGENTS rule 8). Every figure and refusal
 // comes from the record or the Node; nothing here decides them.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { Button, Input, Text } from "panelui-native";
-import { choosePayoutSupplier, type Ranking } from "@shopong/community";
+import type { Selection } from "@shopong/community";
 
 import type { BankForm, PayoutHost } from "./host";
 import { createSingleFlight } from "./pay";
@@ -21,8 +21,10 @@ import {
 interface Props {
   readonly host: PayoutHost;
   readonly order: string;
-  /** The ranking of this order's quotes, ranked by the same rule as the ranking card. Undefined when it cannot be ranked. */
-  readonly ranking: Ranking | undefined;
+  /** The treasurer's chosen supplier for this order, with its total (story 8.3). Undefined until one is chosen. */
+  readonly selection: Selection | undefined;
+  /** The ranking's recommendation kind, recorded with the payment (clear, too_close, only_one or none). */
+  readonly recommendation: string;
   /** Whether this person is the treasurer (may send a payment for approval, pay, and keep bank details). */
   readonly treasurer: boolean;
 }
@@ -35,12 +37,11 @@ const emptyBank = (): BankForm & { readonly supplierText: string } => ({
   accountType: "current",
 });
 
-export function PayoutsSection({ host, order, ranking, treasurer }: Props) {
+export function PayoutsSection({ host, order, selection, recommendation, treasurer }: Props) {
   const [cards, setCards] = useState<readonly PayoutCard[]>([]);
   const [proposalNotices, setProposalNotices] = useState<readonly string[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloads, setReloads] = useState(0);
-  const [pick, setPick] = useState<string | undefined>();
   const [confirming, setConfirming] = useState<string | undefined>();
   const [paying, setPaying] = useState<string | undefined>();
   const [message, setMessage] = useState<string | undefined>();
@@ -97,54 +98,29 @@ export function PayoutsSection({ host, order, ranking, treasurer }: Props) {
       }
     });
 
-  // The treasurer's choice: a clear ranking pays its winner; otherwise the treasurer picks a complete quote.
-  const choice = ranking === undefined ? undefined : choosePayoutSupplier(ranking, pick);
-
   return (
     <View className="gap-3 rounded-xl border border-border p-3">
       <Text weight="bold">Pay a supplier</Text>
       <Text muted>{PAYOUT_SIMULATED_NOTE}</Text>
 
-      {treasurer && ranking !== undefined && ranking.ranked.length > 0 ? (
+      {selection !== undefined ? (
         <View className="gap-2">
-          <Text muted>
-            {ranking.recommendation.kind === "clear"
-              ? `The lowest quote is ${ranking.recommendation.supplier}.`
-              : "Choose the supplier to pay from the complete quotes."}
-          </Text>
-          {ranking.recommendation.kind === "clear"
-            ? null
-            : ranking.ranked.map((row) => (
-                <Button
-                  key={row.supplier}
-                  variant={pick === row.supplier ? "primary" : "outline"}
-                  onPress={() => setPick(row.supplier)}
-                >
-                  {`${row.rank}. ${row.supplier} ${randText(row.totalCents)}`}
-                </Button>
-              ))}
-          {choice?.ok === true ? (
+          <Text>{`Chosen in the comparison: ${selection.supplier}, ${randText(selection.totalMinor)}.`}</Text>
+          {treasurer ? (
             <Button
               disabled={busy}
               onPress={() =>
-                act(
-                  () =>
-                    host.propose(
-                      order,
-                      choice.value.supplier,
-                      choice.value.amountMinor,
-                      choice.value.recommendation,
-                    ),
-                  () => setPick(undefined),
+                act(() =>
+                  host.propose(order, selection.supplier, selection.totalMinor, recommendation),
                 )
               }
             >
-              {`Send ${choice.value.supplier} ${randText(choice.value.amountMinor)} for approval`}
+              {`Send ${selection.supplier} ${randText(selection.totalMinor)} for approval`}
             </Button>
-          ) : choice !== undefined ? (
-            <Text muted>{choice.message}</Text>
           ) : null}
         </View>
+      ) : treasurer ? (
+        <Text muted>Choose a supplier in the comparison above first.</Text>
       ) : null}
 
       {proposalNotices.map((notice, index) => (
