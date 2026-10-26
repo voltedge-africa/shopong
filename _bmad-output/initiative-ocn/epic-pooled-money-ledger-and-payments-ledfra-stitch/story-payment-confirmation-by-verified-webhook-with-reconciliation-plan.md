@@ -1,7 +1,7 @@
 ---
 title: "Payment confirmation by verified webhook, with reconciliation"
 ticket: 5
-status: draft
+status: done
 baseline_revision: "788a54d8ab1c5cedcf4ab94ed00f62779eefa091"
 ---
 
