@@ -15,8 +15,9 @@
 //
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
 // `joined/<invitation id>` { member }, `roles/<did>/<role>` and `revoked/<grant id>` (see roles.ts),
-// `quotes/<order>/<supplier>` (see quotes.ts), `log/time` (see log-time.ts), `rejected/<event id>`
-// { type, reason }.
+// `quotes/<order>/<supplier>` (see quotes.ts), `log/time` (see log-time.ts), `indexers/<did>` (true; the
+// creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
+// fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
 
 import {
   PERSONAL_DATA_MESSAGE,
@@ -56,6 +57,15 @@ export const FOUNDER_INVITATION = "founder";
 /** Why an event is refused when its `actor` is not the writer who appended it. */
 export const NOT_THE_WRITER = "This was not written by the person it names.";
 
+/** Why a `member.removed` is refused (story 3.3). Each is one plain sentence, as the record shows it. */
+export const REMOVAL_MESSAGES = {
+  unreadable: "This removal can't be read.",
+  not_permitted: "Only the creator or a co-treasurer can remove someone else.",
+  creator_not_removable: "The creator of a community cannot be removed.",
+  not_a_member: "That person is not a member of this community.",
+  last_indexer: "A community must keep at least one indexer, so this person cannot be removed.",
+} as const;
+
 export interface CommunityApplyEnvironment {
   readonly auth: CapabilityAuth;
   /** The creator: every invitation chain must start from this DID. */
@@ -72,10 +82,13 @@ function str(o: JsonObject, key: string): string | undefined {
 /** Why an event is refused when its payload is not an object, so it cannot be read. */
 export const EVENT_UNREADABLE = "This event can't be read.";
 
+const INDEXERS = "indexers/";
+
 /** The event types `apply` checks. Other types are not applied yet, and do not move log time. */
 const CHECKED: ReadonlySet<string> = new Set([
   "member.invited",
   "member.joined",
+  "member.removed",
   "role.granted",
   "role.revoked",
   "quote.added",
@@ -104,6 +117,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     if (invitation === undefined || invitee === undefined || typeof expiresAt !== "number")
       return INVITATION_MESSAGES.unreadable;
     await view.put(`invitations/${invitation}`, { invitee, expiresAt });
+    // A fresh invitation ends a removal: the person may join again (story 3.3).
+    await view.del(`removed/${invitee}`);
     await host.addWriter(invitee as Did);
     return undefined;
   }
@@ -125,6 +140,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     if (invitation === FOUNDER_INVITATION) {
       if (event.actor !== env.creator || event.proof.length > 0)
         return INVITATION_MESSAGES.unreadable;
+      // The creator is the community's first indexer (story 3.3); nothing else seeds the set.
+      await view.put(`${INDEXERS}${event.actor}`, true);
     } else {
       const proof = event.proof[0];
       const token = proof === undefined ? undefined : decodeProof(proof);
@@ -149,6 +166,40 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
       await view.put(`joined/${invitation}`, { member: event.actor });
     }
     await view.put(`members/${event.actor}`, { invitation, joinedAt });
+    return undefined;
+  }
+
+  /**
+   * A removal by capability (story 3.3), judged at log time (story 3.6). The creator, or a co-treasurer whose standing
+   * holds at log time, may remove anyone but the creator; a member may remove themself. The creator is never removed.
+   * The indexer set must keep at least one indexer. The removed member's earlier events stay in the view; role grants
+   * are not touched (story 2.6 revokes them).
+   */
+  async function removed(
+    event: EventEnvelope,
+    view: ViewWriter,
+    host: Parameters<Apply<EventEnvelope>>[2],
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const member = str(event.payload, "member");
+    if (member === undefined) return REMOVAL_MESSAGES.unreadable;
+    if (member === env.creator) return REMOVAL_MESSAGES.creator_not_removable;
+    const leaving = event.actor === member;
+    if (!leaving && !(await isTreasurer(standing, view, event.actor, at))) {
+      return (
+        (await coTreasurerProblem(standing, view, event.actor, at)) ??
+        REMOVAL_MESSAGES.not_permitted
+      );
+    }
+    if ((await view.get(`members/${member}`)) === undefined) return REMOVAL_MESSAGES.not_a_member;
+    const indexers = (await view.list(INDEXERS)).filter(
+      (entry) => entry.key !== `${INDEXERS}${member}`,
+    );
+    if (indexers.length === 0) return REMOVAL_MESSAGES.last_indexer;
+    await host.removeWriter(member as Did);
+    await view.del(`members/${member}`);
+    await view.del(`${INDEXERS}${member}`);
+    await view.put(`removed/${member}`, { by: event.actor, at });
     return undefined;
   }
 
@@ -225,6 +276,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return invited(event, view, host, at);
       case "member.joined":
         return joined(entry, view, at, next);
+      case "member.removed":
+        return removed(event, view, host, at);
       case "role.granted":
         return recordRoleGrant(env, view, event, at);
       case "role.revoked":

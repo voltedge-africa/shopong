@@ -94,7 +94,7 @@ const createCommunity = (node: RunningNode, who: Phone, key: string) =>
 async function eventOf(
   key: string,
   who: Phone,
-  type: "member.joined" | "member.invited",
+  type: "member.joined" | "member.invited" | "member.removed",
   payload: Record<string, unknown>,
   proof: string[] = [],
   at = Date.now(),
@@ -277,6 +277,61 @@ describe("POST /communities/:key/members", () => {
     expect((await post(node, joiner, key, joined)).status).toBe(200);
     const read = await call(node, joiner, "GET", `/spaces/${key}/events?after=`);
     expect(read.status).toBe(200);
+  });
+
+  /**
+   * A joined member whom the creator then removes. The Node's indexer holds the removal before this returns. With
+   * `alsoInvite`, the creator first issues a second invitation that is never used.
+   */
+  async function joinedThenRemoved(node: RunningNode, alsoInvite = false) {
+    const { creator, key } = await founded(node);
+    const joiner = await phone();
+    const first = await invite(node, creator, key, joiner);
+    const admitted = await call(node, joiner, "POST", `/communities/${key}/members`, {
+      invitation: first.link,
+    });
+    expect(admitted.status).toBe(200);
+    const joined = await eventOf(key, joiner, "member.joined", { invitation: first.id }, [
+      encodeProof(first.token),
+    ]);
+    expect((await post(node, joiner, key, joined)).status).toBe(200);
+    // Issued before the removal: a fresh invitation after it would clear the mark (story 3.3).
+    const unused = alsoInvite ? await invite(node, creator, key, joiner) : undefined;
+    const removal = await eventOf(key, creator, "member.removed", { member: joiner.did });
+    expect((await post(node, creator, key, removal)).status).toBe(200);
+    await node.hub!.catchUp(key);
+    return { creator, key, joiner, unused };
+  }
+
+  it("refuses a removed member's old invitation that was never used, and keeps them off the Node's list", async () => {
+    const node = await start();
+    const { key, joiner, unused } = await joinedThenRemoved(node, true);
+    const reply = await call(node, joiner, "POST", `/communities/${key}/members`, {
+      invitation: unused!.link,
+    });
+    expect(reply.status).toBe(403);
+    expect(reply.json.problem).toBe("removed");
+    expect(await node.hub!.isMember(joiner.did, key)).toBe(false);
+  });
+
+  it("admits a removed member again on a fresh invitation, and their replica opens again", async () => {
+    const node = await start();
+    const { creator, key, joiner } = await joinedThenRemoved(node);
+    const fresh = await invite(node, creator, key, joiner);
+    await node.hub!.catchUp(key);
+    const admitted = await call(node, joiner, "POST", `/communities/${key}/members`, {
+      invitation: fresh.link,
+    });
+    expect(admitted.status).toBe(200);
+    // The member's replica is opened and settled with the indexer before the join is sent (as the 3.5 tests do).
+    await node.hub!.replicaOf(joiner.did, key);
+    await node.hub!.catchUp(key);
+    const rejoined = await eventOf(key, joiner, "member.joined", { invitation: fresh.id }, [
+      encodeProof(fresh.token),
+    ]);
+    const jr = await post(node, joiner, key, rejoined);
+    expect(jr.status).toBe(200);
+    expect(await node.hub!.holdsReplica(joiner.did, key)).toBe(true);
   });
 
   it("refuses a stranger with no invitation, in plain words", async () => {

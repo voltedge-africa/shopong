@@ -1,7 +1,8 @@
 // The event types of the first release (architecture.md section 6).
 // Payload schemas are loose placeholders until the story that first writes a type
 // replaces its entry in PayloadMap and PAYLOAD_VALIDATORS with a strict schema
-// (member.invited and member.joined: story 2.3; role.granted: story 2.4). The envelope itself is strict (envelope.ts).
+// (member.invited and member.joined: story 2.3; role.granted: story 2.4; member.removed: story 3.3). The envelope
+// itself is strict (envelope.ts).
 
 import type { JsonObject } from "./json.js";
 
@@ -61,6 +62,16 @@ export interface MemberJoinedPayload extends JsonObject {
 }
 
 /**
+ * `member.removed`: the actor removed `member` from the community (story 3.3). The actor is the creator, a
+ * co-treasurer, or the member themself. An optional `reason` (text, in the actor's words) may follow; the validator
+ * checks it, but the type does not name it, because an optional field cannot sit under `JsonObject`.
+ */
+export interface MemberRemovedPayload extends JsonObject {
+  /** `did:key` of the member removed. */
+  readonly member: string;
+}
+
+/**
  * `role.granted`: the actor gave `grantee` the named role until `expiresAt`. The proof is one delegation
  * token per ability of the role, each checked by `CapabilityAuth.verify` in `apply`.
  */
@@ -78,6 +89,7 @@ export type PayloadMap = { [T in EventType]: JsonObject } & {
   "member.invited": MemberInvitedPayload;
   "member.joined": MemberJoinedPayload;
   "role.granted": RoleGrantedPayload;
+  "member.removed": MemberRemovedPayload;
 };
 
 export interface Issue {
@@ -126,6 +138,13 @@ const memberInvited: PayloadValidator = (payload) => {
 const memberJoined: PayloadValidator = (payload) =>
   requireString(payload, "invitation", nonEmpty, "must be a non-empty token id");
 
+const memberRemoved: PayloadValidator = (payload) => {
+  const issues = requireString(payload, "member", (v) => DID_KEY.test(v), "must be a did:key");
+  if (payload.reason !== undefined && typeof payload.reason !== "string")
+    issues.push({ path: "$.payload.reason", message: "must be text when given" });
+  return issues;
+};
+
 const roleGranted: PayloadValidator = (payload) => {
   const issues = [
     ...requireString(payload, "role", nonEmpty, "must be a non-empty role name"),
@@ -149,4 +168,5 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "member.invited": memberInvited,
   "member.joined": memberJoined,
   "role.granted": roleGranted,
+  "member.removed": memberRemoved,
 };
