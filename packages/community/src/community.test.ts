@@ -393,6 +393,20 @@ describe("apply", () => {
 
   it("refuses a join claimed at or after the invitation's end", async () => {
     const w = await invitedWorld();
+    // The end is judged at log time, so the record's log time must reach it first (one day at a time).
+    for (let at = T0 + DAY_MS; at <= w.inv.expiresAt; at += DAY_MS) {
+      const added = await w.community.addQuote(
+        {
+          supplier: "Thandi Wholesale",
+          order: `Day ${(at - T0) / DAY_MS}`,
+          lines: [{ item: "Sugar", unit: "bag", packSize: 1, pricePerPackCents: 12500 }],
+          delivery: { feeCents: 0, days: 0 },
+        },
+        at,
+      );
+      if (!added.ok) throw new Error(added.error.message);
+    }
+    await w.sync();
     const result = await raw(w.newcomerSpace, {
       ...join(w),
       proof: [encodeProof(w.inv.token)],

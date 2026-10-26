@@ -6,11 +6,13 @@
 // `CapabilityAuth.verify` against the event's own time; the phone checks them against the device clock
 // for "What can I do?". Every refusal a person sees is one plain sentence in `ROLE_MESSAGES`.
 //
-// Shortcut S-2.4-5: the end of a role is checked against the time the event claims, so it can be
-// backdated until the OCN Node checks with its own clock (story 2.5).
+// Story 3.6: every check here is judged at log time (log-time.ts), never at the time an event claims, so a
+// backdated event cannot use a role that ended. A role is taken back with `role.revoked` (a record event):
+// each grant of it is marked in the view as revoked, and a later use of any of those grants is refused.
 //
-// View keys: `roles/<did>/<role>` { role, grantor, expiresAt, grants: [{ ability, token, id, limit }] }.
-// The `id` of each grant is what an invitation passed on by a co-treasurer must name as its parent.
+// View keys: `roles/<did>/<role>` { role, grantor, expiresAt, grants: [{ ability, token, id, limit }] },
+// `revoked/<grant id>` { role, grantee }. The `id` of each grant is what an invitation passed on by a
+// co-treasurer must name as its parent.
 
 import type { EventEnvelope } from "@shopong/events";
 import {
@@ -82,6 +84,8 @@ export function isRoleName(value: unknown): value is RoleName {
 }
 
 export const roleKey = (grantee: string, role: string) => `roles/${grantee}/${role}`;
+/** The view key that marks a grant (by its token id) as taken back. */
+export const revokedKey = (grantId: string) => `revoked/${grantId}`;
 
 // ---- plain words ----------------------------------------------------------------------
 
@@ -103,7 +107,10 @@ export type RoleProblem =
   | "outside"
   | "over_limit"
   | "no_amount"
-  | "not_original_giver";
+  | "not_original_giver"
+  | "revoked"
+  | "nothing_to_revoke"
+  | "cant_revoke";
 
 export type RoleError = PortError<RoleProblem>;
 
@@ -150,6 +157,9 @@ const FIXED_MESSAGES: { readonly [P in RoleProblem]?: string } = {
   outside: "Your role doesn't cover that.",
   no_amount: "Say how much.",
   not_original_giver: "Only the person who gave this role, or the creator, can replace it.",
+  revoked: "This role has been taken back.",
+  nothing_to_revoke: "There is no such role to take back.",
+  cant_revoke: "Only the person who gave this role, or the creator, can take it back.",
 };
 
 /** The plain sentence for a refusal. `at` is the day for `ended` and `not_started`; `limit` for `over_limit`. */
@@ -234,6 +244,19 @@ function toJson(record: RoleRecord): JsonValue {
   };
 }
 
+/** Whether the grant with this token id has been taken back (`role.revoked`) in the view as it stands. */
+export async function isRevokedIn(view: ViewReader, tokenId: string): Promise<boolean> {
+  return (await view.get(revokedKey(tokenId))) !== undefined;
+}
+
+/** Whether a recorded role has been taken back: its grants are all marked, so any one of them is enough. */
+async function roleRevokedIn(view: ViewReader, record: RoleRecord): Promise<boolean> {
+  for (const grant of record.grants) {
+    if (await isRevokedIn(view, grant.id)) return true;
+  }
+  return false;
+}
+
 /** Whether `tokenId` is a grant recorded for `holder` in the view as it stands (review finding 1). */
 export async function isCurrentGrantIn(
   view: ViewReader,
@@ -263,7 +286,7 @@ export async function rolesOf(view: ViewReader, holder: string): Promise<readonl
   return out;
 }
 
-/** The co-treasurer's recorded `member/join` grant, if they hold the role and it has not ended at `at`. */
+/** The co-treasurer's recorded `member/join` grant, if they hold the role, it has not ended at `at` and it was not taken back. */
 export async function coTreasurerJoinGrant(
   view: ViewReader,
   inviter: string,
@@ -271,17 +294,61 @@ export async function coTreasurerJoinGrant(
 ): Promise<RoleGrant | undefined> {
   const record = await readRole(view, inviter, "co-treasurer");
   if (record === undefined || at >= record.expiresAt) return undefined;
+  if (await roleRevokedIn(view, record)) return undefined;
   return record.grants.find((grant) => grant.ability === "member/join");
 }
 
-/** Whether `inviter` holds the co-treasurer role at `at` (may send `member.invited`). */
+/**
+ * Who a co-treasurer's standing is judged against: the record's creator, the space, and the verifier. The same
+ * `CapabilityAuth` the join checks use, so `apply`, the phone and the Node agree (review item 2).
+ */
+export interface StandingContext {
+  readonly auth: CapabilityAuth;
+  readonly creator: Did;
+  readonly spaceKey: string;
+}
+
+/**
+ * Why a co-treasurer does not stand at `at`, in the plain words of the role. `undefined` when they hold no
+ * co-treasurer role, or it stands. A role stands only when every grant it holds still verifies at `at`: the
+ * chain is sound and in time, no grant in it has been taken back, and every link above is a current grant.
+ */
+export async function coTreasurerProblem(
+  ctx: StandingContext,
+  view: ViewReader,
+  who: string,
+  at: EpochMs,
+): Promise<string | undefined> {
+  const record = await readRole(view, who, "co-treasurer");
+  if (record === undefined) return undefined;
+  if (await roleRevokedIn(view, record)) return roleMessage("revoked");
+  for (const grant of record.grants) {
+    const verified = await verifyAuthority(ctx.auth, grant.token, {
+      holder: who as Did,
+      rootIssuer: ctx.creator,
+      at,
+      required: {
+        with: spaceUri(ctx.spaceKey),
+        can: grant.ability,
+        ...(grant.limit === undefined ? {} : { ceiling: grant.limit }),
+      },
+      isRevoked: (id) => isRevokedIn(view, id),
+      isCurrentGrant: (holder, id) => isCurrentGrantIn(view, holder, id),
+    });
+    if (!verified.ok) return roleFailure(verified.error).error.message;
+  }
+  return undefined;
+}
+
+/** Whether `inviter` holds the co-treasurer role and it stands at `at` (may send `member.invited`). */
 export async function isCoTreasurer(
+  ctx: StandingContext,
   view: ViewReader,
   inviter: string,
   at: EpochMs,
 ): Promise<boolean> {
   const record = await readRole(view, inviter, "co-treasurer");
-  return record !== undefined && at < record.expiresAt;
+  return record !== undefined && (await coTreasurerProblem(ctx, view, inviter, at)) === undefined;
 }
 
 /** Whether `parentId` is the `member/join` grant recorded for `inviter` as co-treasurer, at `at`. */
@@ -323,6 +390,8 @@ function roleFailure(failure: AuthorityFailure): Err<RoleError> {
     case "not_current":
     case "not_yours":
       return fail(failure.code === "not_current" ? "outside" : failure.code);
+    case "revoked":
+      return fail("revoked");
     default:
       return fail("unreadable");
   }
@@ -338,13 +407,14 @@ async function checkToken(
   holder: string,
   token: CapabilityToken,
   ability: Ability,
-  now: EpochMs,
+  logTime: EpochMs,
   amount?: Money,
 ): Promise<Result<{ readonly limit?: Money; readonly endsAt: EpochMs }, RoleError>> {
   const verified = await verifyAuthority(ctx.auth, token, {
     holder: holder as Did,
     rootIssuer: ctx.creator,
-    at: now,
+    at: logTime,
+    isRevoked: (id) => isRevokedIn(view, id),
     isCurrentGrant: (who, id) => isCurrentGrantIn(view, who, id),
     required: {
       with: spaceUri(ctx.spaceKey),
@@ -380,14 +450,14 @@ async function joinIsDirect(ctx: CheckContext, record: RoleRecord): Promise<bool
 }
 
 /**
- * "What can I do?": may `holder` do `request` now? Returns the role that allows it, or the plain reason
- * from the first role that could have allowed it.
+ * "What can I do?": may `holder` do `request` at log time? Returns the role that allows it, or the plain
+ * reason from the first role that could have allowed it.
  */
 export async function checkAction(
   ctx: CheckContext & { readonly view: ViewReader },
   holder: string,
   request: ActionRequest,
-  now: EpochMs,
+  logTime: EpochMs,
 ): Promise<Result<RoleCheck, RoleError>> {
   const limited = Object.values(ROLES).some((role) => role.limited === request.ability);
   if (limited && request.amount === undefined) return fail("no_amount");
@@ -409,7 +479,7 @@ export async function checkAction(
       holder,
       candidate.token,
       request.ability,
-      now,
+      logTime,
       limited ? request.amount : undefined,
     );
     if (checked.ok) return ok({ role: candidate.role, ...checked.value });
@@ -430,6 +500,9 @@ export interface IssueRoleRequest extends CheckContext {
   readonly limit?: Money;
   /** 7, 30 or 90. Default 30. */
   readonly days?: number;
+  /** The time the role's delegations start from and are checked at: the record's log time (story 3.6). */
+  readonly logTime: EpochMs;
+  /** The device clock when the role is given. It sets how long the role lasts. */
   readonly now: EpochMs;
 }
 
@@ -449,7 +522,7 @@ function capabilitiesFor(definition: RoleDefinition, spaceKey: string, limit?: M
 
 /** Make the delegation tokens for a role. Nothing is recorded here; the caller appends the event. */
 export async function issueRole(request: IssueRoleRequest): Promise<Result<RoleDraft, RoleError>> {
-  const { auth, view, creator, spaceKey, grantor, grantee, limit, now } = request;
+  const { auth, view, creator, spaceKey, grantor, grantee, limit, now, logTime } = request;
   if (!isRoleName(request.role)) return fail("unknown_role");
   const definition = ROLES[request.role];
   if (!isDid(grantee) || !DID_KEY.test(grantee)) return fail("bad_grantee");
@@ -460,8 +533,9 @@ export async function issueRole(request: IssueRoleRequest): Promise<Result<RoleD
   if (definition.limited === undefined && limit !== undefined) return fail("no_limit");
   if (definition.limited !== undefined && limit === undefined) return fail("limit_needed");
 
-  // UCAN times are whole seconds (as for invitations).
-  const notBefore = Math.floor(now / 1000) * 1000;
+  // UCAN times are whole seconds (as for invitations). A role starts at log time, so `apply` (which checks
+  // it at log time) accepts it, and it lasts the days chosen from the giver's clock.
+  const notBefore = Math.floor(logTime / 1000) * 1000;
   const expiresAt = Math.floor((now + days * DAY_MS) / 1000) * 1000;
   const capabilities = capabilitiesFor(definition, spaceKey, limit);
   const tokens: CapabilityToken[] = [];
@@ -496,7 +570,7 @@ export async function issueRole(request: IssueRoleRequest): Promise<Result<RoleD
           grantor,
           grant.token,
           ability,
-          now,
+          logTime,
           definition.limited === ability ? limit : undefined,
         );
         if (checked.ok) {
@@ -542,13 +616,15 @@ export async function issueRole(request: IssueRoleRequest): Promise<Result<RoleD
 // ---- recording a role in apply ------------------------------------------------------
 
 /**
- * `apply` for a `role.granted` event: checks every token, and records the role for the grantee. Returns the
- * plain reason to refuse the event, or `undefined` when it is recorded. Reads only the event and the view.
+ * `apply` for a `role.granted` event: checks every token at log time `at` (the time before this event), and
+ * records the role for the grantee. Returns the plain reason to refuse the event, or `undefined` when it is
+ * recorded. Reads only the event and the view.
  */
 export async function recordRoleGrant(
   ctx: CheckContext,
   view: ViewWriter,
   event: EventEnvelope,
+  at: EpochMs,
 ): Promise<string | undefined> {
   const { auth, creator } = ctx;
   const payload = event.payload;
@@ -595,8 +671,9 @@ export async function recordRoleGrant(
     const verified = await verifyAuthority(auth, token, {
       holder: grantee as Did,
       rootIssuer: creator,
-      at: event.claimedAt,
+      at,
       required: capability,
+      isRevoked: (id) => isRevokedIn(view, id),
       isCurrentGrant: (who, id) => isCurrentGrantIn(view, who, id),
     });
     if (!verified.ok) {
@@ -604,6 +681,8 @@ export async function recordRoleGrant(
         case "ended":
         case "not_started":
           return roleMessage(verified.error.code, { at: verified.error.at });
+        case "revoked":
+          return roleMessage("revoked");
         case "outside":
         case "not_current":
         case "over_limit": {
@@ -634,5 +713,29 @@ export async function recordRoleGrant(
     roleKey(grantee, role),
     toJson({ role, grantor: event.actor as Did, expiresAt, grants }),
   );
+  return undefined;
+}
+
+/**
+ * `apply` for a `role.revoked` event: takes back the role `grantee` holds, so every grant of it is refused
+ * from here on. Its payload is `{ role, grantee }`, read loosely (story 2.6 gives it a strict schema).
+ * Only the creator or the person who gave the role may take it back, the same people who may replace it
+ * (S-2.4-16); story 2.6 owns that rule and the screen. Returns the plain reason, or `undefined` when taken back.
+ */
+export async function recordRoleRevocation(
+  ctx: CheckContext,
+  view: ViewWriter,
+  event: EventEnvelope,
+): Promise<string | undefined> {
+  const { role, grantee } = event.payload;
+  if (!isRoleName(role) || typeof grantee !== "string") return roleMessage("unreadable");
+  const record = await readRole(view, grantee, role);
+  if (record === undefined) return roleMessage("nothing_to_revoke");
+  if (event.actor !== ctx.creator && event.actor !== record.grantor) {
+    return roleMessage("cant_revoke");
+  }
+  for (const grant of record.grants) {
+    await view.put(revokedKey(grant.id), { role, grantee });
+  }
   return undefined;
 }

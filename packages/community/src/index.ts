@@ -45,6 +45,13 @@ export {
 } from "./rank.js";
 export { chainOf, invitePassOnAllowed } from "./chain.js";
 export {
+  CLAIM_MESSAGE,
+  LOG_RISE_LIMIT_MS,
+  LOG_TIME_KEY,
+  advanceLogTime,
+  logTimeOf,
+} from "./log-time.js";
+export {
   ACTIONS,
   DEFAULT_ROLE_DAYS,
   ROLES,
@@ -53,6 +60,7 @@ export {
   checkAction,
   coTreasurerJoinGrant,
   isCurrentGrantIn,
+  isRevokedIn,
   coTreasurerJoinRecorded,
   formatDay,
   formatRand,
@@ -71,6 +79,7 @@ export {
   type RoleName,
   type RoleProblem,
   type RoleRecord,
+  type StandingContext,
 } from "./roles.js";
 export {
   DAY_MS,
