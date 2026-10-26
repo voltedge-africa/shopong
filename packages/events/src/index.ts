@@ -108,7 +108,10 @@ export { COARSE_AREA_MESSAGE, coarseArea } from "./area.js";
 export { type MemberAreaPayload } from "./registry.js";
 export { MAX_ADDRESS_LENGTH, commitAddress, normaliseAddress } from "./commitment.js";
 export {
+  type CommunityNamedPayload,
   type DeliveryPlannedPayload,
   type DeliveryRoute,
   type PlaceRegisteredPayload,
+  COMMUNITY_NAME_MAX,
+  COMMUNITY_RULES_MAX,
 } from "./registry.js";

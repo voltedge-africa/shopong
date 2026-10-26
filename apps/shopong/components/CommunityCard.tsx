@@ -21,6 +21,7 @@ import { useIdentity } from "../lib/IdentityProvider";
 import { shortDid } from "../lib/identitySeed";
 import type { Mark } from "../lib/sync";
 import { syncLine } from "../lib/syncMessages";
+import { memberRowsOf } from "../lib/memberRows";
 
 /** The words for a mark on this phone's own events (story 3.4). Nothing is shown before the phone has one. */
 const MARK_WORDS: Record<Mark, string> = {
@@ -100,6 +101,7 @@ export function CommunityCard() {
     community,
     isCreator,
     members,
+    roleHolders,
     invitations,
     roles,
     create,
@@ -111,6 +113,7 @@ export function CommunityCard() {
     markOfCommunity,
   } = useCommunity();
   const [name, setName] = useState("");
+  const [rules, setRules] = useState("");
   const [invitee, setInvitee] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -150,6 +153,7 @@ export function CommunityCard() {
         <>
           <Text muted>Start a community, or join one you were invited to.</Text>
           <Input label="Community name" value={name} onChangeText={setName} />
+          <Input label="Rules (optional, one line)" value={rules} onChangeText={setRules} />
           <Text weight="bold">How many people must approve a payment to a supplier?</Text>
           <View className="flex-row flex-wrap gap-2">
             {APPROVAL_CHOICES.map((n) => (
@@ -168,7 +172,11 @@ export function CommunityCard() {
               is what you want.
             </Text>
           ) : null}
-          <Button fullWidth disabled={busy} onPress={() => run(() => create(name, approvals))}>
+          <Button
+            fullWidth
+            disabled={busy}
+            onPress={() => run(() => create(name, approvals, rules))}
+          >
             Create a community
           </Button>
           <Button fullWidth variant="outline" onPress={() => router.push("/join")}>
@@ -179,14 +187,26 @@ export function CommunityCard() {
       {status === "ready" && community !== null ? (
         <>
           <Text weight="bold">{community.name}</Text>
+          {community.rules !== undefined && community.rules !== "" ? (
+            <Text muted>{community.rules}</Text>
+          ) : null}
           {markOfCommunity() !== undefined ? (
             <Text muted>{MARK_WORDS[markOfCommunity()!]}</Text>
           ) : null}
           <Text muted>Members</Text>
-          {members.map((member) => (
-            <Text key={member.did} selectable>
-              {shortDid(member.did)}
-            </Text>
+          {/* Every member sees each member's roles and when they end (story 8.1). The creator is the treasurer. */}
+          {memberRowsOf({ members, roleHolders, creator: community.creator }).map((row) => (
+            <View key={row.did} className="gap-1">
+              <Text selectable>{shortDid(row.did)}</Text>
+              {row.note !== undefined ? <Text muted>{row.note}</Text> : null}
+              {row.roles.map((record) => (
+                <RoleLine
+                  key={`${record.role}-${record.expiresAt}`}
+                  record={record}
+                  now={Date.now()}
+                />
+              ))}
+            </View>
           ))}
           <PoolCard />
           <Text muted>

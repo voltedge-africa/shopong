@@ -35,6 +35,7 @@ import {
 } from "@shopong/ports";
 import { createCommunityApply, FOUNDER_INVITATION } from "./apply.js";
 import { driverStands, placeAdderProblem, placeJson, plannerProblem } from "./delivery.js";
+import { PROOF_MESSAGES, progressOf, type OrderProgress } from "./delivery-proof.js";
 import { logTimeOf } from "./log-time.js";
 import {
   QUOTE_MESSAGES,
@@ -54,8 +55,10 @@ import {
   type ActionRequest,
   type RoleCheck,
   type RoleDraft,
+  type HeldRole,
   type RoleError,
   type RoleRecord,
+  holdersOf,
 } from "./roles.js";
 import {
   INVITATION_MESSAGES,
@@ -65,6 +68,7 @@ import {
   type InvitationError,
 } from "./invitation.js";
 import { encodeProof } from "./proof.js";
+import { EMPTY_NAME_MESSAGE, NAMING_TYPE, namingProblem } from "./naming.js";
 import { newCommunityKey, toHex } from "./space.js";
 
 export interface CommunityDeps {
@@ -117,7 +121,7 @@ export interface GrantOptions {
   readonly days?: number;
 }
 
-export const EMPTY_NAME_MESSAGE = "Give your community a name.";
+export { EMPTY_NAME_MESSAGE };
 
 /** `not_permitted`: not the treasurer. `incomplete`: nothing is recorded; the reasons are in the message. */
 export type QuoteError = PortError<"not_permitted" | "incomplete" | "refused">;
@@ -134,6 +138,33 @@ export interface PlaceRecord {
 export type DeliveryPlan = DeliveryPlannedPayload;
 
 export type PlanError = PortError<"not_permitted" | "refused">;
+
+/**
+ * The arrival a driver confirms (story 7.6): the order, the SHA-512 of the photo the Node holds, and optionally a coarse
+ * place (`lat` and `lng`: decimal strings of two decimal places at most, rounded on the phone) or an opaque place id.
+ */
+export interface DeliveryConfirmation {
+  readonly order: string;
+  readonly photoSha512: string;
+  readonly lat?: string;
+  readonly lng?: string;
+  readonly place?: string;
+}
+
+/** A member's own share (story 7.6): the order and the event id of the delivery confirmation it collects from. */
+export interface CollectionConfirmation {
+  readonly order: string;
+  readonly delivery: string;
+}
+
+/** A dispute (story 7.6): the order, the event id of the confirmation disputed, and the person's short note. */
+export interface DeliveryDispute {
+  readonly order: string;
+  readonly delivery: string;
+  readonly note?: string;
+}
+
+export type ProofError = PortError<"refused">;
 
 export interface QuoteReceipt {
   /** The event id of the `quote.added` entry. */
@@ -201,6 +232,27 @@ async function append(
   return ok(event);
 }
 
+/**
+ * Appends a proof event (story 7.6). A payload the envelope cannot take is refused with the plain sentence, not thrown, so
+ * the screen always has something to show. `apply` judges the rest.
+ */
+async function appendProof(
+  deps: CommunityDeps,
+  space: Space<EventEnvelope>,
+  spaceKey: string,
+  type: EventType,
+  payload: object,
+  at: EpochMs,
+): Promise<Result<EventEnvelope, ProofError>> {
+  try {
+    // Undefined fields (an optional place, say) are left out, so the payload is plain JSON.
+    const plain = JSON.parse(JSON.stringify(payload)) as JsonObject;
+    return await append(deps, space, spaceKey, type, plain, [], at);
+  } catch {
+    return err("refused", PROOF_MESSAGES.unreadable);
+  }
+}
+
 export interface Community {
   /** The 64-hex community key (the envelope `space`). */
   readonly key: string;
@@ -227,6 +279,8 @@ export interface Community {
   ): Promise<Result<RoleDraft, RoleError | CommunityError>>;
   /** The roles recorded for me, ended ones included. */
   roles(): Promise<readonly RoleRecord[]>;
+  /** Every role recorded in this community, with its holder, ended ones included (story 8.1). */
+  roleHolders(): Promise<readonly HeldRole[]>;
   /** "What can I do?": may I do this? Judged at log time, as `apply` judges it (story 3.6). */
   checkAction(request: ActionRequest): Promise<Result<RoleCheck, RoleError>>;
   /**
@@ -250,6 +304,20 @@ export interface Community {
    * at log time, may plan it. Refused with the plain reason otherwise.
    */
   planDelivery(plan: DeliveryPlan, now: EpochMs): Promise<Result<EventEnvelope, PlanError>>;
+  /** The assigned driver confirms the arrival at an order (story 7.6). Refused with the plain reason otherwise. */
+  confirmDelivery(
+    input: DeliveryConfirmation,
+    now: EpochMs,
+  ): Promise<Result<EventEnvelope, ProofError>>;
+  /** A member confirms their own share of a delivery (story 7.6). The treasurer cannot do it for a member. */
+  confirmCollection(
+    input: CollectionConfirmation,
+    now: EpochMs,
+  ): Promise<Result<EventEnvelope, ProofError>>;
+  /** A member, or the treasurer, disputes a delivery. The confirmation stays; the dispute is a later event (story 7.6). */
+  disputeDelivery(input: DeliveryDispute, now: EpochMs): Promise<Result<EventEnvelope, ProofError>>;
+  /** An order's proof as the view holds it now: arrived, collected of members, disputes (story 7.6). */
+  orderProgress(order: string): Promise<OrderProgress>;
 }
 
 function wrap(
@@ -338,6 +406,10 @@ function wrap(
       await space.update();
       return rolesOf(space.view, me);
     },
+    async roleHolders() {
+      await space.update();
+      return holdersOf(await space.view.list("roles/"));
+    },
     async checkAction(request) {
       await space.update();
       return checkAction(
@@ -384,6 +456,26 @@ function wrap(
       const problem = await plannerProblem(standingOf(), space.view, me, at);
       if (problem !== undefined) return err("not_permitted", problem);
       return append(deps, space, key, "delivery.planned", plan as unknown as JsonObject, [], now);
+    },
+    async confirmDelivery(input, now) {
+      return appendProof(deps, space, key, "delivery.confirmed", input, now);
+    },
+    async confirmCollection(input, now) {
+      return appendProof(
+        deps,
+        space,
+        key,
+        "collection.confirmed",
+        { order: input.order, delivery: input.delivery, member: me },
+        now,
+      );
+    },
+    async disputeDelivery(input, now) {
+      return appendProof(deps, space, key, "delivery.disputed", input, now);
+    },
+    async orderProgress(order) {
+      await space.update();
+      return progressOf(space.view, order);
     },
     async addQuote(input, now) {
       await space.update();
@@ -447,7 +539,8 @@ function wrap(
 
 /**
  * Make a community with me as its creator and only member. `key` is the community key; pass one when the Node
- * must hold the same key (story 3.4), otherwise a new random key is made.
+ * must hold the same key (story 3.4), otherwise a new random key is made. The name and the rules note are written
+ * as one `community.named` event straight after the founding, so every member sees them (story 8.1).
  */
 export async function createCommunity(
   deps: CommunityDeps,
@@ -457,9 +550,15 @@ export async function createCommunity(
   key: string = newCommunityKey(deps.randomBytes),
   /** How many people must approve a supplier payment (story 4.7): 1 to 5. Absent, the founding event says nothing and two apply. */
   approvals?: number,
+  /** A short rules note, plain text, up to 500 characters. Empty when left out. */
+  rules: string = "",
 ): Promise<Result<Community, CommunityError>> {
   const trimmed = name.trim();
-  if (trimmed === "") return err("empty_name", EMPTY_NAME_MESSAGE);
+  const trimmedRules = rules.trim();
+  const problem = namingProblem(trimmed, trimmedRules);
+  if (problem !== undefined) {
+    return err(problem === EMPTY_NAME_MESSAGE ? "empty_name" : "refused", problem);
+  }
   const creator = record.local;
   const space = await record.create(communityDefinition(deps, creator, key));
   const founded = await append(
@@ -474,6 +573,16 @@ export async function createCommunity(
     now,
   );
   if (!founded.ok) return founded;
+  const named = await append(
+    deps,
+    space,
+    key,
+    NAMING_TYPE,
+    { name: trimmed, rules: trimmedRules },
+    [],
+    now,
+  );
+  if (!named.ok) return named;
   return ok(wrap(deps, creator, key, trimmed, creator, space));
 }
 

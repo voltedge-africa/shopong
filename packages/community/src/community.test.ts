@@ -1,7 +1,12 @@
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { createMemoryRecordNetwork } from "@shopong/adapters-memory";
-import { createEvent, webCryptoSha512, type EventEnvelope } from "@shopong/events";
-import type { Did, Space } from "@shopong/ports";
+import {
+  createEvent,
+  PERSONAL_DATA_MESSAGE,
+  webCryptoSha512,
+  type EventEnvelope,
+} from "@shopong/events";
+import { money, type Did, type Space } from "@shopong/ports";
 import { describe, expect, it } from "vite-plus/test";
 import {
   DAY_MS,
@@ -9,6 +14,8 @@ import {
   INVITATION_MESSAGES,
   NOT_THE_WRITER,
   EMPTY_NAME_MESSAGE,
+  NAMING_MESSAGES,
+  holdersOf,
   checkInvitation,
   communityDefinition,
   createCommunity,
@@ -533,5 +540,242 @@ describe("apply", () => {
     expect(await w.newcomerSpace.view.list("")).toEqual(creatorView);
     expect(await lateSpace.view.list("")).toEqual(creatorView);
     expect(creatorView.some((entry) => entry.key.startsWith("rejected/"))).toBe(true);
+  });
+});
+
+// Story 8.1: the name and rules every member sees, and the roles every member sees with their end dates.
+describe("the name, rules and roles every member sees (story 8.1)", () => {
+  /** Appends a raw `community.named` as `writer` would, and says what `apply` made of it. */
+  async function namedBy(
+    space: Space<EventEnvelope>,
+    writer: { did: Did },
+    payload: Record<string, unknown>,
+    communityKey: string,
+  ) {
+    // Built as a raw envelope, not through `createEvent`, which checks the registry first: `apply` must refuse on its own.
+    const built = {
+      v: 1,
+      type: "community.named",
+      space: communityKey,
+      actor: writer.did,
+      proof: [],
+      claimedAt: T0,
+      nonce: Array.from(randomBytes(16), (b) => b.toString(16).padStart(2, "0")).join(""),
+      payload,
+    } as unknown as EventEnvelope;
+    const receipt = await space.append(built);
+    if (!receipt.ok) throw new Error(receipt.error.message);
+    await space.update();
+    const rejected = (await space.view.get(`rejected/${receipt.value.id}`)) as
+      | { reason?: unknown }
+      | undefined;
+    return { reason: rejected?.reason };
+  }
+
+  it("shows the name and the rules note on a second replica", async () => {
+    const t = await phone();
+    const network = createMemoryRecordNetwork();
+    const made = await createCommunity(
+      t.deps,
+      network.peer<EventEnvelope>(t.did),
+      "Ntombi Stokvel",
+      T0,
+      undefined,
+      undefined,
+      "We pay in on the first Friday.",
+    );
+    if (!made.ok) throw new Error(made.error.message);
+    const newcomer = await phone();
+    const newcomerSpace = await network
+      .peer<EventEnvelope>(newcomer.did)
+      .open(made.value.space.key, communityDefinition(newcomer.deps, t.did, made.value.key));
+    await network.replicate<EventEnvelope>(made.value.space, newcomerSpace);
+    await newcomerSpace.update();
+    expect(await newcomerSpace.view.get("community/name")).toBe("Ntombi Stokvel");
+    expect(await newcomerSpace.view.get("community/rules")).toBe("We pay in on the first Friday.");
+  });
+
+  it("refuses a name that holds a phone number, on creation, with nothing made", async () => {
+    const t = await phone();
+    const made = await createCommunity(
+      t.deps,
+      createMemoryRecordNetwork().peer<EventEnvelope>(t.did),
+      "Call 082 123 4567",
+      T0,
+    );
+    expect(made.ok).toBe(false);
+    if (!made.ok) expect(made.error.message).toBe(PERSONAL_DATA_MESSAGE);
+  });
+
+  it("refuses a name longer than 80 characters, on creation, in plain words", async () => {
+    const t = await phone();
+    const made = await createCommunity(
+      t.deps,
+      createMemoryRecordNetwork().peer<EventEnvelope>(t.did),
+      "N".repeat(81),
+      T0,
+    );
+    expect(made.ok).toBe(false);
+    if (!made.ok) expect(made.error.message).toBe(NAMING_MESSAGES.name_too_long);
+  });
+
+  it("refuses a rules note of more than 500 characters, on creation", async () => {
+    const t = await phone();
+    const made = await createCommunity(
+      t.deps,
+      createMemoryRecordNetwork().peer<EventEnvelope>(t.did),
+      "Ntombi Stokvel",
+      T0,
+      undefined,
+      undefined,
+      "r".repeat(501),
+    );
+    expect(made.ok).toBe(false);
+    if (!made.ok) expect(made.error.message).toBe(NAMING_MESSAGES.rules_too_long);
+  });
+
+  // `apply` checks the shape itself, so a malformed naming written straight to the record (not through the phone's
+  // check) stores nothing and leaves a plain refusal (AGENTS rule 3: the record decides, not the ingest path).
+  it.each([
+    ["an empty name", { name: "", rules: "" }],
+    ["a name of 81 characters", { name: "N".repeat(81), rules: "" }],
+    ["a name that is only a phone number", { name: "082 123 4567", rules: "" }],
+    ["a rules note with a line break", { name: "Ntombi Stokvel Club", rules: "Pay in\nlate" }],
+    ["rules over 500 characters", { name: "Ntombi Stokvel Club", rules: "r".repeat(501) }],
+    ["rules that are not text", { name: "Ntombi Stokvel Club", rules: 5 }],
+    ["an extra field", { name: "Ntombi Stokvel Club", rules: "", approvals: 2 }],
+    ["a missing name", { rules: "Pay in monthly." }],
+    ["a name that holds a phone number", { name: "Call 082 123 4567", rules: "" }],
+  ] as const)("stores nothing and refuses a malformed naming with %s", async (_label, payload) => {
+    const w = await world();
+    const result = await namedBy(
+      w.community.space,
+      w.treasurer,
+      payload as Record<string, unknown>,
+      w.community.key,
+    );
+    expect(typeof result.reason).toBe("string");
+    expect(result.reason).toBeTypeOf("string");
+    await w.community.space.update();
+    expect(await w.community.space.view.get("community/name")).toBe("Ntombi Stokvel");
+    expect(await w.community.space.view.get("community/rules")).toBe("");
+  });
+
+  it("refuses a malformed naming in plain words, not a raw shape message", async () => {
+    const w = await world();
+    const result = await namedBy(
+      w.community.space,
+      w.treasurer,
+      { name: "N".repeat(81), rules: "" },
+      w.community.key,
+    );
+    expect(result.reason).toBe(NAMING_MESSAGES.unreadable);
+  });
+
+  it("refuses a naming by a member who is not a treasurer", async () => {
+    const w = await world();
+    const invitation = await w.community.invite(w.newcomer.did, T0);
+    if (!invitation.ok) throw new Error(invitation.error.message);
+    await w.sync();
+    const checked = await checkInvitation({
+      auth: w.newcomer.auth,
+      text: invitation.value.code,
+      me: w.newcomer.did,
+      now: T0 + DAY_MS,
+      isUsed: isUsedIn(w.newcomerSpace),
+    });
+    if (!checked.ok) throw new Error(checked.error.message);
+    await joinCommunity(w.newcomer.deps, w.newcomerSpace, checked.value, T0 + DAY_MS);
+    await w.sync();
+
+    const result = await namedBy(
+      w.newcomerSpace,
+      w.newcomer,
+      { name: "Our Stokvel", rules: "" },
+      w.community.key,
+    );
+    expect(result.reason).toBe(NAMING_MESSAGES.not_permitted);
+    expect(await w.newcomerSpace.view.get("community/name")).toBe("Ntombi Stokvel");
+  });
+
+  it("refuses a rename that holds a phone number, and keeps the name", async () => {
+    const w = await world();
+    const result = await namedBy(
+      w.community.space,
+      w.treasurer,
+      { name: "Ntombi Stokvel", rules: "Call 082 123 4567" },
+      w.community.key,
+    );
+    expect(result.reason).toBe(PERSONAL_DATA_MESSAGE);
+    await w.community.space.update();
+    expect(await w.community.space.view.get("community/rules")).toBe("");
+  });
+
+  it("lets a co-treasurer whose role stands name the community, and shows it on a second replica", async () => {
+    const w = await world();
+    const invitation = await w.community.invite(w.newcomer.did, T0);
+    if (!invitation.ok) throw new Error(invitation.error.message);
+    await w.sync();
+    const checked = await checkInvitation({
+      auth: w.newcomer.auth,
+      text: invitation.value.code,
+      me: w.newcomer.did,
+      now: T0 + DAY_MS,
+      isUsed: isUsedIn(w.newcomerSpace),
+    });
+    if (!checked.ok) throw new Error(checked.error.message);
+    await joinCommunity(w.newcomer.deps, w.newcomerSpace, checked.value, T0 + DAY_MS);
+    await w.sync();
+    const granted = await w.community.grantRole(
+      w.newcomer.did,
+      "co-treasurer",
+      { days: 30, limit: money("ZAR", 100_000) },
+      T0 + DAY_MS,
+    );
+    if (!granted.ok) throw new Error(granted.error.message);
+    await w.sync();
+
+    const result = await namedBy(
+      w.newcomerSpace,
+      w.newcomer,
+      { name: "Ntombi Stokvel Club", rules: "Pay in monthly." },
+      w.community.key,
+    );
+    expect(result.reason).toBeUndefined();
+    await w.sync();
+    expect(await w.community.space.view.get("community/name")).toBe("Ntombi Stokvel Club");
+    expect(await w.community.space.view.get("community/rules")).toBe("Pay in monthly.");
+  });
+
+  it("shows every member's role and its end date to every member", async () => {
+    const w = await world();
+    const invitation = await w.community.invite(w.newcomer.did, T0);
+    if (!invitation.ok) throw new Error(invitation.error.message);
+    await w.sync();
+    const checked = await checkInvitation({
+      auth: w.newcomer.auth,
+      text: invitation.value.code,
+      me: w.newcomer.did,
+      now: T0 + DAY_MS,
+      isUsed: isUsedIn(w.newcomerSpace),
+    });
+    if (!checked.ok) throw new Error(checked.error.message);
+    await joinCommunity(w.newcomer.deps, w.newcomerSpace, checked.value, T0 + DAY_MS);
+    await w.sync();
+    const granted = await w.community.grantRole(w.newcomer.did, "driver", { days: 7 }, T0 + DAY_MS);
+    if (!granted.ok) throw new Error(granted.error.message);
+    await w.sync();
+
+    // The newcomer's own replica: the creator's grant is shown to them too, with the day it ends.
+    await w.newcomerSpace.update();
+    const seen = holdersOf(await w.newcomerSpace.view.list("roles/"));
+    expect(seen).toEqual([
+      expect.objectContaining({
+        holder: w.newcomer.did,
+        role: "driver",
+        grantor: w.treasurer.did,
+        expiresAt: granted.value.expiresAt,
+      }),
+    ]);
   });
 });

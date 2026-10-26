@@ -16,12 +16,15 @@ import {
   checkApprovalsSetting,
   DEFAULT_APPROVALS,
   checkPledge,
-  EMPTY_NAME_MESSAGE,
+  holdersOf,
+  namingProblem,
   newCommunityKey,
   pledgeKey,
   tidy,
+  type OrderProgress,
   type ActionRequest,
   type CheckedInvitation,
+  type HeldRole,
   type Refusal,
   type GrantOptions,
   type Invitation,
@@ -32,6 +35,7 @@ import {
   type RoleError,
   type RoleRecord,
 } from "@shopong/community";
+import type { EventEnvelope } from "@shopong/events";
 import type { Did, JsonValue, PortError, Result } from "@shopong/ports";
 import type { BankForm, PaymentRecord, PaymentView, PayoutsReading } from "@shopong/miniapp-orders";
 
@@ -40,9 +44,13 @@ import { paymentStatusOfFailure } from "./paymentStatus";
 import { quoteEventOf, quotesToShow, type SavedQuote } from "./quotes";
 import {
   approvalEvent,
+  collectionConfirmedEvent,
+  deliveryConfirmedEvent,
+  deliveryDisputedEvent,
   founderEvent,
   inviteEvent,
   joinEvent,
+  namingEvent,
   payoutEvent,
   pledgeEvent,
 } from "./communityEvents";
@@ -77,17 +85,19 @@ import { useIdentity } from "./IdentityProvider";
 const TICK_MS = 5_000;
 
 type CommunityContextValue = {
-  /** The community I created in this run of the app, or `null`. */
-  community: { key: string; name: string } | null;
+  /** The community I created in this run of the app, or `null`. `rules` is the rules note, empty when there is none. */
+  community: { key: string; name: string; rules?: string; creator?: string } | null;
   /** Whether I am that community's creator (only the creator can give a role). */
   isCreator: boolean;
   members: readonly Member[];
+  /** Every role in the community with its holder and end date, as every member sees them (story 8.1). */
+  roleHolders: readonly HeldRole[];
   /** Invitations made in this run, newest first. */
   invitations: readonly Invitation[];
   /** The roles recorded for me, ended ones included. */
   roles: readonly RoleRecord[];
-  /** Makes the community. `approvals` is how many people must approve a supplier payment (1 to 5; two when left out). */
-  create: (name: string, approvals?: number) => Promise<string | undefined>;
+  /** Makes the community. `approvals` is how many people must approve a supplier payment (1 to 5; two when left out). `rules` is an optional rules note. */
+  create: (name: string, approvals?: number, rules?: string) => Promise<string | undefined>;
   invite: (invitee: string) => Promise<string | undefined>;
   check: (text: string) => Promise<Result<CheckedInvitation, InvitationError>>;
   grant: (grantee: string, role: string, options: GrantOptions) => Promise<string | undefined>;
@@ -99,6 +109,8 @@ type CommunityContextValue = {
   quotesFor: (order: string) => Promise<readonly Quote[]>;
   /** The files on an order (story 3.7). Null until this phone has a Node session for the community. */
   files: FilesSurface | null;
+  /** The delivery of an order (story 7.6). Null until this phone has a Node session for the community. */
+  proof: ProofSurface | null;
   /** The last refusals on this phone, newest first (story 2.5). */
   refusals: readonly Refusal[];
   /** The Node sync: what was last tried, and what is waiting (story 3.4). */
@@ -201,6 +213,25 @@ export interface FilesSurface {
   readonly retry: () => Promise<void>;
 }
 
+/** What the Orders screen may do with an order's delivery (story 7.6): the arrival, a member's share, a dispute. */
+export interface ProofSurface {
+  /** This phone's person. */
+  readonly me: string;
+  readonly progressOf: (order: string) => Promise<OrderProgress>;
+  /** The driver's arrival: attaches the picked photo, then queues the confirmation with its SHA-512. */
+  readonly confirmArrival: (order: string, picked: PickedFile) => Promise<string | undefined>;
+  readonly collect: (order: string) => Promise<string | undefined>;
+  readonly dispute: (order: string, note: string) => Promise<string | undefined>;
+}
+
+const NO_PROGRESS: OrderProgress = {
+  arrived: false,
+  shares: [],
+  collected: 0,
+  of: 0,
+  disputes: [],
+};
+
 /** A community the Node knows: its key and creator, which `apply` needs to check invitations. */
 type NodeCommunity = { key: string; creator: Did };
 
@@ -224,9 +255,16 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   const wasOffline = useRef(false);
   const node = useRef<NodeBundle | null>(null);
   const nextTryAt = useRef(0);
-  const [community, setCommunity] = useState<{ key: string; name: string } | null>(null);
+  const [community, setCommunity] = useState<{
+    key: string;
+    name: string;
+    rules?: string;
+    creator?: string;
+  } | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [members, setMembers] = useState<readonly Member[]>([]);
+  const [roleHolders, setRoleHolders] = useState<readonly HeldRole[]>([]);
+  const [nodeRoleHolders, setNodeRoleHolders] = useState<readonly HeldRole[]>([]);
   const [invitations, setInvitations] = useState<readonly Invitation[]>([]);
   const [roles, setRoles] = useState<readonly RoleRecord[]>([]);
   const [refusals, setRefusals] = useState<readonly Refusal[]>([]);
@@ -246,6 +284,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       setCommunity(null);
       setIsCreator(false);
       setMembers([]);
+      setRoleHolders([]);
+      setNodeRoleHolders([]);
       setInvitations([]);
       setRoles([]);
       setRefusals([]);
@@ -327,6 +367,24 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         wait = wait ?? pulled.retryInMs;
         const view = bundle.sync.viewOf(nodeCommunity.key);
         if (view !== undefined) {
+          // The name and rules note are in the record, so a joiner sees the same words as the creator (story 8.1).
+          const heldName = view.get("community/name");
+          const heldRules = view.get("community/rules");
+          if (typeof heldName === "string" && heldName !== "") {
+            setCommunity((old) =>
+              old !== null && old.key === nodeCommunity.key
+                ? {
+                    key: old.key,
+                    name: heldName,
+                    rules: typeof heldRules === "string" ? heldRules : "",
+                    creator: old.creator,
+                  }
+                : old,
+            );
+          }
+          setNodeRoleHolders(
+            holdersOf([...view.entries()].map(([key, value]) => ({ key, value }))),
+          );
           setNodeMembers(
             [...view.entries()]
               .filter(([key]) => key.startsWith("members/"))
@@ -368,8 +426,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   }, [nodeFor, tick, refreshPool]);
 
   const create = useCallback(
-    async (name: string, approvals?: number) => {
-      if (name.trim() === "") return EMPTY_NAME_MESSAGE;
+    async (name: string, approvals?: number, rules?: string) => {
+      const problem = namingProblem(name, rules ?? "");
+      if (problem !== undefined) return problem;
       const bundle = nodeFor();
       // With a Node, the community is registered there first, under the key the phone keeps for it.
       let key: string | undefined;
@@ -378,12 +437,18 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         const registered = await bundle.client.createCommunity(key);
         if (!registered.ok) return nodeFailureMessage(registered.failure, "make the community");
       }
-      const made = await serviceFor().create(name, key, approvals);
+      const made = await serviceFor().create(name, key, approvals, rules);
       if (made.ok) {
-        setCommunity({ key: made.value.key, name: made.value.name });
+        setCommunity({
+          key: made.value.key,
+          name: made.value.name,
+          rules: rules?.trim() ?? "",
+          creator: made.value.creator,
+        });
         setIsCreator(made.value.creator === made.value.me);
         setMembers(await serviceFor().members());
         setRoles(await serviceFor().roles());
+        setRoleHolders(await serviceFor().roleHolders());
         if (bundle !== null && bundle.client !== undefined && key !== undefined && did !== null) {
           const creator = did as Did;
           const event = founderEvent({
@@ -398,6 +463,17 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           setRefusals(serviceFor().refusals());
           if (!queued.ok) return unqueuedMessage("The community was made", queued.reason);
           setCommunityEvent({ community: key, id: queued.id });
+          // The name and rules note go to the Node straight after the founding event (story 8.1).
+          const naming = namingEvent({
+            community: key,
+            me: creator,
+            now: Date.now(),
+            randomBytes: getRandomBytes,
+            name: name.trim(),
+            rules: rules?.trim() ?? "",
+          });
+          const named = await bundle.sync.enqueue(key, naming);
+          if (!named.ok) return unqueuedMessage("The community was made", named.reason);
           void tick({ once: true });
           return undefined;
         }
@@ -472,7 +548,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       // Without the join event on the phone, this person cannot write: say so and do not show the community as joined.
       if (!queued.ok) return unqueuedMessage("You were let in", queued.reason);
       setCommunityEvent({ community: key, id: queued.id });
-      setCommunity({ key, name: "A community you joined" });
+      setCommunity({ key, name: "A community you joined", creator: checked.value.creator });
       setIsCreator(false);
       setNodeCommunity({ key, creator: checked.value.creator });
       void tick({ once: true });
@@ -516,6 +592,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     async (grantee: string, role: string, options: GrantOptions) => {
       const made = await serviceFor().grant(grantee.trim(), role, options);
       setRoles(await serviceFor().roles());
+      setRoleHolders(await serviceFor().roleHolders());
       setRefusals(serviceFor().refusals());
       return messageOf(made);
     },
@@ -559,6 +636,88 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       },
     };
   }, [nodeCommunity, roles, nodeFor]);
+
+  const proofSurface = useMemo<ProofSurface | null>(() => {
+    if (nodeCommunity === null || did === null) return null;
+    const key = nodeCommunity.key;
+    const me = did as Did;
+    /** Queues one proof event for the Node, as the pledge does. A refusal the Node gives later is not shown here yet. */
+    const queue = async (event: EventEnvelope, what: string): Promise<string | undefined> => {
+      const bundle = nodeFor();
+      if (bundle === null) return "Make or join a community on the OCN Node first, in Settings.";
+      const queued = await bundle.sync.enqueue(key, event);
+      setSync(bundle.sync.state());
+      if (!queued.ok) return unqueuedMessage(what, queued.reason);
+      void tick({ once: true });
+      return undefined;
+    };
+    /** The delivery the record holds for an order, or undefined when nothing has arrived yet. */
+    const arrivalOf = async (order: string) => {
+      const current = serviceFor().community();
+      if (current === null) return undefined;
+      return (await current.orderProgress(order)).delivered;
+    };
+    return {
+      me: did,
+      progressOf: async (order) => {
+        const current = serviceFor().community();
+        return current === null ? NO_PROGRESS : current.orderProgress(order);
+      },
+      confirmArrival: async (order, picked) => {
+        const bundle = nodeFor();
+        if (bundle === null) return "Make or join a community on the OCN Node first, in Settings.";
+        const wanted = tidy(order);
+        // The photo goes to the Node first (it is kept there, and checked against this hash); then the arrival is queued.
+        const made = await bundle.files.attach(key, wanted, "delivery-photo", picked);
+        setSync(bundle.sync.state());
+        if (!made.ok) return made.reason;
+        return queue(
+          deliveryConfirmedEvent({
+            community: key,
+            me,
+            now: Date.now(),
+            randomBytes: getRandomBytes,
+            order: wanted,
+            photoSha512: made.hash,
+          }),
+          "The arrival was recorded",
+        );
+      },
+      collect: async (order) => {
+        const wanted = tidy(order);
+        const delivered = await arrivalOf(wanted);
+        if (delivered === undefined) return "This order has not been delivered yet.";
+        return queue(
+          collectionConfirmedEvent({
+            community: key,
+            me,
+            now: Date.now(),
+            randomBytes: getRandomBytes,
+            order: wanted,
+            delivery: delivered.event,
+          }),
+          "Your collection was recorded",
+        );
+      },
+      dispute: async (order, note) => {
+        const wanted = tidy(order);
+        const delivered = await arrivalOf(wanted);
+        if (delivered === undefined) return "This order has not been delivered yet.";
+        return queue(
+          deliveryDisputedEvent({
+            community: key,
+            me,
+            now: Date.now(),
+            randomBytes: getRandomBytes,
+            order: wanted,
+            delivery: delivered.event,
+            ...(note === "" ? {} : { note }),
+          }),
+          "The dispute was recorded",
+        );
+      },
+    };
+  }, [nodeCommunity, did, nodeFor, serviceFor, tick]);
 
   const canAddQuotes =
     community !== null &&
@@ -1080,6 +1239,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   );
 
   const shownMembers = nodeCommunity === null ? members : nodeMembers;
+  const shownRoleHolders = nodeCommunity === null ? roleHolders : nodeRoleHolders;
   const noNodeReason =
     did === null || auth === null || NODE_ADDRESS.ok ? undefined : NODE_ADDRESS.reason;
   const nodeConnected = node.current?.client !== undefined;
@@ -1089,6 +1249,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       community,
       isCreator,
       members: shownMembers,
+      roleHolders: shownRoleHolders,
       invitations,
       roles,
       create,
@@ -1100,6 +1261,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       addQuote,
       quotesFor,
       files: filesSurface,
+      proof: proofSurface,
       refusals,
       sync,
       offlineHint,
@@ -1134,6 +1296,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       community,
       isCreator,
       shownMembers,
+      shownRoleHolders,
       invitations,
       roles,
       create,
@@ -1145,6 +1308,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       addQuote,
       quotesFor,
       filesSurface,
+      proofSurface,
       refusals,
       sync,
       offlineHint,
