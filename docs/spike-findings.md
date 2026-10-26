@@ -258,11 +258,43 @@ exposed matrix action would replace those with one native call.
 
 **Not established**
 
-- **Mobile.** Nothing ran on iOS or Android (R-9 still stands). The plan's rule stands: route in the web
-  console or on the Node and send the result to the phone.
+- **Mobile.** Nothing ran on iOS or a real Android phone (R-9 still stands); see the emulator addendum
+  below. The plan's rule stands: route in the web console or on the Node and send the result to the phone.
 - **South Africa.** The dataset was Eswatini. Tile size, build time and routing latency for a South African
   or regional extract are unknown, and that is decision D-8.
 - The patched runtime was built from source in a local cache and is not part of any published package.
+
+### Spike 7.1 addendum: Valhalla on the Android emulator (2026-10-26)
+
+**Question.** Does `valhalla-browser` 0.2.1 load and route inside a phone browser?
+
+**Method.** The same bench page and Eswatini tiles as above, served from the host to Chrome 133 on the
+`Pixel_API_36` emulator (Android 16, x86_64, 4 cores, software graphics). The page posted its results back.
+One run, one device, so the numbers are indicative.
+
+**Result: it works.** The engine starts, routes three pairs, and repeated calls return identical answers.
+Distances and times match the desktop run exactly (38.39 km / 1457 s, 10.42 km / 799 s, 2.90 km / 215 s).
+
+| Measure                                      | Desktop headless Chromium | Android emulator Chrome |
+| -------------------------------------------- | ------------------------- | ----------------------- |
+| Start-up (initialise)                        | 246 ms                    | 2,477 ms                |
+| First route, cold (3 to 8 tiles, 4 to 10 MB) | 500 to 624 ms             | 1,715 to 3,136 ms       |
+| Repeat route, warm median                    | 44 to 60 ms               | 35 to 209 ms            |
+| JavaScript heap                              | not recorded              | 9.5 MiB (limit 670)     |
+
+**Things that bite**
+
+- **The page must be a secure context.** Served from `http://10.0.2.2:<port>` the engine fails at start
+  (`Cannot read properties of undefined (reading 'digest')`, because `crypto.subtle` is missing). Served as
+  `http://localhost:<port>` (through `adb reverse`) it works. A real app must serve the page and tiles over HTTPS.
+- It ran without cross-origin isolation (`crossOriginIsolated` false), so the engine does not need shared memory.
+- First-run Chrome on the emulator needs "Use without an account" tapped before any page loads.
+
+**Not shown.** A real low-end phone (the emulator uses the host CPU); battery; the in-app WebView (this was
+Chrome); a South African extract (D-8); truck costing; whole-browser memory (only the JavaScript heap was read).
+
+**Meaning for Demonstration 1.** Routing on a phone looks feasible but is not needed: the demo computes the
+route on the web console or the Node and shows it on the phone. Rule 7 stands.
 
 ## Lessons that apply to every spike
 
@@ -313,5 +345,5 @@ Not made here, because `_bmad*` was left untouched. Do these in a planning chang
 - The Bare worklet with the full Hypercore stack inside Expo on a low-end Android phone (R-1), and the
   10,000-event throughput.
 - DuckDB-WASM in Firefox and Safari, and OPFS there; the CSP matrix re-run with the extension mirror.
-- Valhalla on a phone, and on a South African extract.
+- Valhalla on a real low-end phone and in the in-app WebView (the emulator run works), and on a South African extract.
 - An independent security review of whichever UCAN code ships.
