@@ -103,9 +103,10 @@ export function payCardOf(view: PaymentView): PayCard {
   }
   switch (status) {
     case "none":
+      // The member's own word for an unpaid share (the pool shows the same member as Waiting; see POOL_STATUS_LABELS).
       return {
-        heading: `Pledge of ${amountText}`,
-        body: ["Tap Pay to pay it by bank.", SIMULATED_NOTE],
+        heading: "Not paid yet",
+        body: [pledged, "Tap Pay to pay it by bank.", SIMULATED_NOTE],
         amountText,
         actions: ["pay"],
       };

@@ -32,13 +32,15 @@ export interface PoolSections {
   readonly figures: readonly string[];
   readonly people: readonly string[];
   readonly flags: readonly string[];
+  /** The funding bar's figure and sentence, as the Node sent them; null when there is no bar to draw (story 8.4). */
+  readonly funding: { readonly percent: number; readonly text: string } | null;
 }
 
 export function poolSections(screen: PoolScreen): PoolSections {
   if (screen.state === "loading")
-    return { notice: [], figures: ["Loading the pool."], people: [], flags: [] };
+    return { notice: [], figures: ["Loading the pool."], people: [], flags: [], funding: null };
   if (screen.state !== "shown")
-    return { notice: [], figures: [screen.message], people: [], flags: [] };
+    return { notice: [], figures: [screen.message], people: [], flags: [], funding: null };
   const { view } = screen;
   // The Node says so beside the figures when they include simulated payments (review item 1).
   const note = (view as { readonly simulatedNote?: unknown }).simulatedNote;
@@ -58,6 +60,7 @@ export function poolSections(screen: PoolScreen): PoolSections {
       ),
     ],
     flags: view.flags.map((flag) => flag.text),
+    funding: view.funding ?? null,
   };
 }
 
