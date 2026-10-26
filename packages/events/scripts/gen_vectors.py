@@ -14,6 +14,7 @@ import hashlib
 import hmac
 import json
 import math
+import re
 import sys
 
 MAX_SAFE = 2**53 - 1
@@ -325,7 +326,54 @@ PHONE_REJECT = [
 ]
 
 COMMITMENT_SECRET = bytes(range(32))
-COMMITMENTS = ["+27821234567", "+263771234567"]
+OTHER_COMMUNITY_SECRET = bytes(range(1, 33))
+# (secret, normalised value). Values are already normalised: phone numbers to E.164, ID numbers to 13 digits.
+COMMITMENTS = [
+    (COMMITMENT_SECRET, "+27821234567"),
+    (COMMITMENT_SECRET, "+263771234567"),
+    (COMMITMENT_SECRET, "8001015009087"),
+    (OTHER_COMMUNITY_SECRET, "+27821234567"),
+    (OTHER_COMMUNITY_SECRET, "8001015009087"),
+]
+
+
+def luhn_ok(digits):
+    """Luhn check over a digit string, the rule South African ID numbers use for their 13th digit."""
+    total = 0
+    for i, ch in enumerate(reversed(digits)):
+        d = int(ch)
+        if i % 2 == 1:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return total % 10 == 0
+
+
+ID_ACCEPT = [
+    ("8001015009087", "8001015009087"),
+    ("800101 5009 087", "8001015009087"),
+    ("800101-5009-087", "8001015009087"),
+    ("  8001015009087  ", "8001015009087"),
+]
+
+ID_REJECT = [
+    "",
+    "800101500908",
+    "80010150090877",
+    "8001015009088",
+    "800101500908A",
+    "800101 5009 08",
+    "+27821234567",
+    "\uff18\uff10\uff10\uff11\uff10\uff11\uff15\uff10\uff10\uff19\uff10\uff18\uff17",  # fullwidth digits, valid check digit
+]
+
+# Plain SHA-512 of attachment bytes (Hyperdrive later stores the same bytes under the same hash).
+ATTACHMENT_FILES = [
+    ("empty file", b""),
+    ("price list text", "Maize meal 10kg R129.99\n".encode("utf-8")),
+    ("every byte value", bytes(range(256))),
+]
 
 
 def build():
@@ -359,14 +407,24 @@ def build():
         out["events"]["decodeReject"].append({"name": name, "wireHex": hx})
     for raw, norm in PHONE_ACCEPT:
         out["phone"]["accept"].append({"input": raw, "normalised": norm})
-    for value in COMMITMENTS:
+    for secret, value in COMMITMENTS:
         out["commitments"].append(
             {
-                "secretHex": COMMITMENT_SECRET.hex(),
+                "secretHex": secret.hex(),
                 "value": value,
-                "commitment": hmac.new(COMMITMENT_SECRET, value.encode("utf-8"), hashlib.sha512).hexdigest(),
+                "commitment": hmac.new(secret, value.encode("utf-8"), hashlib.sha512).hexdigest(),
             }
         )
+    out["id"] = {"accept": [], "reject": ID_REJECT}
+    for raw, norm in ID_ACCEPT:
+        assert luhn_ok(norm) and len(norm) == 13, raw
+        out["id"]["accept"].append({"input": raw, "normalised": norm})
+    for bad in ID_REJECT:
+        digits = bad.replace(" ", "").replace("-", "")
+        assert not (re.fullmatch("[0-9]{13}", digits) and luhn_ok(digits)), bad
+    out["attachments"] = []
+    for name, data in ATTACHMENT_FILES:
+        out["attachments"].append({"name": name, "bytesHex": data.hex(), "sha512": hashlib.sha512(data).hexdigest()})
     return out
 
 

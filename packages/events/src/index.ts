@@ -7,15 +7,35 @@ export {
   compareUtf16,
 } from "./canonical.js";
 export {
+  ID_NUMBER_MESSAGE,
   MIN_COMMUNITY_SECRET_BYTES,
   NormalisationError,
+  PHONE_NUMBER_MESSAGE,
+  SECRET_TOO_SHORT_MESSAGE,
+  commitIdNumber,
+  commitPersonal,
   commitPhoneNumber,
   isCommitment,
+  isLuhnValid,
   keyedCommitment,
+  normaliseIdNumber,
   normalisePhoneNumber,
   type Commitment,
   type HmacSha512,
+  type PersonalCommitment,
+  type PersonalKind,
 } from "./commitment.js";
+export {
+  PERSONAL_DATA_MESSAGE,
+  PersonalDataError,
+  assertNoPersonalData,
+  checkPersonalFields,
+  hasIdNumberShape,
+  hasPhoneNumberShape,
+  normaliseDigits,
+  shapeOf,
+  type PersonalCheckOptions,
+} from "./personal.js";
 export {
   ENVELOPE_FIELDS,
   ENVELOPE_VERSION,
@@ -32,11 +52,14 @@ export {
   type ParseResult,
 } from "./envelope.js";
 export {
+  ATTACHMENT_MESSAGES,
   eventIdOf,
   isEventId,
   sha512Hex,
   toHex,
+  verifyAttachment,
   webCryptoSha512,
+  type AttachmentStatus,
   type EventId,
   type Sha512,
 } from "./hash.js";

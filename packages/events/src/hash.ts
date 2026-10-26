@@ -52,3 +52,30 @@ export async function sha512Hex(bytes: Uint8Array, sha512: Sha512): Promise<stri
 export async function eventIdOf(event: unknown, sha512: Sha512): Promise<EventId> {
   return (await sha512Hex(canonicalBytes(event), sha512)) as EventId;
 }
+
+/** The outcome of checking an attached file against the hash its event recorded. */
+export type AttachmentStatus = "verified" | "does_not_match" | "cannot_check";
+
+/** The plain words a person sees for each outcome (matrix: file matches, differs, no hash recorded). */
+export const ATTACHMENT_MESSAGES: { readonly [S in AttachmentStatus]: string } = {
+  verified: "verified",
+  does_not_match: "does not match",
+  cannot_check: "can't be checked",
+};
+
+/**
+ * Re-hash an attachment and compare it with the SHA-512 its event recorded. Pure over the injected hash.
+ * A missing or malformed recorded hash (not 128 lowercase hex characters) is `cannot_check`, never a match.
+ * The bytes are never stored by this check: Hyperdrive (story 3.7) keeps them.
+ */
+export async function verifyAttachment(
+  bytes: Uint8Array,
+  recordedSha512: string | undefined,
+  sha512: Sha512,
+): Promise<{ readonly status: AttachmentStatus }> {
+  if (recordedSha512 === undefined || !SHA512_HEX.test(recordedSha512)) {
+    return { status: "cannot_check" };
+  }
+  const actual = await sha512Hex(bytes, sha512);
+  return { status: actual === recordedSha512 ? "verified" : "does_not_match" };
+}

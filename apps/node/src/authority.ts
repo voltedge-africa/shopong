@@ -1,5 +1,5 @@
-// The OCN Node's check of authority (story 2.5). A caller must first prove it holds its identity key
-// (a signature over the request, see `@shopong/community` request-proof). The Node refuses a request
+// The OCN Node's check of authority (story 2.5). A caller must first prove it holds its identity key (the
+// shared signed-request check in `signed.ts`, see `@shopong/community` request-proof). The Node refuses a request
 // whose one-time number, signature, time or replay fails before it looks at any capability. Then it checks
 // the token with its own clock (the same `verifyAuthority` the phone and the record use), and every grant
 // the chain goes through against the record as it now stands (review finding 1).
@@ -11,27 +11,22 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
-  REQUEST_SKEW_MS,
   formatDay,
   formatRand,
   isCurrentGrantIn,
-  isRequestNonce,
   rolesOf,
   verifyAuthority,
-  verifyRequestSignature,
   type AuthorityProblem,
-  type RequestParts,
 } from "@shopong/community";
-import { webCryptoSha512 } from "@shopong/events";
 import {
   type CapabilityAuth,
   type CapabilityToken,
   type Did,
   type EpochMs,
   type Money,
-  type Signature,
   type ViewReader,
 } from "@shopong/ports";
+import type { SignedProblem, SignedRequests } from "./signed.ts";
 
 /** The community this Node checks against. Its record view is injected until the Node reads it (story 3.2). */
 export interface AuthorityConfig {
@@ -44,22 +39,11 @@ export interface AuthorityConfig {
   readonly maxNonces?: number;
 }
 
-/** A one-time number is remembered for twice the skew: a request time within skew can be up to that late. */
-const NONCE_MEMORY_MS = 2 * REQUEST_SKEW_MS;
-const DEFAULT_MAX_NONCES = 10_000;
 /** The most of a claimed actor value that is written to the log. */
 const CLAIMED_ACTOR_LOG_LIMIT = 80;
 
 /** Why the Node refused a request. The first group is about the request, the second about the capability. */
-export type NodeProblem =
-  | "unsigned"
-  | "bad_nonce"
-  | "clock_skew"
-  | "replayed"
-  | "busy"
-  | "invalid_request"
-  | "not_configured"
-  | AuthorityProblem;
+export type NodeProblem = SignedProblem | "invalid_request" | "not_configured" | AuthorityProblem;
 
 const NODE_MESSAGES: {
   readonly [P in Exclude<NodeProblem, "ended" | "not_started" | "over_limit">]: string;
@@ -112,74 +96,26 @@ const checkBody = z.strictObject({
   }),
 });
 
-declare module "fastify" {
-  interface FastifyRequest {
-    /** The body as text, exactly as it was signed. */
-    rawBody: string;
-  }
-}
-
 export interface AuthorityGuard {
   /** Registers the signed `POST /authority/check` route on the app. */
   register(app: FastifyInstance): void;
 }
 
 /**
- * The one-time numbers seen recently. A `Map` iterates in insertion order and every entry lives the same
- * length of time, so expired entries are always at the front: pruning drops from the front and stops at
- * the first live one, which is amortised constant work per request. Full means refuse, never evict live ones.
- */
-class SeenNonces {
-  readonly #entries = new Map<string, EpochMs>();
-  readonly #max: number;
-
-  constructor(max: number) {
-    this.#max = max;
-  }
-
-  /** `new` when recorded, `replayed` when already seen and still remembered, `full` when no room is left. */
-  offer(key: string, now: EpochMs): "new" | "replayed" | "full" {
-    for (const [oldKey, expiresAt] of this.#entries) {
-      if (expiresAt > now) break;
-      this.#entries.delete(oldKey);
-    }
-    if (this.#entries.has(key)) return "replayed";
-    if (this.#entries.size >= this.#max) return "full";
-    this.#entries.set(key, now + NONCE_MEMORY_MS);
-    return "new";
-  }
-}
-
-/**
- * Builds the authority guard. `auth` verifies signatures and capability chains (`did:key` only, no network).
- * Without `config` the route still checks signatures and then answers `not_configured`.
+ * Builds the authority guard. `auth` verifies capability chains (`did:key` only, no network). `signed` is the
+ * shared signed-request check: the caller's signature, time and one-time number. Without `config` the route
+ * still checks the request and then answers `not_configured`.
  */
 export function createAuthorityGuard(options: {
   auth: CapabilityAuth;
+  signed: SignedRequests;
   config: AuthorityConfig | undefined;
 }): AuthorityGuard {
-  const { auth, config } = options;
-  const nonces = new SeenNonces(config?.maxNonces ?? DEFAULT_MAX_NONCES);
+  const { auth, config, signed } = options;
   const clock = config?.now ?? Date.now;
 
   return {
     register(app) {
-      app.decorateRequest("rawBody", "");
-      app.removeContentTypeParser("application/json");
-      app.addContentTypeParser<string>(
-        "application/json",
-        { parseAs: "string" },
-        (request, body, done) => {
-          // The raw text is what the caller signed, so it is kept as it arrived.
-          request.rawBody = body;
-          try {
-            done(null, JSON.parse(body) as unknown);
-          } catch {
-            done(new SyntaxError("body is not JSON"), undefined);
-          }
-        },
-      );
-
       app.post("/authority/check", async (request, reply) => {
         // Until the signature passes, the actor is only a claim: it is logged truncated, under another key.
         let verifiedActor: string | undefined;
@@ -205,41 +141,15 @@ export function createAuthorityGuard(options: {
             .send({ allowed: false, problem, reason: message, requestId: request.id });
         };
 
-        // 1. The request names a caller and carries a well-formed one-time number, a time and a signature.
-        const actor = header(request, "x-ocn-actor");
-        const nonce = header(request, "x-ocn-nonce");
-        const signature = header(request, "x-ocn-signature");
-        const time = Number(header(request, "x-ocn-time"));
-        if (
-          actor === undefined ||
-          nonce === undefined ||
-          signature === undefined ||
-          !Number.isSafeInteger(time)
-        ) {
-          return refuse("unsigned");
+        // 1-3. The caller, its signature, the time and the one-time number (shared with every signed route).
+        const checked = await signed.check(request);
+        if (!checked.ok) {
+          verifiedActor = checked.verifiedActor;
+          return refuse(checked.problem as NodeProblem);
         }
-        if (!isRequestNonce(nonce)) return refuse("bad_nonce");
-
-        // 2. The caller proves it holds its key. Nothing else is looked at before this.
-        const parts: RequestParts = {
-          method: request.method,
-          path: request.url.split("?")[0] ?? request.url,
-          body: request.rawBody,
-          nonce,
-          time,
-          actor: actor as Did,
-        };
-        if (!(await verifyRequestSignature(auth, parts, signature as Signature, webCryptoSha512))) {
-          return refuse("unsigned");
-        }
+        const actor = checked.actor;
         verifiedActor = actor;
-
-        // 3. The request is recent by the Node's own clock, and its one-time number has not been used.
         const now = clock();
-        if (Math.abs(time - now) > REQUEST_SKEW_MS) return refuse("clock_skew");
-        const seen = nonces.offer(`${actor}\n${nonce}`, now);
-        if (seen === "replayed") return refuse("replayed");
-        if (seen === "full") return refuse("busy");
 
         // 4. The capability, checked by the Node's clock and against the record as it now stands.
         const parsed = checkBody.safeParse(parseJson(request.rawBody));

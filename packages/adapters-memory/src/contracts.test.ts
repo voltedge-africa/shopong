@@ -7,6 +7,7 @@ import {
   runGenUiContract,
   runGeoContract,
   runLedgerContract,
+  runCommitmentsContract,
   runOcrContract,
   runPayInContract,
   runPayOutContract,
@@ -16,6 +17,7 @@ import {
   type ContractEvent,
 } from "@shopong/ports-contract";
 import { asSha512Hex, type CapabilityToken, type Clock } from "@shopong/ports";
+import { webCryptoHmac } from "./test-hmac.js";
 import {
   MemoryAgent,
   MemoryCapabilityAuth,
@@ -23,6 +25,7 @@ import {
   MemoryGenUi,
   MemoryGeo,
   MemoryLedger,
+  MemoryCommitments,
   MemoryOcr,
   MemoryPayIn,
   MemoryPayOut,
@@ -129,3 +132,17 @@ runAgentContract(async () => {
 });
 
 runGenUiContract(() => new MemoryGenUi());
+
+runCommitmentsContract(() => {
+  const commitments = new MemoryCommitments({ hmac: webCryptoHmac });
+  commitments.addCommunity("a".repeat(64), new Uint8Array(32).fill(1));
+  commitments.addCommunity("b".repeat(64), new Uint8Array(32).fill(2));
+  commitments.addCommunity("s".repeat(64), new Uint8Array(16).fill(3));
+  return {
+    commitments,
+    a: "a".repeat(64),
+    b: "b".repeat(64),
+    short: "s".repeat(64),
+    unknown: "u".repeat(64),
+  };
+});

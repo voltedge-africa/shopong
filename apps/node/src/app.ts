@@ -6,8 +6,10 @@ import {
   type NodeComponent,
 } from "./components.ts";
 import { createAuthorityGuard, type AuthorityConfig } from "./authority.ts";
+import { registerCommitmentRoute } from "./commitment-route.ts";
+import { createSignedRequests } from "./signed.ts";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
-import type { CapabilityAuth } from "@shopong/ports";
+import type { CapabilityAuth, Commitments } from "@shopong/ports";
 
 export type OverallStatus = "ok" | "degraded";
 
@@ -25,6 +27,8 @@ export interface AppOptions {
   auth?: CapabilityAuth;
   /** The community the Node checks authority against. Without it, `/authority/check` answers 503. */
   authority?: AuthorityConfig;
+  /** Commits personal values for `POST /commitments`. Without it, that route answers 503. */
+  commitments?: Commitments;
 }
 
 async function report(options: AppOptions): Promise<HealthReport> {
@@ -65,10 +69,21 @@ export function buildApp(options: AppOptions): FastifyInstance {
       .send({ ready: health.status === "ok", ...health });
   });
 
-  createAuthorityGuard({
-    auth: options.auth ?? new IsoUcanCapabilityAuth(),
+  const auth = options.auth ?? new IsoUcanCapabilityAuth();
+  const signed = createSignedRequests({
+    auth,
+    ...(options.authority?.now === undefined ? {} : { now: options.authority.now }),
+    ...(options.authority?.maxNonces === undefined
+      ? {}
+      : { maxNonces: options.authority.maxNonces }),
+  });
+  signed.register(app);
+  createAuthorityGuard({ auth, signed, config: options.authority }).register(app);
+  registerCommitmentRoute(app, {
+    signed,
+    commitments: options.commitments,
     config: options.authority,
-  }).register(app);
+  });
 
   app.setNotFoundHandler((_request, reply) => reply.code(404).send({ error: "not-found" }));
 

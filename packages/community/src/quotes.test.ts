@@ -301,3 +301,48 @@ describe("quotes in the community record", () => {
     expect(quoteKey("a/b", "c")).not.toBe(quoteKey("a", "b/c"));
   });
 });
+
+describe("checkQuote refuses personal values in every name and extra fields (review H2)", () => {
+  it("refuses a phone number in the order name", () => {
+    const checked = checkQuote({ ...groceries, order: "Batch 082 123 4567" });
+    expect(checked.ok).toBe(false);
+    if (!checked.ok) expect(checked.problems).toEqual([QUOTE_MESSAGES.order_phone]);
+  });
+
+  it("refuses an ID number in the order name", () => {
+    const checked = checkQuote({ ...groceries, order: "Batch 8001015009087" });
+    if (checked.ok) throw new Error("expected a refusal");
+    expect(checked.problems).toEqual([QUOTE_MESSAGES.order_phone]);
+  });
+
+  it("refuses a phone number in a unit, and names the line", () => {
+    const checked = checkQuote({
+      ...groceries,
+      lines: [{ ...groceries.lines[0], unit: "bag 0821234567" }],
+    });
+    if (checked.ok) throw new Error("expected a refusal");
+    expect(checked.problems).toEqual([`Line 1 (Cooking oil): ${QUOTE_MESSAGES.unit_phone}`]);
+  });
+
+  it("refuses an extra key at the top level, whatever it holds", () => {
+    const withPhone = checkQuote({ ...groceries, note: "0821234567" });
+    if (withPhone.ok) throw new Error("expected a refusal");
+    expect(withPhone.problems).toEqual([QUOTE_MESSAGES.unknown_field]);
+    expect(checkQuote({ ...groceries, note: "Thandi" }).ok).toBe(false);
+  });
+
+  it("refuses an extra key inside a line and inside the delivery terms", () => {
+    const line = checkQuote({
+      ...groceries,
+      lines: [{ ...groceries.lines[0], barcode: "6001001" }],
+    });
+    if (line.ok) throw new Error("expected a refusal");
+    expect(line.problems).toEqual([QUOTE_MESSAGES.unknown_field]);
+    const delivery = checkQuote({
+      ...groceries,
+      delivery: { ...groceries.delivery, driver: "Sipho" },
+    });
+    if (delivery.ok) throw new Error("expected a refusal");
+    expect(delivery.problems).toEqual([QUOTE_MESSAGES.unknown_field]);
+  });
+});
