@@ -11,6 +11,7 @@ import {
 import type {
   ActionRequest,
   CheckedInvitation,
+  Refusal,
   GrantOptions,
   Invitation,
   InvitationError,
@@ -39,6 +40,8 @@ type CommunityContextValue = {
   check: (text: string) => Promise<Result<CheckedInvitation, InvitationError>>;
   grant: (grantee: string, role: string, options: GrantOptions) => Promise<string | undefined>;
   checkAction: (request: ActionRequest) => Promise<Result<RoleCheck, RoleError>>;
+  /** The last refusals on this phone, newest first (story 2.5). */
+  refusals: readonly Refusal[];
 };
 
 const CommunityContext = createContext<CommunityContextValue | null>(null);
@@ -53,6 +56,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<readonly Member[]>([]);
   const [invitations, setInvitations] = useState<readonly Invitation[]>([]);
   const [roles, setRoles] = useState<readonly RoleRecord[]>([]);
+  const [refusals, setRefusals] = useState<readonly Refusal[]>([]);
 
   // One service per identity, so one in-memory record for as long as the identity is the same.
   const service = useRef<{ did: string | null; value: CommunityService } | null>(null);
@@ -70,6 +74,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       setMembers([]);
       setInvitations([]);
       setRoles([]);
+      setRefusals([]);
     }
     return service.current.value;
   }, [did, auth]);
@@ -83,6 +88,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         setMembers(await serviceFor().members());
         setRoles(await serviceFor().roles());
       }
+      setRefusals(serviceFor().refusals());
       return messageOf(made);
     },
     [serviceFor],
@@ -92,24 +98,37 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     async (invitee: string) => {
       const made = await serviceFor().invite(invitee.trim());
       if (made.ok) setInvitations((old) => [made.value, ...old]);
+      setRefusals(serviceFor().refusals());
       return messageOf(made);
     },
     [serviceFor],
   );
 
-  const check = useCallback((text: string) => serviceFor().check(text), [serviceFor]);
+  const check = useCallback(
+    async (text: string) => {
+      const checked = await serviceFor().check(text);
+      setRefusals(serviceFor().refusals());
+      return checked;
+    },
+    [serviceFor],
+  );
 
   const grant = useCallback(
     async (grantee: string, role: string, options: GrantOptions) => {
       const made = await serviceFor().grant(grantee.trim(), role, options);
       setRoles(await serviceFor().roles());
+      setRefusals(serviceFor().refusals());
       return messageOf(made);
     },
     [serviceFor],
   );
 
   const checkAction = useCallback(
-    (request: ActionRequest) => serviceFor().checkAction(request),
+    async (request: ActionRequest) => {
+      const checked = await serviceFor().checkAction(request);
+      setRefusals(serviceFor().refusals());
+      return checked;
+    },
     [serviceFor],
   );
 
@@ -125,8 +144,21 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       check,
       grant,
       checkAction,
+      refusals,
     }),
-    [community, isCreator, members, invitations, roles, create, invite, check, grant, checkAction],
+    [
+      community,
+      isCreator,
+      members,
+      invitations,
+      roles,
+      create,
+      invite,
+      check,
+      grant,
+      checkAction,
+      refusals,
+    ],
   );
   return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;
 }

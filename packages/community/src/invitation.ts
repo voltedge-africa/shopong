@@ -11,9 +11,9 @@ import {
   type EpochMs,
   type PortError,
   type Result,
-  type VerifyErrorCode,
 } from "@shopong/ports";
 import { invitePassOnAllowed } from "./chain.js";
+import { verifyAuthority, type AuthorityProblem } from "./authority.js";
 import { isCommunityKey, spaceUri } from "./space.js";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,7 +28,8 @@ export type InvitationProblem =
   | "already_used"
   | "someone_else"
   | "unreadable"
-  | "bad_invitee";
+  | "bad_invitee"
+  | "missing_proof";
 
 export const INVITATION_MESSAGES: { readonly [P in InvitationProblem]: string } = {
   no_identity: "Make your identity first.",
@@ -37,16 +38,17 @@ export const INVITATION_MESSAGES: { readonly [P in InvitationProblem]: string } 
   someone_else: "This invitation is for someone else.",
   unreadable: "This invitation can't be checked.",
   bad_invitee: "That doesn't look like an identity.",
+  missing_proof: "This invitation has no proof in it.",
 };
 
 export type InvitationError = PortError<InvitationProblem>;
 
 const fail = (problem: InvitationProblem) => err(problem, INVITATION_MESSAGES[problem]);
 
-/** The problem a failed `verify` means to a person. */
-export function problemOf(code: VerifyErrorCode): InvitationProblem {
-  if (code === "expired") return "expired";
-  if (code === "wrong_audience") return "someone_else";
+/** The problem a shared authority refusal means to a person. */
+export function problemOf(code: AuthorityProblem): InvitationProblem {
+  if (code === "ended") return "expired";
+  if (code === "not_yours") return "someone_else";
   return "unreadable";
 }
 
@@ -172,6 +174,11 @@ export interface CheckInvitationRequest {
    * `member/join`). Absent means nobody may pass one on.
    */
   readonly mayPassOn?: (inviter: Did, parentId: string) => boolean | Promise<boolean>;
+  /**
+   * Whether a grant is current in the record: every grant the invitation's chain goes through must be
+   * (review finding 1). Absent means none is, so a passed-on invitation is refused.
+   */
+  readonly isCurrentGrant?: (holder: Did, tokenId: string) => boolean | Promise<boolean>;
 }
 
 /** Checks an invitation on this phone with no network, and names the problem in plain words. */
@@ -181,15 +188,20 @@ export async function checkInvitation(
   const { auth, text, me, now } = request;
   if (me === undefined) return fail("no_identity");
   const parts = parseInvitationText(text);
-  if (parts === undefined || !isCommunityKey(parts.spaceKey) || !isDid(parts.creator)) {
-    return fail("unreadable");
+  if (parts === undefined) {
+    // A link that names the community but carries no proof is a missing proof, not an unreadable one.
+    const trimmed = text.trim();
+    const names = trimmed.includes("shopong://join?") && trimmed.includes("space=");
+    return fail(names && !trimmed.includes("invitation=") ? "missing_proof" : "unreadable");
   }
+  if (!isCommunityKey(parts.spaceKey) || !isDid(parts.creator)) return fail("unreadable");
   const token = parts.token as CapabilityToken;
-  const verified = await auth.verify(token, {
-    required: { with: spaceUri(parts.spaceKey), can: JOIN_ABILITY },
+  const verified = await verifyAuthority(auth, token, {
+    holder: me,
     rootIssuer: parts.creator,
-    logTime: now,
-    audience: me,
+    at: now,
+    required: { with: spaceUri(parts.spaceKey), can: JOIN_ABILITY },
+    isCurrentGrant: request.isCurrentGrant ?? (() => false),
   });
   if (!verified.ok) return fail(problemOf(verified.error.code));
   const passOn = await invitePassOnAllowed(

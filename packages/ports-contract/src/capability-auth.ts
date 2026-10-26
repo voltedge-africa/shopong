@@ -351,6 +351,52 @@ export const capabilityAuthContract: readonly ContractCase<CapabilityAuth>[] = [
       expectErr(await auth.verify(issued.value, needs(w)), "broken_chain");
     },
   },
+  {
+    name: "a signature verifies for its identity and those exact bytes only",
+    run: async (auth) => {
+      const w = await world(auth);
+      const bytes = new TextEncoder().encode("ocn-request/v1 POST /authority/check");
+      const signature = expectOk(await auth.sign(w.treasurer, bytes));
+      expect(await auth.verifySignature(w.treasurer, bytes, signature)).toBe(true);
+      // Another identity's DID, other bytes, and a changed signature all fail.
+      expect(await auth.verifySignature(w.agent, bytes, signature)).toBe(false);
+      expect(
+        await auth.verifySignature(
+          w.treasurer,
+          new TextEncoder().encode("ocn-request/v1 POST /authority/checK"),
+          signature,
+        ),
+      ).toBe(false);
+      const at = Math.floor(signature.length / 2);
+      const tampered = `${signature.slice(0, at)}${signature[at] === "A" ? "B" : "A"}${signature.slice(at + 1)}`;
+      expect(await auth.verifySignature(w.treasurer, bytes, tampered as typeof signature)).toBe(
+        false,
+      );
+    },
+  },
+  {
+    name: "signing for an identity the adapter does not hold is refused",
+    run: async (auth) => {
+      const w = await world(auth);
+      expectErr(
+        await auth.sign("did:key:z6MkNotOurs" as Did, new Uint8Array([1, 2, 3])),
+        "unknown_issuer",
+      );
+      expect(await auth.verifySignature(w.root, new Uint8Array([1]), "nope" as never)).toBe(false);
+    },
+  },
+  {
+    name: "a DID that cannot be read verifies nothing",
+    run: async (auth) => {
+      const w = await world(auth);
+      const bytes = new Uint8Array([1, 2, 3]);
+      const signature = expectOk(await auth.sign(w.root, bytes));
+      expect(await auth.verifySignature("not a did" as Did, bytes, signature)).toBe(false);
+      expect(await auth.verifySignature("did:key:z6MkNotOurs" as Did, bytes, signature)).toBe(
+        false,
+      );
+    },
+  },
 ];
 
 /** Register the `CapabilityAuth` contract against an adapter. */

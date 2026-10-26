@@ -98,6 +98,20 @@ context: []
 
 ## Review Triage Log
 
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 9 findings: 1 high, 2 medium, 6 low.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | A grant survives replacement of its parent grant | high, real | patch | Failing test written first (device and Node), fixed in all three places; mutation check: removing the ancestor check fails two tests |
+| 2 | Replay state is per process, lost on restart | medium, real | defer | S-2.5-12 |
+| 3 | Unbounded nonce store, full scan per request, nonce not validated | medium, real | patch | Nonce format check, cap of 10,000 (refuse when full), amortised pruning; mutation checks fail one test each |
+| 4 | Unverified actor written to the audit log | low, real | patch | Logged as `claimedActor`, truncated, before the signature passes |
+| 5 | Query string outside the signature | low, latent | defer | S-2.5-13 |
+| 6 | `sign()` has no domain separation | low, latent | defer | S-2.5-14 |
+| 7 | Node never configures authority, answers 503 | low, real | defer | S-2.5-15 (story 3.5 / 4.7) |
+| 8 | Refusal log is memory only | low, known | defer | S-2.5-6 |
+| 9 | Matrix coverage gaps | low, real | patch | Ancestor, missing proof on device, apply with the network trapped |
+
 ## Design Notes
 
 The Node's clock is the guard for expiry: on a phone, or in `apply`, the time is whatever the sender claims (S-2.3-7), so only the Node's own time can be trusted before money moves. The signature proves possession of the identity key, which closes S-2.4-9: a token copied from the record is useless without the key it names.

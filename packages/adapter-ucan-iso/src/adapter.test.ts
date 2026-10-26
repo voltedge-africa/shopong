@@ -38,6 +38,9 @@ function trapped(auth: CapabilityAuth): CapabilityAuth {
     decode: (token) => auth.decode(token),
     tokenId: (token) => auth.tokenId(token),
     verify: (token, request) => underTrap(() => auth.verify(token, request)),
+    sign: (identity, bytes) => auth.sign(identity, bytes),
+    verifySignature: (did, bytes, signature) =>
+      underTrap(() => auth.verifySignature(did, bytes, signature)),
   };
 }
 

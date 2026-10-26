@@ -39,6 +39,15 @@ importers:
 
   apps/node:
     dependencies:
+      '@shopong/adapter-ucan-iso':
+        specifier: workspace:*
+        version: link:../../packages/adapter-ucan-iso
+      '@shopong/community':
+        specifier: workspace:*
+        version: link:../../packages/community
+      '@shopong/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@shopong/ports':
         specifier: workspace:*
         version: link:../../packages/ports
@@ -55,6 +64,9 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
+      '@shopong/adapters-memory':
+        specifier: workspace:*
+        version: link:../../packages/adapters-memory
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2

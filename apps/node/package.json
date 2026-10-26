@@ -7,12 +7,15 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "dev": "node --watch --env-file-if-exists=.env src/main.ts",
-    "start": "node dist/main.js",
+    "dev": "node --watch --import ./src/register.mjs --env-file-if-exists=.env src/main.ts",
+    "start": "node --import ./src/register.mjs dist/main.js",
     "build": "tsc -p tsconfig.build.json",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@shopong/adapter-ucan-iso": "workspace:*",
+    "@shopong/community": "workspace:*",
+    "@shopong/events": "workspace:*",
     "@shopong/ports": "workspace:*",
     "@shopong/record-autobase": "workspace:*",
     "fastify": "5.12.7",
@@ -20,6 +23,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@shopong/adapters-memory": "workspace:*",
     "@types/node": "24.19.2",
     "typescript": "7.0.2",
     "vite-plus": "catalog:"

@@ -12,10 +12,10 @@ curl localhost:8787/health
 
 ```sh
 pnpm --filter @shopong/node build && pnpm --filter @shopong/node start
-node src/main.ts --config ./ocn-node.config.example.json
+node --import ./src/register.mjs src/main.ts --config ./ocn-node.config.example.json
 ```
 
-Requires Node 24 or later (it runs the TypeScript sources directly in `dev`).
+Requires Node 24 or later (it runs the TypeScript sources directly). `src/register.mjs` installs a resolve hook so the workspace packages' `.js` imports find their `.ts` sources; `dev` and `start` already load it.
 
 ## Configuration
 

@@ -85,3 +85,21 @@ describe("community service", () => {
     else throw new Error("no community, no grant");
   });
 });
+
+describe("the phone's refusal log (story 2.5)", () => {
+  it("keeps each refusal shown to a person, with the device time, newest first, and at most 20", async () => {
+    const clock = 1_793_000_000_000;
+    const service = createCommunityService(await person(), { randomBytes, now: () => clock });
+    expect(service.refusals()).toEqual([]);
+    await service.create(" ");
+    await service.invite("did:key:z6MkWhoever");
+    expect(service.refusals().map((r) => r.action)).toEqual([
+      "Invite a person",
+      "Make a community",
+    ]);
+    expect(service.refusals()[0]).toMatchObject({ at: clock, reason: "Make a community first." });
+    for (let i = 0; i < 25; i++) await service.check("not an invitation");
+    expect(service.refusals()).toHaveLength(20);
+    expect(service.refusals()[0]?.action).toBe("Check an invitation");
+  });
+});

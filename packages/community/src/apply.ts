@@ -15,9 +15,15 @@
 import type { EventEnvelope, JsonObject } from "@shopong/events";
 import type { Apply, CapabilityAuth, Did, RecordEntry, ViewWriter } from "@shopong/ports";
 import { invitePassOnAllowed } from "./chain.js";
+import { verifyAuthority } from "./authority.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
 import { decodeProof } from "./proof.js";
-import { coTreasurerJoinRecorded, isCoTreasurer, recordRoleGrant } from "./roles.js";
+import {
+  coTreasurerJoinRecorded,
+  isCoTreasurer,
+  isCurrentGrantIn,
+  recordRoleGrant,
+} from "./roles.js";
 import { spaceUri } from "./space.js";
 
 /** The `invitation` a creator's own first `member.joined` carries. It needs no token. */
@@ -73,11 +79,12 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
       const proof = event.proof[0];
       const token = proof === undefined ? undefined : decodeProof(proof);
       if (token === undefined) return INVITATION_MESSAGES.unreadable;
-      const verified = await env.auth.verify(token, {
-        required: { with: spaceUri(env.spaceKey), can: JOIN_ABILITY },
+      const verified = await verifyAuthority(env.auth, token, {
+        holder: event.actor as Did,
         rootIssuer: env.creator,
-        logTime: event.claimedAt,
-        audience: event.actor as Did,
+        at: event.claimedAt,
+        required: { with: spaceUri(env.spaceKey), can: JOIN_ABILITY },
+        isCurrentGrant: (who, id) => isCurrentGrantIn(view, who, id),
       });
       if (!verified.ok) return INVITATION_MESSAGES[problemOf(verified.error.code)];
       const passedOn = await invitePassOnAllowed(

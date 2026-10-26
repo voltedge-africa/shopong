@@ -5,6 +5,7 @@ import {
   INVITATION_MESSAGES,
   checkInvitation,
   coTreasurerJoinRecorded,
+  isCurrentGrantIn,
   createCommunity,
   type ActionRequest,
   type CheckedInvitation,
@@ -21,8 +22,16 @@ import {
   type RoleRecord,
 } from "@shopong/community";
 import { createMemoryRecordNetwork, type MemoryRecordNetwork } from "@shopong/adapters-memory";
+import { addRefusal, type Refusal } from "@shopong/community";
 import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
-import { err, type CapabilityAuth, type Did, type EpochMs, type Result } from "@shopong/ports";
+import {
+  err,
+  type CapabilityAuth,
+  type Did,
+  type EpochMs,
+  type PortError,
+  type Result,
+} from "@shopong/ports";
 
 export type CommunityIdentity = { did: Did; auth: CapabilityAuth };
 
@@ -49,6 +58,8 @@ export type CommunityService = {
   roles: () => Promise<readonly RoleRecord[]>;
   /** "What can I do?" */
   checkAction: (request: ActionRequest) => Promise<Result<RoleCheck, RoleError>>;
+  /** The last refusals on this phone, newest first (story 2.5). Kept on the device only. */
+  refusals: () => readonly Refusal[];
 };
 
 export function createCommunityService(
@@ -58,6 +69,15 @@ export function createCommunityService(
   const now = options.now ?? Date.now;
   const network = options.network ?? createMemoryRecordNetwork();
   let current: Community | null = null;
+  let log: readonly Refusal[] = [];
+  /** Every refusal a person is shown is also kept here, on this phone, with the device clock. */
+  const logged = <T extends { ok: boolean }>(action: string, result: T): T => {
+    if (!result.ok) {
+      const error = (result as unknown as { error: PortError }).error;
+      log = addRefusal(log, { at: now(), action, reason: error.message });
+    }
+    return result;
+  };
   const deps = (auth: CapabilityAuth): CommunityDeps => ({
     auth,
     sha512: webCryptoSha512,
@@ -67,7 +87,8 @@ export function createCommunityService(
   return {
     community: () => current,
     async create(name) {
-      if (identity === null) return err("refused", "Make your identity first.");
+      if (identity === null)
+        return logged("Make a community", err("refused", "Make your identity first."));
       const made = await createCommunity(
         deps(identity.auth),
         network.peer<EventEnvelope>(identity.did),
@@ -75,38 +96,49 @@ export function createCommunityService(
         now(),
       );
       if (made.ok) current = made.value;
-      return made;
+      return logged("Make a community", made);
     },
     async invite(invitee) {
-      if (current === null) return err("refused", "Make a community first.");
-      return current.invite(invitee, now());
+      if (current === null)
+        return logged("Invite a person", err("refused", "Make a community first."));
+      return logged("Invite a person", await current.invite(invitee, now()));
     },
     async check(text) {
-      if (identity === null) return err("no_identity", INVITATION_MESSAGES.no_identity);
+      if (identity === null) {
+        return logged("Check an invitation", err("no_identity", INVITATION_MESSAGES.no_identity));
+      }
       const held = current;
       if (held !== null) await held.space.update();
-      return checkInvitation({
-        auth: identity.auth,
-        text,
-        me: identity.did,
-        now: now(),
-        isUsed: async (id) =>
-          held !== null && (await held.space.view.get(`joined/${id}`)) !== undefined,
-        mayPassOn: (inviter, parentId) =>
-          held !== null && coTreasurerJoinRecorded(held.space.view, inviter, parentId, now()),
-      });
+      return logged(
+        "Check an invitation",
+        await checkInvitation({
+          auth: identity.auth,
+          text,
+          me: identity.did,
+          now: now(),
+          isUsed: async (id) =>
+            held !== null && (await held.space.view.get(`joined/${id}`)) !== undefined,
+          mayPassOn: (inviter, parentId) =>
+            held !== null && coTreasurerJoinRecorded(held.space.view, inviter, parentId, now()),
+          isCurrentGrant: (holder, id) =>
+            held !== null && isCurrentGrantIn(held.space.view, holder, id),
+        }),
+      );
     },
     members: async () => (current === null ? [] : current.members()),
     async grant(grantee, role, options) {
-      if (current === null) return err("refused", "Make a community first.");
-      return current.grantRole(grantee, role, options, now());
+      if (current === null) return logged("Give a role", err("refused", "Make a community first."));
+      return logged("Give a role", await current.grantRole(grantee, role, options, now()));
     },
     async roles() {
       return current === null ? [] : current.roles();
     },
     async checkAction(request) {
-      if (current === null) return err("outside", "Your role doesn't cover that.");
-      return current.checkAction(request, now());
+      if (current === null) {
+        return logged("What can I do?", err("outside", "Your role doesn't cover that."));
+      }
+      return logged("What can I do?", await current.checkAction(request, now()));
     },
+    refusals: () => log,
   };
 }
