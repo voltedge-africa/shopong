@@ -114,6 +114,12 @@ describe("plain words", () => {
     expect(randText(0)).toBe("R0.00");
   });
 
+  it("groups rand in thousands, for people to read", () => {
+    expect(randText(99_999)).toBe("R999.99");
+    expect(randText(100_000)).toBe("R1,000.00");
+    expect(randText(124_950_000)).toBe("R1,249,500.00");
+  });
+
   it("describes delivery terms in plain words", () => {
     expect(deliveryText({ feeCents: 5000, days: 2 })).toBe("R50.00, 2 days");
     expect(deliveryText({ feeCents: 0, days: 0 })).toBe("free, same day");

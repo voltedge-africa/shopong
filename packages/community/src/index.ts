@@ -24,11 +24,25 @@ export {
   isTreasurer,
   quoteKey,
   quotesOf,
+  tidy,
   type DeliveryTerms,
   type Quote,
   type QuoteCheck,
   type QuoteLine,
 } from "./quotes.js";
+export {
+  RANKING_RULE,
+  RANKING_THRESHOLD_PERCENT,
+  WANT_LIMITS,
+  rankQuotes,
+  type IncompleteQuote,
+  type Margin,
+  type RankCheck,
+  type RankedQuote,
+  type Ranking,
+  type Recommendation,
+  type Wanted,
+} from "./rank.js";
 export { chainOf, invitePassOnAllowed } from "./chain.js";
 export {
   ACTIONS,
