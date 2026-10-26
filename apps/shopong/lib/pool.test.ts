@@ -3,12 +3,13 @@
 import type { PoolView } from "@shopong/community";
 import { describe, expect, it } from "vite-plus/test";
 import type { NodeReply } from "./nodeClient";
-import { freshnessOf, poolLines, poolScreenOf } from "./pool";
+import { freshnessOf, poolLines, poolScreenOf, poolSections, type PoolScreen } from "./pool";
 
 const view: PoolView = {
   currency: "ZAR",
   total: { minor: "50000", text: "The pool holds R500.00." },
   target: { minor: "100000", text: "The target is R1000.00." },
+  funding: { percent: 50, text: "R500.00 of R1000.00 is in." },
   you: {
     minor: "10000",
     text: "You have paid R100.00",
@@ -174,5 +175,58 @@ describe("the freshness of the figures (triage 2 and 9)", () => {
   it("marks the figures as possibly out of date only after 30 seconds", () => {
     expect(freshnessOf(at(9, 5), at(9, 5, 30)).stale).toBe(false);
     expect(freshnessOf(at(9, 5), at(9, 5, 31)).stale).toBe(true);
+  });
+});
+
+describe("the funding bar (story 8.4)", () => {
+  it("passes the Node's percent and sentence to the bar, with no sum made on the phone", () => {
+    const sections = poolSections({ state: "shown", view, checkedAt: 1_000 });
+    expect(sections.funding).toEqual({ percent: 50, text: "R500.00 of R1000.00 is in." });
+  });
+
+  it("shows no bar when the Node has no target", () => {
+    const noTarget: PoolView = { ...view, target: null, funding: null };
+    expect(poolSections({ state: "shown", view: noTarget, checkedAt: 1_000 }).funding).toBeNull();
+  });
+
+  it("shows no bar when the Node cannot be reached, so no figure is shown as current", () => {
+    expect(
+      poolSections({
+        state: "unreachable",
+        message: "We can't reach the Node. Figures may be out of date.",
+      }).funding,
+    ).toBeNull();
+  });
+});
+
+describe("no bank detail on a member's screen (story 8.4)", () => {
+  // An account number, a branch code, a sort code, a phone number or a long run of digits must never reach the card.
+  const bankOrPhone = /account (number|no)|branch|sort code|\+27|\b0\d{9}\b|\b\d{10,}\b/iu;
+
+  it("the pool card's lines hold none of them, in any state the Node can answer with", () => {
+    const withFlags: PoolView = {
+      ...view,
+      flags: [
+        {
+          kind: "mismatch",
+          text: "The books show R500.00 but the shared record shows R400.00. The difference is R100.00.",
+        },
+        {
+          kind: "unmatched_member",
+          text: "A member account has no matching member in the record.",
+        },
+      ],
+    };
+    const screens: PoolScreen[] = [
+      { state: "loading" },
+      { state: "shown", view, checkedAt: 1_000 },
+      { state: "shown", view: withFlags, checkedAt: 1_000 },
+      { state: "unreachable", message: "We can't reach the Node. Figures may be out of date." },
+      { state: "unavailable", message: "The books can't be read right now." },
+      { state: "refused", message: "You are not a member of this community." },
+    ];
+    for (const screen of screens) {
+      for (const line of poolLines(screen)) expect(line).not.toMatch(bankOrPhone);
+    }
   });
 });
