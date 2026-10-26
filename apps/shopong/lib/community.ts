@@ -4,14 +4,21 @@
 import {
   INVITATION_MESSAGES,
   checkInvitation,
+  coTreasurerJoinRecorded,
   createCommunity,
+  type ActionRequest,
   type CheckedInvitation,
   type Community,
   type CommunityDeps,
   type CommunityError,
+  type GrantOptions,
   type Invitation,
   type InvitationError,
   type Member,
+  type RoleCheck,
+  type RoleDraft,
+  type RoleError,
+  type RoleRecord,
 } from "@shopong/community";
 import { createMemoryRecordNetwork, type MemoryRecordNetwork } from "@shopong/adapters-memory";
 import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
@@ -32,6 +39,16 @@ export type CommunityService = {
   /** Check pasted text on this phone with no network. Joining for real waits for epic 3. */
   check: (text: string) => Promise<Result<CheckedInvitation, InvitationError>>;
   members: () => Promise<readonly Member[]>;
+  /** Give a role (the creator; a holder passes on part of theirs). */
+  grant: (
+    grantee: string,
+    role: string,
+    options: GrantOptions,
+  ) => Promise<Result<RoleDraft, RoleError | CommunityError>>;
+  /** The roles recorded for me. */
+  roles: () => Promise<readonly RoleRecord[]>;
+  /** "What can I do?" */
+  checkAction: (request: ActionRequest) => Promise<Result<RoleCheck, RoleError>>;
 };
 
 export function createCommunityService(
@@ -67,6 +84,7 @@ export function createCommunityService(
     async check(text) {
       if (identity === null) return err("no_identity", INVITATION_MESSAGES.no_identity);
       const held = current;
+      if (held !== null) await held.space.update();
       return checkInvitation({
         auth: identity.auth,
         text,
@@ -74,8 +92,21 @@ export function createCommunityService(
         now: now(),
         isUsed: async (id) =>
           held !== null && (await held.space.view.get(`joined/${id}`)) !== undefined,
+        mayPassOn: (inviter, parentId) =>
+          held !== null && coTreasurerJoinRecorded(held.space.view, inviter, parentId, now()),
       });
     },
     members: async () => (current === null ? [] : current.members()),
+    async grant(grantee, role, options) {
+      if (current === null) return err("refused", "Make a community first.");
+      return current.grantRole(grantee, role, options, now());
+    },
+    async roles() {
+      return current === null ? [] : current.roles();
+    },
+    async checkAction(request) {
+      if (current === null) return err("outside", "Your role doesn't cover that.");
+      return current.checkAction(request, now());
+    },
   };
 }

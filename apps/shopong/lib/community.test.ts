@@ -51,4 +51,37 @@ describe("community service", () => {
     if (!early.ok) expect(early.error.message).toBe("Make a community first.");
     else throw new Error("should not invite");
   });
+
+  it("gives a role only to a member, and says so plainly", async () => {
+    const treasurer = await person();
+    const stranger = await person();
+    const mine = createCommunityService(treasurer, { randomBytes, now: () => 1_793_000_000_000 });
+    await mine.create("Ntombi Stokvel");
+    const refused = await mine.grant(stranger.did, "driver", {});
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.message).toBe("Invite them to the community first.");
+    const self = await mine.grant(treasurer.did, "driver", {});
+    if (!self.ok) expect(self.error.message).toBe("You already hold every role.");
+    else throw new Error("the creator should not grant themselves a role");
+  });
+
+  it("has no roles and refuses an action before a community is made, and for a creator with no role", async () => {
+    const treasurer = await person();
+    const mine = createCommunityService(treasurer, { randomBytes, now: () => 1_793_000_000_000 });
+    expect(await mine.roles()).toEqual([]);
+    const before = await mine.checkAction({ ability: "delivery/confirm" });
+    if (!before.ok) expect(before.error.message).toBe("Your role doesn't cover that.");
+    else throw new Error("nothing should be allowed before a community");
+    await mine.create("Ntombi Stokvel");
+    const creator = await mine.checkAction({ ability: "delivery/confirm" });
+    if (!creator.ok) expect(creator.error.message).toBe("Your role doesn't cover that.");
+    else throw new Error("the creator holds no role until one is given");
+    const grantBefore = await createCommunityService(await person(), { randomBytes }).grant(
+      treasurer.did,
+      "driver",
+      {},
+    );
+    if (!grantBefore.ok) expect(grantBefore.error.message).toBe("Make a community first.");
+    else throw new Error("no community, no grant");
+  });
 });

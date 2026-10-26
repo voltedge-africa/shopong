@@ -172,6 +172,19 @@ export const capabilityAuthContract: readonly ContractCase<CapabilityAuth>[] = [
     },
   },
   {
+    name: "a request with no ceiling against a grant that has one is refused",
+    run: async (auth) => {
+      const w = await world(auth);
+      expectErr(
+        await auth.verify(
+          await rootGrant(w),
+          needs(w, { required: { with: w.space, can: "payment/approve" } }),
+        ),
+        "insufficient_capability",
+      );
+    },
+  },
+  {
     name: "a delegated chain verifies leaf first, root last",
     run: async (auth) => {
       const w = await world(auth);

@@ -13,6 +13,7 @@ import {
   type Result,
   type VerifyErrorCode,
 } from "@shopong/ports";
+import { invitePassOnAllowed } from "./chain.js";
 import { isCommunityKey, spaceUri } from "./space.js";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -63,28 +64,42 @@ export interface Invitation {
 
 export interface IssueInvitationRequest {
   readonly auth: CapabilityAuth;
+  /** The community's creator: the root of every invitation chain. */
   readonly creator: Did;
   readonly spaceKey: string;
   readonly invitee: string;
   /** The time the invitation starts, from the caller's clock. */
   readonly now: EpochMs;
+  /**
+   * A co-treasurer passing an invitation on: their own recorded `member/join` grant. The invitation
+   * then lasts no longer than that grant, and starts when it did (story 2.4). Omit for the creator.
+   */
+  readonly via?: { readonly issuer: Did; readonly token: CapabilityToken };
 }
 
 export async function issueInvitation(
   request: IssueInvitationRequest,
 ): Promise<Result<Invitation, InvitationError>> {
-  const { auth, creator, spaceKey, invitee, now } = request;
+  const { auth, creator, spaceKey, invitee, now, via } = request;
   if (!isDid(invitee) || !/^did:key:z[1-9A-HJ-NP-Za-km-z]+$/.test(invitee)) {
     return fail("bad_invitee");
   }
   if (!isCommunityKey(spaceKey)) return fail("unreadable");
   // UCAN times are whole seconds, so the end time is rounded down to one.
-  const expiresAt = Math.floor((now + INVITATION_DAYS * DAY_MS) / 1000) * 1000;
+  let expiresAt = Math.floor((now + INVITATION_DAYS * DAY_MS) / 1000) * 1000;
+  let notBefore: EpochMs | undefined;
+  if (via !== undefined) {
+    const parent = await auth.decode(via.token);
+    if (!parent.ok || parent.value.audience !== via.issuer) return fail("unreadable");
+    notBefore = parent.value.notBefore;
+    expiresAt = Math.min(expiresAt, parent.value.expiresAt);
+  }
   const issued = await auth.issue({
-    issuer: creator,
+    issuer: via?.issuer ?? creator,
     audience: invitee,
     capabilities: [{ with: spaceUri(spaceKey), can: JOIN_ABILITY }],
     expiresAt,
+    ...(via === undefined ? {} : { notBefore, proofs: [via.token] }),
   });
   if (!issued.ok) return fail("unreadable");
   const link = invitationLink({ spaceKey, creator, token: issued.value });
@@ -152,6 +167,11 @@ export interface CheckInvitationRequest {
   readonly now: EpochMs;
   /** Whether this invitation id is already in a `member.joined` in the record I hold. */
   readonly isUsed?: (invitationId: string) => boolean | Promise<boolean>;
+  /**
+   * Whether `inviter` may pass on an invitation whose parent is the grant `parentId` (a co-treasurer's
+   * `member/join`). Absent means nobody may pass one on.
+   */
+  readonly mayPassOn?: (inviter: Did, parentId: string) => boolean | Promise<boolean>;
 }
 
 /** Checks an invitation on this phone with no network, and names the problem in plain words. */
@@ -172,6 +192,12 @@ export async function checkInvitation(
     audience: me,
   });
   if (!verified.ok) return fail(problemOf(verified.error.code));
+  const passOn = await invitePassOnAllowed(
+    auth,
+    verified.value.chain,
+    request.mayPassOn ?? (() => false),
+  );
+  if (!passOn) return fail("unreadable");
   const decoded = await auth.decode(token);
   if (!decoded.ok) return fail("unreadable");
   const id = await auth.tokenId(token);

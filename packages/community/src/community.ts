@@ -15,7 +15,9 @@ import {
   type CapabilityAuth,
   type Did,
   type EpochMs,
+  type CapabilityToken,
   type JsonValue,
+  type Money,
   type PortError,
   type Result,
   type SharedRecord,
@@ -23,6 +25,17 @@ import {
   type SpaceDefinition,
 } from "@shopong/ports";
 import { createCommunityApply, FOUNDER_INVITATION } from "./apply.js";
+import {
+  checkAction,
+  coTreasurerJoinGrant,
+  issueRole,
+  rolesOf,
+  type ActionRequest,
+  type RoleCheck,
+  type RoleDraft,
+  type RoleError,
+  type RoleRecord,
+} from "./roles.js";
 import {
   INVITATION_MESSAGES,
   issueInvitation,
@@ -57,6 +70,13 @@ export interface Member {
 }
 
 export type CommunityError = PortError<"empty_name" | "refused" | "not_creator">;
+
+export interface GrantOptions {
+  /** The rand limit. Required for the co-treasurer role, refused for the others. */
+  readonly limit?: Money;
+  /** 7, 30 or 90 days. Default 30. */
+  readonly days?: number;
+}
 
 export const EMPTY_NAME_MESSAGE = "Give your community a name.";
 
@@ -100,13 +120,29 @@ export interface Community {
   readonly key: string;
   readonly name: string;
   readonly creator: Did;
+  /** The person this phone belongs to. */
+  readonly me: Did;
   readonly space: Space<EventEnvelope>;
-  /** Invite a person by their full DID. Only the creator can. */
+  /**
+   * Invite a person by their full DID. The creator can; so can a co-treasurer, whose invitation is
+   * passed on from their own role (story 2.4).
+   */
   invite(
     invitee: string,
     now: EpochMs,
   ): Promise<Result<Invitation, InvitationError | CommunityError>>;
   members(): Promise<readonly Member[]>;
+  /** Give `grantee` a role until it ends. The creator can; a holder can pass on part of their own role. */
+  grantRole(
+    grantee: string,
+    role: string,
+    options: GrantOptions,
+    now: EpochMs,
+  ): Promise<Result<RoleDraft, RoleError | CommunityError>>;
+  /** The roles recorded for me, ended ones included. */
+  roles(): Promise<readonly RoleRecord[]>;
+  /** "What can I do?": may I do this now? */
+  checkAction(request: ActionRequest, now: EpochMs): Promise<Result<RoleCheck, RoleError>>;
 }
 
 function wrap(
@@ -121,15 +157,23 @@ function wrap(
     key,
     name,
     creator,
+    me,
     space,
     async invite(invitee, now) {
-      if (me !== creator) return err("not_creator", "Only the creator can invite.");
+      let via: { issuer: Did; token: CapabilityToken } | undefined;
+      if (me !== creator) {
+        await space.update();
+        const grant = await coTreasurerJoinGrant(space.view, me, now);
+        if (grant === undefined) return err("not_creator", "Only the creator can invite.");
+        via = { issuer: me, token: grant.token };
+      }
       const issued = await issueInvitation({
         auth: deps.auth,
         creator,
         spaceKey: key,
         invitee,
         now,
+        ...(via === undefined ? {} : { via }),
       });
       if (!issued.ok) return issued;
       const recorded = await append(
@@ -146,6 +190,49 @@ function wrap(
         now,
       );
       return recorded.ok ? issued : recorded;
+    },
+    async grantRole(grantee, role, options, now) {
+      await space.update();
+      const drafted = await issueRole({
+        auth: deps.auth,
+        view: space.view,
+        creator,
+        spaceKey: key,
+        grantor: me,
+        grantee,
+        role,
+        now,
+        ...(options.limit === undefined ? {} : { limit: options.limit }),
+        ...(options.days === undefined ? {} : { days: options.days }),
+      });
+      if (!drafted.ok) return drafted;
+      const recorded = await append(
+        deps,
+        space,
+        key,
+        "role.granted",
+        {
+          role: drafted.value.role,
+          grantee: drafted.value.grantee,
+          expiresAt: drafted.value.expiresAt,
+        },
+        drafted.value.tokens.map((token) => encodeProof(token)),
+        now,
+      );
+      return recorded.ok ? drafted : recorded;
+    },
+    async roles() {
+      await space.update();
+      return rolesOf(space.view, me);
+    },
+    async checkAction(request, now) {
+      await space.update();
+      return checkAction(
+        { auth: deps.auth, view: space.view, creator, spaceKey: key },
+        me,
+        request,
+        now,
+      );
     },
     async members() {
       await space.update();
