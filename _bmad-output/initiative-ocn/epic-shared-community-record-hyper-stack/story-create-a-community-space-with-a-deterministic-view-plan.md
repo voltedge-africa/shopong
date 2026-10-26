@@ -3,7 +3,7 @@ title: 'Create a community space with a deterministic view'
 type: 'feature'
 ticket: 2
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: '5a80af041e7192fd3a26f605519e07315486f46b'
 route: 'full'
 route_source: 'auto'
