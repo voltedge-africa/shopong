@@ -16,7 +16,7 @@
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
 // `joined/<invitation id>` { member }, `roles/<did>/<role>` and `revoked/<grant id>` (see roles.ts),
 // `quotes/<order>/<supplier>` (see quotes.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
-// pledges.ts), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
+// pledges.ts), `payments/<pledge event id>` (the Node's request for a pledge), `settings/approvals` (story 4.7), `payouts/<payment id>` and `approvals/<payment id>/<approver>` (story 4.7), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
 
@@ -27,7 +27,15 @@ import {
   type EventEnvelope,
   type JsonObject,
 } from "@shopong/events";
-import type { Apply, CapabilityAuth, Did, EpochMs, RecordEntry, ViewWriter } from "@shopong/ports";
+import type {
+  Apply,
+  CapabilityAuth,
+  Did,
+  EpochMs,
+  RecordEntry,
+  Signature,
+  ViewWriter,
+} from "@shopong/ports";
 import { invitePassOnAllowed } from "./chain.js";
 import { verifyAuthority } from "./authority.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
@@ -62,6 +70,21 @@ import {
   type StandingContext,
 } from "./roles.js";
 import { spaceUri } from "./space.js";
+import {
+  APPROVAL_TYPE,
+  APPROVALS_KEY,
+  DEFAULT_APPROVALS,
+  PAYOUT_MESSAGES,
+  PAYOUT_RECOMMENDATIONS,
+  PAYOUT_TYPE,
+  type PayoutRecommendation,
+  approvalBytes,
+  approvalKey,
+  approverStanding,
+  checkApprovalsSetting,
+  payoutKey,
+  termsOf,
+} from "./payout.js";
 
 /** The `invitation` a creator's own first `member.joined` carries. It needs no token. */
 export const FOUNDER_INVITATION = "founder";
@@ -109,6 +132,8 @@ const CHECKED: ReadonlySet<string> = new Set([
   "quote.added",
   "pledge.created",
   "payment.requested",
+  PAYOUT_TYPE,
+  APPROVAL_TYPE,
 ]);
 
 export function createCommunityApply(env: CommunityApplyEnvironment): Apply<EventEnvelope> {
@@ -157,6 +182,12 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     if (invitation === FOUNDER_INVITATION) {
       if (event.actor !== env.creator || event.proof.length > 0)
         return INVITATION_MESSAGES.unreadable;
+      // The approvals a payment needs (story 4.7): written once here, 1 to 5, the default of two when not given. Text,
+      // a fraction or a number outside the range is refused, never converted.
+      const given = event.payload.approvals;
+      const approvals = given === undefined ? DEFAULT_APPROVALS : checkApprovalsSetting(given);
+      if (approvals === undefined) return PAYOUT_MESSAGES.approvals_invalid;
+      await view.put(APPROVALS_KEY, approvals);
       // The creator is the community's first indexer (story 3.3); nothing else seeds the set.
       await view.put(`${INDEXERS}${event.actor}`, true);
     } else {
@@ -284,6 +315,89 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /**
+   * A supplier payment (story 4.7). Only the treasurer (the creator, or a co-treasurer standing at log time) may record one,
+   * and only for a supplier with a quote on the order. The payment's record event id is its key.
+   */
+  async function payoutRecorded(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if (!(await isTreasurer(standing, view, event.actor, at))) {
+      return (
+        (await coTreasurerProblem(standing, view, event.actor, at)) ?? PAYOUT_MESSAGES.not_permitted
+      );
+    }
+    const terms = termsOf(event.payload);
+    if (terms === undefined) return PAYOUT_MESSAGES.bad_payment;
+    const recommendation = event.payload.recommendation;
+    if (
+      typeof recommendation !== "string" ||
+      !PAYOUT_RECOMMENDATIONS.includes(recommendation as PayoutRecommendation)
+    ) {
+      return PAYOUT_MESSAGES.bad_payment;
+    }
+    if ((await view.get(quoteKey(terms.order, terms.supplier))) === undefined) {
+      return PAYOUT_MESSAGES.no_quote;
+    }
+    await view.put(payoutKey(entry.id), { ...terms, recommendation, by: event.actor });
+    return undefined;
+  }
+
+  /**
+   * One approval of a supplier payment (story 4.7). The approver must stand at log time for the amount (the creator always
+   * does), the approval must be signed for this community, this payment and these terms, and each person counts once.
+   */
+  async function approvalRecorded(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    const payment = event.payload.payout;
+    const terms = termsOf(event.payload);
+    const signature = event.payload.signature;
+    if (typeof payment !== "string" || terms === undefined || typeof signature !== "string") {
+      return PAYOUT_MESSAGES.bad_payment;
+    }
+    const recorded = (await view.get(payoutKey(payment))) as
+      | { order?: unknown; supplier?: unknown; amountMinor?: unknown; bank?: unknown }
+      | undefined;
+    if (recorded === undefined) return PAYOUT_MESSAGES.unknown_payment;
+    if (
+      recorded.order !== terms.order ||
+      recorded.supplier !== terms.supplier ||
+      recorded.amountMinor !== terms.amountMinor ||
+      recorded.bank !== terms.bank
+    ) {
+      return PAYOUT_MESSAGES.mismatch;
+    }
+    if ((await view.get(approvalKey(payment, event.actor))) !== undefined) {
+      return PAYOUT_MESSAGES.already_approved;
+    }
+    const signed = await env.auth.verifySignature(
+      event.actor as Did,
+      approvalBytes(env.spaceKey, payment, event.actor, terms),
+      signature as Signature,
+    );
+    if (!signed) return PAYOUT_MESSAGES.not_signed;
+    const standingProblem = await approverStanding(
+      { auth: env.auth, creator: env.creator, spaceKey: env.spaceKey, view },
+      event.actor,
+      terms.amountMinor,
+      at,
+    );
+    if (standingProblem !== undefined) return standingProblem;
+    await view.put(approvalKey(payment, event.actor), {
+      eventId: entry.id,
+      amountMinor: terms.amountMinor,
+      at,
+    });
+    return undefined;
+  }
+
   /** A quote is the treasurer's: the creator or a co-treasurer. Its shape is checked as in the form. */
   async function quoteAdded(
     event: EventEnvelope,
@@ -367,6 +481,10 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return pledgeCreated(entry, view);
       case "payment.requested":
         return paymentRequested(entry, view);
+      case PAYOUT_TYPE:
+        return payoutRecorded(entry, view, at);
+      case APPROVAL_TYPE:
+        return approvalRecorded(entry, view, at);
       default:
         return quoteAdded(event, view, at);
     }

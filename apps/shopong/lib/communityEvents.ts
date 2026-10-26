@@ -22,7 +22,12 @@ interface Base {
 }
 
 const build = (fields: {
-  type: "member.joined" | "member.invited" | "pledge.created";
+  type:
+    | "member.joined"
+    | "member.invited"
+    | "pledge.created"
+    | "payment.payout"
+    | "payment.approved";
   space: string;
   actor: Did;
   proof: readonly string[];
@@ -31,8 +36,13 @@ const build = (fields: {
   payload: Record<string, unknown>;
 }): EventEnvelope => createEvent(fields as never) as EventEnvelope;
 
-/** The founding `member.joined` of a community the phone created. Apply admits the creator on it. */
-export function founderEvent(input: Base & { readonly me: Did }): EventEnvelope {
+/**
+ * The founding `member.joined` of a community the phone created. Apply admits the creator on it. `approvals` is how many
+ * people must approve a supplier payment (story 4.7): 1 to 5. Left out, the record uses two.
+ */
+export function founderEvent(
+  input: Base & { readonly me: Did; readonly approvals?: number },
+): EventEnvelope {
   return build({
     type: "member.joined",
     space: input.community,
@@ -40,7 +50,72 @@ export function founderEvent(input: Base & { readonly me: Did }): EventEnvelope 
     proof: [],
     claimedAt: input.now,
     nonce: hex(input.randomBytes(16)),
-    payload: { invitation: FOUNDER_INVITATION },
+    payload:
+      input.approvals === undefined
+        ? { invitation: FOUNDER_INVITATION }
+        : { invitation: FOUNDER_INVITATION, approvals: input.approvals },
+  });
+}
+
+/** The treasurer's payment of a supplier from the pool (story 4.7). Amount in whole rand cents. */
+export function payoutEvent(
+  input: Base & {
+    readonly me: Did;
+    readonly order: string;
+    readonly supplier: string;
+    readonly amountMinor: number;
+    readonly recommendation: string;
+    /** The keyed commitment of the supplier's bank details, from the Node (128 hex). Approvers sign it. */
+    readonly bank: string;
+  },
+): EventEnvelope {
+  return build({
+    type: "payment.payout",
+    space: input.community,
+    actor: input.me,
+    proof: [],
+    claimedAt: input.now,
+    nonce: hex(input.randomBytes(16)),
+    payload: {
+      order: input.order,
+      supplier: input.supplier,
+      amount: { currency: "ZAR", minor: input.amountMinor },
+      recommendation: input.recommendation,
+      bank: input.bank,
+    },
+  });
+}
+
+/**
+ * One approver's approval of a payment (story 4.7). `signature` is the approver's own signature over `approvalBytes` for
+ * this community, payment and terms, made on their phone after they confirmed it.
+ */
+export function approvalEvent(
+  input: Base & {
+    readonly me: Did;
+    readonly payout: string;
+    readonly order: string;
+    readonly supplier: string;
+    readonly amountMinor: number;
+    readonly bank: string;
+    readonly signature: string;
+  },
+): EventEnvelope {
+  return build({
+    type: "payment.approved",
+    space: input.community,
+    actor: input.me,
+    proof: [],
+    claimedAt: input.now,
+    nonce: hex(input.randomBytes(16)),
+    payload: {
+      payout: input.payout,
+      order: input.order,
+      supplier: input.supplier,
+      amount: { currency: "ZAR", minor: input.amountMinor },
+      bank: input.bank,
+      signature: input.signature,
+    },
   });
 }
 

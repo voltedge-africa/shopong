@@ -52,6 +52,9 @@ function fakeNode(admitted: Did[]) {
     // Pledge payments are not exercised by the sync tests.
     payPledge: async () => offline(),
     paymentStatus: async () => offline(),
+    payOut: async () => offline(),
+    supplierBankCommitment: async () => offline(),
+    saveSupplierBank: async () => offline(),
     async postEvent(_key, event) {
       if (state.down) return offline();
       const id = await eventIdOf(event, webCryptoSha512);

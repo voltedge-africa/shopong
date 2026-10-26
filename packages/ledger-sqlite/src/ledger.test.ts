@@ -199,7 +199,7 @@ const COMMUNITY = "7".repeat(64);
 const OTHER = "9".repeat(64);
 
 describe("demonstration chart of accounts", () => {
-  it("configures the pool and the supplier payable as guarded and fees as unguarded", async () => {
+  it("configures the pool as guarded, the supplier payable and fees as unguarded", async () => {
     const ledger = openLedger();
     expectOk(await configureChart(ledger, COMMUNITY));
 
@@ -211,6 +211,7 @@ describe("demonstration chart of accounts", () => {
       }),
       "insufficient_funds",
     );
+    // Story 4.7: a supplier payout debits the payable with no earlier credit, so the payable is not guarded.
     expectOk(
       await ledger.post({
         idempotencyKey: randomEventId(),
@@ -218,6 +219,37 @@ describe("demonstration chart of accounts", () => {
         entries: [debit(feesOf(COMMUNITY), 10), credit(supplierPayableOf(COMMUNITY), 10)],
       }),
     );
+    expectOk(
+      await ledger.post({
+        idempotencyKey: randomEventId(),
+        description: "payout with no earlier credit",
+        entries: [debit(supplierPayableOf(COMMUNITY), 10), credit(feesOf(COMMUNITY), 10)],
+      }),
+    );
+  });
+
+  it("a supplier payout credits the pool, so a short pool refuses it and nothing is stored (story 4.7)", async () => {
+    const ledger = openLedger();
+    expectOk(await configureChart(ledger, COMMUNITY));
+    expectOk(
+      await ledger.post({
+        idempotencyKey: randomEventId(),
+        description: "pool funded",
+        entries: [debit(poolAccountOf(COMMUNITY), 300_00), credit(feesOf(COMMUNITY), 300_00)],
+      }),
+    );
+    const payout = (minor: number, key = randomEventId()) => ({
+      idempotencyKey: key,
+      description: "Payment to a supplier",
+      entries: [
+        credit(poolAccountOf(COMMUNITY), minor),
+        debit(supplierPayableOf(COMMUNITY), minor),
+      ],
+    });
+    expectErr(await ledger.post(payout(500_00)), "insufficient_funds");
+    expect((await ledger.balance(poolAccountOf(COMMUNITY), "ZAR")).balance.minor).toBe(300_00);
+    expectOk(await ledger.post(payout(300_00)));
+    expect((await ledger.balance(poolAccountOf(COMMUNITY), "ZAR")).balance.minor).toBe(0);
   });
 
   it("guards each member liability once it is configured", async () => {
@@ -430,7 +462,7 @@ describe("guards cannot be switched off once an account has entries", () => {
     expectOk(await ledger.configureAccount(a.supplier, { guarded: false }));
   });
 
-  it("the chart's pool and supplier payable cannot be unguarded once used", async () => {
+  it("the chart's pool cannot be unguarded once used", async () => {
     const ledger = openLedger();
     expectOk(await configureChart(ledger, COMMUNITY));
     expectOk(
@@ -451,10 +483,8 @@ describe("guards cannot be switched off once an account has entries", () => {
       await ledger.configureAccount(poolAccountOf(COMMUNITY), { guarded: false }),
       "invalid_request",
     );
-    expectErr(
-      await ledger.configureAccount(supplierPayableOf(COMMUNITY), { guarded: false }),
-      "invalid_request",
-    );
+    // The payable is unguarded by the chart (story 4.7), so there is no guard to switch off.
+    expectOk(await ledger.configureAccount(supplierPayableOf(COMMUNITY), { guarded: false }));
     expectOk(await configureChart(ledger, COMMUNITY));
   });
 });

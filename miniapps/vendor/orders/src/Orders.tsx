@@ -4,7 +4,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { Alert, Button, Input, Text } from "panelui-native";
-import { amountProblem, type Quote } from "@shopong/community";
+import { amountProblem, rankQuotes, tidy, type Quote } from "@shopong/community";
 
 import { OrdersHostContext, type OrdersHost, type PaymentHost } from "./host";
 import { deliveryText, emptyLine, parseRand, quoteInput, randText, type LineDraft } from "./form";
@@ -16,7 +16,8 @@ import {
   type PayAction,
   type PaymentView,
 } from "./pay";
-import { orderRanking, type WantDraft } from "./ranking";
+import { orderRanking, wantedFromDrafts, type WantDraft } from "./ranking";
+import { PayoutsSection } from "./PayoutsSection";
 
 const emptyWant = (): WantDraft => ({ item: "", quantity: "" });
 
@@ -46,6 +47,15 @@ function OrdersView({ host }: { host: OrdersHost }) {
     () => (name === "" ? undefined : orderRanking(quotes, wants, name)),
     [quotes, wants, name],
   );
+  // The same ranking as the card, with cents, for choosing the supplier to pay (story 4.7). Only when the needs are valid.
+  const rawRanking = useMemo(() => {
+    if (name === "" || ranking === undefined || !ranking.ok) return undefined;
+    const checked = rankQuotes(
+      quotes.filter((quote) => quote.order === tidy(name)),
+      wantedFromDrafts(wants),
+    );
+    return checked.ok ? checked.value : undefined;
+  }, [quotes, wants, name, ranking]);
 
   // Changing the order name clears the quotes at once, so another order's quotes never show under this name.
   useEffect(() => {
@@ -101,6 +111,16 @@ function OrdersView({ host }: { host: OrdersHost }) {
 
         {host.payments !== undefined && name !== "" ? (
           <PayPanel key={name} payments={host.payments} order={name} />
+        ) : null}
+
+        {host.payouts !== undefined && name !== "" ? (
+          <PayoutsSection
+            key={`payouts-${name}`}
+            host={host.payouts}
+            order={name}
+            ranking={rawRanking}
+            treasurer={host.canAdd}
+          />
         ) : null}
 
         {host.canAdd ? (

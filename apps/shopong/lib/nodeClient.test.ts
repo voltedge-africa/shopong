@@ -276,3 +276,66 @@ describe("the pledge payment calls (story 4.3)", () => {
     });
   });
 });
+
+describe("the phone's payout calls (story 4.7)", () => {
+  const PAYMENT = "cd".repeat(64);
+  const BANK = {
+    name: "Makro Soweto",
+    bankId: "fnb",
+    accountNumber: "1234567890",
+    accountType: "current" as const,
+  };
+
+  it("sends the community and the payment id as a signed POST, and answers with the Node's plain words", async () => {
+    const phone = await phoneWith(() => ({
+      status: 200,
+      body: {
+        simulated: true,
+        status: "pending",
+        reason: "Payment sent to Makro Soweto (simulated).",
+        payout: PAYMENT,
+      },
+    }));
+    const reply = await phone.client.payOut(KEY, PAYMENT);
+    expect(reply).toMatchObject({
+      ok: true,
+      value: { reason: "Payment sent to Makro Soweto (simulated)." },
+    });
+    const [sent] = phone.sent;
+    expect(sent?.url).toBe("https://node.example/payouts");
+    expect(sent?.method).toBe("POST");
+    expect(JSON.parse(sent?.body ?? "{}")).toEqual({ community: KEY, payout: PAYMENT });
+  });
+
+  it("gives the Node's refusal its plain reason, so a person can act on it", async () => {
+    const phone = await phoneWith(() => ({
+      status: 422,
+      body: { problem: "not_enough_approvals", reason: "Two people must approve this payment." },
+    }));
+    const reply = await phone.client.payOut(KEY, PAYMENT);
+    expect(reply).toMatchObject({
+      ok: false,
+      failure: {
+        kind: "refused",
+        problem: "not_enough_approvals",
+        reason: "Two people must approve this payment.",
+      },
+    });
+  });
+
+  it("saves a supplier's bank details to the Node, and says so without sending them back", async () => {
+    const phone = await phoneWith(() => ({
+      status: 200,
+      body: { saved: true, supplier: "Makro Soweto" },
+    }));
+    const reply = await phone.client.saveSupplierBank(KEY, "Makro Soweto", BANK);
+    expect(reply).toMatchObject({ ok: true, value: { saved: true } });
+    const [sent] = phone.sent;
+    expect(sent?.url).toBe("https://node.example/suppliers/bank");
+    expect(JSON.parse(sent?.body ?? "{}")).toMatchObject({
+      community: KEY,
+      supplier: "Makro Soweto",
+      ...BANK,
+    });
+  });
+});

@@ -83,6 +83,32 @@ export interface NodeClient {
   payPledge(key: string, pledge: string): Promise<NodeReply<PledgeRequested>>;
   /** The status of the request for the member's own pledge, as the Node's record and payments hold it. */
   paymentStatus(key: string, pledge: string): Promise<NodeReply<PaymentStatusReply>>;
+  /** Pays a supplier for one recorded payment (story 4.7). The Node checks every approval and the pool itself. */
+  payOut(key: string, payment: string): Promise<NodeReply<PayoutSent>>;
+  /** The keyed commitment of a supplier's bank details, as the Node holds them (story 4.7). Members only. */
+  supplierBankCommitment(key: string, supplier: string): Promise<NodeReply<{ commitment: string }>>;
+  /** Keeps a supplier's bank details on the Node (story 4.7). The treasurer only; the Node never sends them back. */
+  saveSupplierBank(
+    key: string,
+    supplier: string,
+    bank: SupplierBankDetails,
+  ): Promise<NodeReply<{ saved: boolean }>>;
+}
+
+/** What the Node says after it sends a payment to the (simulated) bank. */
+export interface PayoutSent {
+  readonly status: string;
+  readonly reason: string;
+  readonly amountMinor: number;
+  readonly replayed: boolean;
+}
+
+/** A supplier's bank details as the treasurer types them. */
+export interface SupplierBankDetails {
+  readonly name: string;
+  readonly bankId: string;
+  readonly accountNumber: string;
+  readonly accountType: "current" | "savings";
 }
 
 /** What the Node answers for a request: its bank page on the Node (a path), and whether the record took its event. */
@@ -239,6 +265,24 @@ export function createNodeClient(options: NodeClientOptions): NodeClient {
           ...(typeof j.bankPath === "string" ? { bankPath: j.bankPath } : {}),
         }),
       ),
+    payOut: (key, payment) =>
+      request("POST", "/payouts", { community: key, payout: payment }, (j) => ({
+        status: String(j.status),
+        reason: String(j.reason),
+        amountMinor: Number(j.amountMinor),
+        replayed: j.replayed === true,
+      })),
+    supplierBankCommitment: (key, supplier) =>
+      request(
+        "GET",
+        `/suppliers/bank/commitment?community=${encodeURIComponent(key)}&supplier=${encodeURIComponent(supplier)}`,
+        undefined,
+        (j) => ({ commitment: String(j.commitment) }),
+      ),
+    saveSupplierBank: (key, supplier, bank) =>
+      request("POST", "/suppliers/bank", { community: key, supplier, ...bank }, (j) => ({
+        saved: j.saved === true,
+      })),
     pull: (key, after, limit = 100) =>
       request(
         "GET",

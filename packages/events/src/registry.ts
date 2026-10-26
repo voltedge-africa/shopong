@@ -19,6 +19,8 @@ export const EVENT_TYPES = [
   "quote.selected",
   "pledge.created",
   "payment.requested",
+  "payment.payout",
+  "payment.approved",
   "payment.completed",
   "payment.failed",
   "payment.refunded",
@@ -161,6 +163,69 @@ const roleGranted: PayloadValidator = (payload) => {
   return issues;
 };
 
+const PAYOUT_RECOMMENDATIONS: readonly string[] = ["clear", "too_close", "only_one", "none"];
+const PAYOUT_ID = /^[0-9a-f]{128}$/;
+
+/** A whole amount of rand cents, above zero, in ZAR: the only currency a supplier is paid in (story 4.7). */
+function checkPayoutAmount(payload: JsonObject): Issue[] {
+  const amount = payload.amount;
+  if (amount === undefined)
+    return [{ path: "$.payload.amount", message: "required field is missing" }];
+  if (typeof amount !== "object" || amount === null || Array.isArray(amount))
+    return [
+      { path: "$.payload.amount", message: "must be an amount with a currency and minor units" },
+    ];
+  const { currency, minor } = amount as { currency?: unknown; minor?: unknown };
+  const issues: Issue[] = [];
+  if (currency !== "ZAR")
+    issues.push({ path: "$.payload.amount.currency", message: "must be ZAR" });
+  if (typeof minor !== "number" || !Number.isSafeInteger(minor) || minor < 1)
+    issues.push({
+      path: "$.payload.amount.minor",
+      message: "must be a whole number of cents, 1 or more",
+    });
+  return issues;
+}
+
+const BANK_COMMITMENT_HEX = /^[0-9a-f]{128}$/;
+
+const paymentPayout: PayloadValidator = (payload) => [
+  ...requireString(
+    payload,
+    "bank",
+    (v) => BANK_COMMITMENT_HEX.test(v),
+    "must be a bank commitment (128 hex)",
+  ),
+  ...requireString(payload, "order", nonEmpty, "must be a non-empty order name"),
+  ...requireString(payload, "supplier", nonEmpty, "must be a non-empty supplier name"),
+  ...checkPayoutAmount(payload),
+  ...requireString(
+    payload,
+    "recommendation",
+    (v) => PAYOUT_RECOMMENDATIONS.includes(v),
+    "must be clear, too_close, only_one or none",
+  ),
+];
+
+const paymentApproved: PayloadValidator = (payload) => [
+  ...requireString(
+    payload,
+    "bank",
+    (v) => BANK_COMMITMENT_HEX.test(v),
+    "must be a bank commitment (128 hex)",
+  ),
+  ...requireString(
+    payload,
+    "payout",
+    (v) => PAYOUT_ID.test(v),
+    "must be a payment id (128 lowercase hex)",
+  ),
+  ...requireString(payload, "order", nonEmpty, "must be a non-empty order name"),
+  ...requireString(payload, "supplier", nonEmpty, "must be a non-empty supplier name"),
+  ...checkPayoutAmount(payload),
+  ...requireString(payload, "signature", nonEmpty, "must be a non-empty signature"),
+];
+
 export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator } = {
   ...(Object.fromEntries(EVENT_TYPES.map((t) => [t, anyObject])) as {
     [T in EventType]: PayloadValidator;
@@ -169,4 +234,6 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "member.joined": memberJoined,
   "role.granted": roleGranted,
   "member.removed": memberRemoved,
+  "payment.payout": paymentPayout,
+  "payment.approved": paymentApproved,
 };

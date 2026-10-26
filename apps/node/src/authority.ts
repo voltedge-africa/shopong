@@ -124,8 +124,18 @@ export interface AuthorityGuard {
 export function createAuthorityGuard(options: {
   auth: CapabilityAuth;
   config: AuthorityConfig | undefined;
+  /**
+   * Finds the community a request names (its `with` is `ocn:space/<key>`) from the records this Node holds (story 4.7,
+   * closes S-2.5-15). Used when no single `config` is given.
+   */
+  resolve?: (spaceKey: string) => Promise<AuthorityConfig | undefined>;
 }): AuthorityGuard {
-  const { auth, config } = options;
+  const { auth, config, resolve } = options;
+  const scopeOf = async (uri: string): Promise<AuthorityConfig | undefined> => {
+    if (config !== undefined) return config;
+    if (resolve === undefined || !uri.startsWith("ocn:space/")) return undefined;
+    return resolve(uri.slice("ocn:space/".length));
+  };
   const gate: SignedGate = {
     auth,
     nonces: new SeenNonces(config?.maxNonces ?? DEFAULT_MAX_NONCES),
@@ -168,7 +178,8 @@ export function createAuthorityGuard(options: {
         // 4. The capability, checked by the Node's clock and against the record as it now stands.
         const parsed = checkBody.safeParse(parseJson(request.rawBody));
         if (!parsed.success) return refuse("invalid_request");
-        if (config === undefined) return refuse("not_configured");
+        const scoped = await scopeOf(parsed.data.required.with);
+        if (scoped === undefined) return refuse("not_configured");
         const token = parsed.data.token as CapabilityToken | undefined;
         const required = {
           with: parsed.data.required.with,
@@ -179,14 +190,14 @@ export function createAuthorityGuard(options: {
         };
         // Judged at the later of the record's log time and the Node's own clock (story 3.6): a role that has
         // ended by either one is refused, so a stale view cannot grant a role the Node's clock says has ended.
-        const logTime = (await logTimeOf(config.view)) ?? 0;
+        const logTime = (await logTimeOf(scoped.view)) ?? 0;
         const verified = await verifyAuthority(auth, token, {
           holder: actor as Did,
-          rootIssuer: config.creator,
+          rootIssuer: scoped.creator,
           at: Math.max(now, logTime),
           required,
-          isRevoked: (id) => isRevokedIn(config.view, id),
-          isCurrentGrant: (who, id) => isCurrentGrantIn(config.view, who, id),
+          isRevoked: (id) => isRevokedIn(scoped.view, id),
+          isCurrentGrant: (who, id) => isCurrentGrantIn(scoped.view, who, id),
         });
         if (!verified.ok) {
           return refuse(verified.error.code, {
@@ -196,7 +207,7 @@ export function createAuthorityGuard(options: {
         }
         // The leaf is also a grant to the caller: it must be in the caller's record now.
         const leafId = await auth.tokenId(token as CapabilityToken);
-        const current = (await rolesOf(config.view, actor)).find((record) =>
+        const current = (await rolesOf(scoped.view, actor)).find((record) =>
           record.grants.some((grant) => grant.id === leafId),
         );
         if (current === undefined) return refuse("not_current");

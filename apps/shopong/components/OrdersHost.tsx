@@ -4,12 +4,29 @@
 // (see app/miniapp/[id].tsx).
 import * as WebBrowser from "expo-web-browser";
 import { useMemo, type ReactNode } from "react";
-import { OrdersHostContext, type OrdersHost, type PaymentHost } from "@shopong/miniapp-orders";
+import {
+  OrdersHostContext,
+  type OrdersHost,
+  type PaymentHost,
+  type PayoutHost,
+} from "@shopong/miniapp-orders";
 
 import { useCommunity } from "../lib/CommunityProvider";
 
 export function OrdersHostProvider({ children }: { children: ReactNode }) {
-  const { canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder } = useCommunity();
+  const {
+    canAddQuotes,
+    addQuote,
+    quotesFor,
+    pledgeOrder,
+    paymentOf,
+    payOrder,
+    paymentsOf,
+    proposePayment,
+    approvePayment,
+    payPayment,
+    saveSupplierBank,
+  } = useCommunity();
   const host = useMemo<OrdersHost>(() => {
     const payments: PaymentHost = {
       paymentOf,
@@ -27,7 +44,27 @@ export function OrdersHostProvider({ children }: { children: ReactNode }) {
         }
       },
     };
-    return { canAdd: canAddQuotes, addQuote, quotesFor, payments };
-  }, [canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder]);
+    // Supplier payments (story 4.7): the Node and the record decide; the screen only shows their answers.
+    const payouts: PayoutHost = {
+      paymentsOf,
+      propose: proposePayment,
+      approve: approvePayment,
+      pay: payPayment,
+      saveBank: saveSupplierBank,
+    };
+    return { canAdd: canAddQuotes, addQuote, quotesFor, payments, payouts };
+  }, [
+    canAddQuotes,
+    addQuote,
+    quotesFor,
+    pledgeOrder,
+    paymentOf,
+    payOrder,
+    paymentsOf,
+    proposePayment,
+    approvePayment,
+    payPayment,
+    saveSupplierBank,
+  ]);
   return <OrdersHostContext.Provider value={host}>{children}</OrdersHostContext.Provider>;
 }

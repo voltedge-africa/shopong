@@ -18,6 +18,7 @@ import {
   type PaymentRequestOptions,
 } from "./payment-request-route.ts";
 import { registerCheckingRoute, type CheckingRouteOptions } from "./checking-routes.ts";
+import { registerPayoutRoutes, type PayoutOptions } from "./payouts.ts";
 import type { ConfirmationDeps } from "./payment-confirmation.ts";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import type { SimulatedStitch } from "@shopong/adapter-stitch-sim";
@@ -39,6 +40,8 @@ export interface AppOptions {
   auth?: CapabilityAuth;
   /** The community the Node checks authority against. Without it, `/authority/check` answers 503. */
   authority?: AuthorityConfig;
+  /** Finds the community a `/authority/check` names, from the records the Node holds (story 4.7). */
+  authorityOf?: (spaceKey: string) => Promise<AuthorityConfig | undefined>;
   /** The signed sync routes. Always registered; without a hub (record off) they answer 503. */
   sync?: SyncOptions;
   /** Commits personal values for `POST /commitments` (story 2.7). Without it, that route answers 503. */
@@ -61,6 +64,8 @@ export interface AppOptions {
   paymentConfirmation?: ConfirmationDeps;
   /** The treasurer's "Needs checking" list (story 4.5). Without it, the route is not served. */
   checking?: CheckingRouteOptions;
+  /** Supplier payments and supplier bank details (story 4.7). Without it, the payout routes are not served. */
+  payouts?: PayoutOptions;
   /** Sets up a new community's books chart when it is made (story 4.5). */
   books?: { readonly configureCommunity: (communityKey: string) => Promise<void> };
 }
@@ -106,7 +111,11 @@ export function buildApp(options: AppOptions): FastifyInstance {
 
   registerCors(app, options.cors ?? { origins: [], environment: "production" });
   keepRawJsonBody(app);
-  createAuthorityGuard({ auth, config: options.authority }).register(app);
+  createAuthorityGuard({
+    auth,
+    config: options.authority,
+    ...(options.authorityOf === undefined ? {} : { resolve: options.authorityOf }),
+  }).register(app);
   registerCommitmentRoute(app, {
     auth,
     commitments: options.commitments,
@@ -118,6 +127,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     registerPaymentRoutes(app, options.payments, options.paymentConfirmation);
   }
   if (options.checking !== undefined) registerCheckingRoute(app, auth, options.checking);
+  if (options.payouts !== undefined) registerPayoutRoutes(app, options.payouts);
   if (options.paymentRequests !== undefined) {
     registerPaymentRequestRoutes(app, options.paymentRequests);
   }
