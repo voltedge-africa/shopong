@@ -30,6 +30,7 @@
     "@shopong/miniapp-insights": "workspace:*",
     "@shopong/miniapp-orders": "workspace:*",
     "@shopong/miniapp-shop": "workspace:*",
+    "@shopong/miniapp-timeline": "workspace:*",
     "@shopong/miniapp-wallet": "workspace:*",
     "@shopong/ports": "workspace:*",
     "effect": "4.0.6",

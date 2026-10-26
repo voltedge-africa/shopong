@@ -227,3 +227,20 @@ export {
   fileUploadProblem,
   filesOf,
 } from "./files.js";
+export {
+  TIMELINE_MESSAGES,
+  randWords,
+  transactionTimeline,
+  type Agreement,
+  type AgreementState,
+  type BookedPosting,
+  type BooksReading,
+  type RecordedEvent,
+  type RecordedOutcome,
+  type RecordedPosting,
+  type Timeline,
+  type TimelineStep,
+  type TimelineStepKind,
+  type TransactionFacts,
+  type TransactionLink,
+} from "./timeline.js";

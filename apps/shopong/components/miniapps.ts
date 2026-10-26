@@ -3,6 +3,7 @@ import { manifest as delivery } from "@shopong/miniapp-delivery";
 import { manifest as insights } from "@shopong/miniapp-insights";
 import { manifest as orders } from "@shopong/miniapp-orders";
 import { manifest as shop } from "@shopong/miniapp-shop";
+import { manifest as timeline } from "@shopong/miniapp-timeline";
 import { manifest as wallet } from "@shopong/miniapp-wallet";
 import { CATEGORIES, type MiniAppCategory, type MiniAppManifest } from "@shopong/miniapp";
 
@@ -31,6 +32,7 @@ export const miniApps: readonly MiniApp[] = [
   { ...insights, installed: false, publisher: "Shopong" },
   { ...delivery, installed: false, publisher: "Shopong" },
   { ...orders, installed: false, publisher: "Shopong" },
+  { ...timeline, installed: false, publisher: "Shopong" },
 ];
 
 /** What Home shows. */

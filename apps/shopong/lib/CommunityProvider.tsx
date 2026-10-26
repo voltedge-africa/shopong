@@ -69,7 +69,14 @@ import {
 } from "./communityEvents";
 import { nodeFailureMessage, unqueuedMessage } from "./nodeMessages";
 import { NODE_ADDRESS } from "./nodeAddress";
-import { createNodeClient, type NodeClient, type NodePlace, type RouteAnswer } from "./nodeClient";
+import {
+  createNodeClient,
+  type NodeClient,
+  type NodePlace,
+  type NodeReply,
+  type RouteAnswer,
+  type TimelineReply,
+} from "./nodeClient";
 import { placeFormProblem, type PlaceForm } from "./places";
 import {
   OFFLINE_PLAN_MESSAGE,
@@ -184,6 +191,10 @@ type CommunityContextValue = {
   payPayment: (payout: string) => Promise<string | undefined>;
   /** Keeps a supplier's bank details on the Node. The treasurer only. */
   saveSupplierBank: (supplier: string, bank: BankForm) => Promise<string | undefined>;
+  /** This member's own payments, as this phone's copy of the record holds them (story 10.2). */
+  myPaymentsOf: () => Promise<readonly { pledgeId: string; order: string; minor: number }[]>;
+  /** The timeline of one of this member's payments, read from the Node (story 10.2). */
+  timelineOf: (pledgeId: string) => Promise<NodeReply<TimelineReply>>;
   /** The places this community registered, by id and label (story 7.4). Never a coordinate or an address. */
   placesOf: () => Promise<readonly RoutePlace[]>;
   /**
@@ -1017,6 +1028,44 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     [nodeFor, did, nodeCommunity],
   );
 
+  /** This member's own payments on the record: the pledges they made, as this phone's copy holds them (story 10.2). */
+  const myPaymentsOf = useCallback(async () => {
+    const view = nodeCommunity === null ? undefined : nodeFor()?.sync.viewOf(nodeCommunity.key);
+    if (view === undefined || did === null) return [];
+    const found: { pledgeId: string; order: string; minor: number }[] = [];
+    for (const [key, value] of view) {
+      if (!key.startsWith("pledge-events/") || typeof value !== "object" || value === null)
+        continue;
+      const record = value as Record<string, unknown>;
+      if (
+        record.member === did &&
+        typeof record.event === "string" &&
+        typeof record.order === "string" &&
+        typeof record.minor === "number"
+      ) {
+        found.push({ pledgeId: record.event, order: record.order, minor: record.minor });
+      }
+    }
+    return found;
+  }, [nodeFor, nodeCommunity, did]);
+
+  const timelineOf = useCallback(
+    async (pledgeId: string): Promise<NodeReply<TimelineReply>> => {
+      const bundle = nodeFor();
+      if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
+        return {
+          ok: false,
+          failure: {
+            kind: "offline",
+            reason: "Make or join a community on the OCN Node first, in Settings.",
+          },
+        };
+      }
+      return bundle.client.timeline(nodeCommunity.key, pledgeId);
+    },
+    [nodeFor, nodeCommunity],
+  );
+
   const payOrder = useCallback(
     async (order: string) => {
       const bundle = nodeFor();
@@ -1454,6 +1503,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       approvePayment,
       payPayment,
       saveSupplierBank,
+      myPaymentsOf,
+      timelineOf,
     }),
     [
       community,
@@ -1505,6 +1556,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       approvePayment,
       payPayment,
       saveSupplierBank,
+      myPaymentsOf,
+      timelineOf,
     ],
   );
   return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;

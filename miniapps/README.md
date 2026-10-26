@@ -4,10 +4,10 @@ Each mini app is its own workspace package. The host app (`apps/shopong`) decide
 ships and which are installed by default; a package only describes itself with a `manifest`
 (`@shopong/miniapp` has the types: id, title, icon, category, description and the content).
 
-| Folder         | Whose code                            | How it runs                                                                        | Packages                                 |
-| -------------- | ------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------- |
-| `vendor/`      | Ours, vendored and shipped in the app | In the app's process (`native`), or as a built page shipped as an asset (`bundle`) | `chat`, `wallet`, `insights`, `delivery` |
-| `third-party/` | Anyone's html, css and js             | In a sandboxed WebView with no network and no access to the app (`web`)            | `shop`                                   |
+| Folder         | Whose code                            | How it runs                                                                        | Packages                                                       |
+| -------------- | ------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `vendor/`      | Ours, vendored and shipped in the app | In the app's process (`native`), or as a built page shipped as an asset (`bundle`) | `chat`, `wallet`, `insights`, `delivery`, `orders`, `timeline` |
+| `third-party/` | Anyone's html, css and js             | In a sandboxed WebView with no network and no access to the app (`web`)            | `shop`                                                         |
 
 Third-party packages hold only strings (`html`, `css`, `js`) built on the host's CSS kit, so they have
 no React Native dependency and cannot import app code. Vendored native packages are React Native

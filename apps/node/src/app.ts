@@ -12,6 +12,7 @@ import { keepRawJsonBody } from "./signed.ts";
 import { registerCors, type CorsOptions } from "./cors.ts";
 import { registerCommunityRoutes, type CommunityHub } from "./community-routes.ts";
 import { registerPoolRoute, type PoolRouteOptions } from "./pool-routes.ts";
+import { registerTimelineRoute } from "./timeline-routes.ts";
 import { registerTileRoutes, type TileRouteOptions } from "./tiles-routes.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { registerFileRoutes, type FileRouteOptions } from "./files.ts";
@@ -139,6 +140,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
   registerSyncRoutes(app, auth, options.sync ?? {});
   if (options.files !== undefined) registerFileRoutes(app, options.files);
   registerPoolRoute(app, auth, options.pool ?? {});
+  registerTimelineRoute(app, auth, options.pool ?? {});
   if (options.routes !== undefined) registerRouteRoutes(app, auth, options.routes);
   if (options.tiles !== undefined) registerTileRoutes(app, options.tiles);
   if (options.payments !== undefined) {

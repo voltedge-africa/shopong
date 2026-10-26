@@ -29,6 +29,7 @@ describe("miniApps", () => {
       "insights",
       "delivery",
       "orders",
+      "timeline",
     ]);
   });
 
@@ -40,6 +41,7 @@ describe("miniApps", () => {
     expect(kind("insights")).toBe("native");
     expect(kind("delivery")).toBe("bundle");
     expect(kind("orders")).toBe("native");
+    expect(kind("timeline")).toBe("native");
   });
 });
 
@@ -57,6 +59,7 @@ describe("filterMiniApps", () => {
       "Wallet",
       "Delivery",
       "Orders",
+      "Payment timeline",
     ]);
   });
 
