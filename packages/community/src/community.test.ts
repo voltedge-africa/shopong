@@ -1,16 +1,20 @@
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { createMemoryRecordNetwork } from "@shopong/adapters-memory";
-import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
+import { createEvent, webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import type { Did, Space } from "@shopong/ports";
 import { describe, expect, it } from "vite-plus/test";
 import {
   DAY_MS,
   INVITATION_DAYS,
   INVITATION_MESSAGES,
+  NOT_THE_WRITER,
   EMPTY_NAME_MESSAGE,
   checkInvitation,
   communityDefinition,
   createCommunity,
+  encodeProof,
+  newCommunityKey,
+  spaceUri,
   isCommunityKey,
   issueInvitation,
   joinCommunity,
@@ -250,7 +254,224 @@ describe("invite and join", () => {
 });
 
 describe("apply", () => {
-  it("is refused when someone who was never invited tries to join with another person's token", async () => {
+  // A raw event, appended by `space`'s own writer, with any `actor` the test wants to claim. This is
+  // what a hostile or buggy writer can do; the community helpers never write one.
+  async function raw(
+    space: Space<EventEnvelope>,
+    event: {
+      type: "member.invited" | "member.joined";
+      actor: Did;
+      payload: Record<string, unknown>;
+      proof?: string[];
+      at?: number;
+      space?: string;
+    },
+  ) {
+    const built = createEvent({
+      type: event.type,
+      space: event.space,
+      actor: event.actor,
+      proof: event.proof ?? [],
+      claimedAt: event.at ?? T0,
+      nonce: Array.from(randomBytes(16), (b) => b.toString(16).padStart(2, "0")).join(""),
+      payload: event.payload,
+    } as never) as EventEnvelope;
+    const receipt = await space.append(built);
+    if (!receipt.ok) throw new Error(receipt.error.message);
+    await space.update();
+    const rejected = await space.view.get(`rejected/${receipt.value.id}`);
+    const reason =
+      typeof rejected === "object" && rejected !== null && !Array.isArray(rejected)
+        ? (rejected as { reason?: unknown }).reason
+        : undefined;
+    return { reason };
+  }
+
+  /** A community where the newcomer was invited (so is an admitted writer) and the replicas are in sync. */
+  async function invitedWorld() {
+    const w = await world();
+    const inv = await w.community.invite(w.newcomer.did, T0);
+    if (!inv.ok) throw new Error(inv.error.message);
+    await w.sync();
+    return { ...w, inv: inv.value };
+  }
+
+  const join = (w: Awaited<ReturnType<typeof invitedWorld>>) => ({
+    type: "member.joined" as const,
+    actor: w.newcomer.did,
+    space: w.community.key,
+  });
+
+  it("refuses a member.invited that names the creator but was written by an invited writer", async () => {
+    const w = await invitedWorld();
+    const stranger = await phone();
+    const result = await raw(w.newcomerSpace, {
+      type: "member.invited",
+      actor: w.treasurer.did,
+      space: w.community.key,
+      payload: { invitation: "forged", invitee: stranger.did, expiresAt: T0 + DAY_MS },
+    });
+    expect(result.reason).toBe(NOT_THE_WRITER);
+    expect(await w.newcomerSpace.view.get("invitations/forged")).toBeUndefined();
+    expect(await w.newcomerSpace.writers()).not.toContain(stranger.did);
+  });
+
+  it("refuses a member.joined that names someone else, even with that person's real token", async () => {
+    const w = await invitedWorld();
+    const victim = await phone();
+    const victimInvite = await w.community.invite(victim.did, T0);
+    if (!victimInvite.ok) throw new Error(victimInvite.error.message);
+    await w.sync();
+    const result = await raw(w.newcomerSpace, {
+      type: "member.joined",
+      actor: victim.did,
+      space: w.community.key,
+      proof: [encodeProof(victimInvite.value.token)],
+      payload: { invitation: victimInvite.value.id },
+    });
+    expect(result.reason).toBe(NOT_THE_WRITER);
+    expect(await w.newcomerSpace.view.get(`members/${victim.did}`)).toBeUndefined();
+    expect(await w.newcomerSpace.view.get(`joined/${victimInvite.value.id}`)).toBeUndefined();
+  });
+
+  it("refuses someone else's token when an honest writer presents it", async () => {
+    const w = await invitedWorld();
+    const victim = await phone();
+    const victimInvite = await w.community.invite(victim.did, T0);
+    if (!victimInvite.ok) throw new Error(victimInvite.error.message);
+    await w.sync();
+    const result = await raw(w.newcomerSpace, {
+      ...join(w),
+      proof: [encodeProof(victimInvite.value.token)],
+      payload: { invitation: victimInvite.value.id },
+    });
+    expect(result.reason).toBe(INVITATION_MESSAGES.someone_else);
+    expect(await w.newcomerSpace.view.get(`members/${w.newcomer.did}`)).toBeUndefined();
+  });
+
+  it("accepts a real join written by the person it names (the control)", async () => {
+    const w = await invitedWorld();
+    const result = await raw(w.newcomerSpace, {
+      ...join(w),
+      proof: [encodeProof(w.inv.token)],
+      payload: { invitation: w.inv.id },
+    });
+    expect(result.reason).toBeUndefined();
+    expect(await w.newcomerSpace.view.get(`members/${w.newcomer.did}`)).toBeDefined();
+  });
+
+  it("refuses a token for a different community", async () => {
+    const w = await invitedWorld();
+    const token = await w.treasurer.auth.issue({
+      issuer: w.treasurer.did,
+      audience: w.newcomer.did,
+      capabilities: [{ with: spaceUri(newCommunityKey(randomBytes)), can: "member/join" }],
+      expiresAt: T0 + DAY_MS,
+    });
+    if (!token.ok) throw new Error(token.error.message);
+    const result = await raw(w.newcomerSpace, {
+      ...join(w),
+      proof: [encodeProof(token.value)],
+      payload: { invitation: await w.treasurer.auth.tokenId(token.value) },
+    });
+    expect(result.reason).toBe(INVITATION_MESSAGES.unreadable);
+    expect(await w.newcomerSpace.view.get(`members/${w.newcomer.did}`)).toBeUndefined();
+  });
+
+  it("refuses a token that was not issued by the creator", async () => {
+    const w = await invitedWorld();
+    const stranger = await phone();
+    const token = await stranger.auth.issue({
+      issuer: stranger.did,
+      audience: w.newcomer.did,
+      capabilities: [{ with: spaceUri(w.community.key), can: "member/join" }],
+      expiresAt: T0 + DAY_MS,
+    });
+    if (!token.ok) throw new Error(token.error.message);
+    const result = await raw(w.newcomerSpace, {
+      ...join(w),
+      proof: [encodeProof(token.value)],
+      payload: { invitation: await stranger.auth.tokenId(token.value) },
+    });
+    expect(result.reason).toBe(INVITATION_MESSAGES.unreadable);
+  });
+
+  it("refuses a join claimed at or after the invitation's end", async () => {
+    const w = await invitedWorld();
+    const result = await raw(w.newcomerSpace, {
+      ...join(w),
+      proof: [encodeProof(w.inv.token)],
+      payload: { invitation: w.inv.id },
+      at: w.inv.expiresAt,
+    });
+    expect(result.reason).toBe(INVITATION_MESSAGES.expired);
+  });
+
+  it("refuses a join whose invitation id is not the id of the token it carries", async () => {
+    const w = await invitedWorld();
+    const result = await raw(w.newcomerSpace, {
+      ...join(w),
+      proof: [encodeProof(w.inv.token)],
+      payload: { invitation: "some-other-id" },
+    });
+    expect(result.reason).toBe(INVITATION_MESSAGES.unreadable);
+    expect(await w.newcomerSpace.view.get("joined/some-other-id")).toBeUndefined();
+  });
+
+  it("refuses a founder join from anyone but the creator", async () => {
+    const w = await invitedWorld();
+    const result = await raw(w.newcomerSpace, { ...join(w), payload: { invitation: "founder" } });
+    expect(result.reason).toBe(INVITATION_MESSAGES.unreadable);
+    expect(await w.newcomerSpace.view.get(`members/${w.newcomer.did}`)).toBeUndefined();
+  });
+
+  it("refuses a member.invited from anyone but the creator", async () => {
+    const w = await invitedWorld();
+    const stranger = await phone();
+    const result = await raw(w.newcomerSpace, {
+      type: "member.invited",
+      actor: w.newcomer.did,
+      space: w.community.key,
+      payload: { invitation: "mine", invitee: stranger.did, expiresAt: T0 + DAY_MS },
+    });
+    expect(result.reason).toBe("Only the creator can invite.");
+    expect(await w.newcomerSpace.view.get("invitations/mine")).toBeUndefined();
+  });
+
+  it("refuses a join with a proof that is not a token", async () => {
+    const w = await invitedWorld();
+    const result = await raw(w.newcomerSpace, {
+      ...join(w),
+      proof: ["not-a-token"],
+      payload: { invitation: w.inv.id },
+    });
+    expect(result.reason).toBe(INVITATION_MESSAGES.unreadable);
+  });
+
+  it("refuses an event that belongs to another community", async () => {
+    const w = await invitedWorld();
+    const result = await raw(w.newcomerSpace, {
+      ...join(w),
+      space: newCommunityKey(randomBytes),
+      proof: [encodeProof(w.inv.token)],
+      payload: { invitation: w.inv.id },
+    });
+    expect(result.reason).toBe(INVITATION_MESSAGES.unreadable);
+    expect(await w.newcomerSpace.view.get(`members/${w.newcomer.did}`)).toBeUndefined();
+  });
+
+  it("says a person who is already a member is already a member", async () => {
+    const w = await invitedWorld();
+    const result = await raw(w.community.space, {
+      type: "member.joined",
+      actor: w.treasurer.did,
+      space: w.community.key,
+      payload: { invitation: "again" },
+    });
+    expect(result.reason).toBe("Already a member.");
+  });
+
+  it("does not let someone who was never invited write to the community at all", async () => {
     const w = await world();
     const inv = await w.community.invite(w.newcomer.did, T0);
     if (!inv.ok) throw new Error(inv.error.message);
@@ -271,22 +492,37 @@ describe("apply", () => {
     if (!checked.ok) throw new Error(checked.error.message);
     const result = await joinCommunity(thief.deps, thiefSpace, checked.value, T0);
     expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain("not an admitted writer");
   });
 
-  it("gives the same view whichever order the records meet in", async () => {
-    const w = await world();
-    const inv = await w.community.invite(w.newcomer.did, T0);
-    if (!inv.ok) throw new Error(inv.error.message);
-    await w.sync();
-    const checked = await checkInvitation({
-      auth: w.newcomer.auth,
-      text: inv.value.code,
-      me: w.newcomer.did,
-      now: T0,
+  it("gives the same view on every replica when two writers append at the same time", async () => {
+    const w = await invitedWorld();
+    const second = await phone();
+    // At the same moment, on separate replicas: the creator invites a second person, and the newcomer
+    // joins (and also sends a join that must be refused).
+    const secondInvite = await w.community.invite(second.did, T0 + 5_000);
+    if (!secondInvite.ok) throw new Error(secondInvite.error.message);
+    await raw(w.newcomerSpace, {
+      ...join(w),
+      proof: [encodeProof(w.inv.token)],
+      payload: { invitation: w.inv.id },
+      at: T0 + 1_000,
     });
-    if (!checked.ok) throw new Error(checked.error.message);
-    await joinCommunity(w.newcomer.deps, w.newcomerSpace, checked.value, T0);
+    await raw(w.newcomerSpace, { ...join(w), payload: { invitation: "founder" }, at: T0 + 2_000 });
     await w.sync();
-    expect(await w.community.space.view.list("")).toEqual(await w.newcomerSpace.view.list(""));
+    // A late replica that only ever meets the newcomer's record.
+    const late = await phone();
+    const lateSpace = await w.network
+      .peer<EventEnvelope>(late.did as Did)
+      .open(
+        w.community.space.key,
+        communityDefinition(late.deps, w.treasurer.did, w.community.key),
+      );
+    await w.network.replicate<EventEnvelope>(w.newcomerSpace, lateSpace);
+    await lateSpace.update();
+    const creatorView = await w.community.space.view.list("");
+    expect(await w.newcomerSpace.view.list("")).toEqual(creatorView);
+    expect(await lateSpace.view.list("")).toEqual(creatorView);
+    expect(creatorView.some((entry) => entry.key.startsWith("rejected/"))).toBe(true);
   });
 });

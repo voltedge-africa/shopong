@@ -2,6 +2,7 @@
 // actions the screens need. The rules live in `@shopong/community`. Nothing here is saved: closing the
 // app loses the community (shortcut S-2.3-4).
 import {
+  INVITATION_MESSAGES,
   checkInvitation,
   createCommunity,
   type CheckedInvitation,
@@ -64,11 +65,12 @@ export function createCommunityService(
       return current.invite(invitee, now());
     },
     async check(text) {
+      if (identity === null) return err("no_identity", INVITATION_MESSAGES.no_identity);
       const held = current;
       return checkInvitation({
-        auth: identity?.auth ?? ({} as CapabilityAuth),
+        auth: identity.auth,
         text,
-        me: identity?.did,
+        me: identity.did,
         now: now(),
         isUsed: async (id) =>
           held !== null && (await held.space.view.get(`joined/${id}`)) !== undefined,

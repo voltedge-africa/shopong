@@ -4,6 +4,7 @@ import { ScrollView } from "react-native";
 import { Alert, Button, Input, Text } from "panelui-native";
 
 import { useCommunity } from "../lib/CommunityProvider";
+import { shortDid } from "../lib/identitySeed";
 
 /**
  * Check an invitation. It runs on this phone with no network and gives the plain reason when the
@@ -36,7 +37,7 @@ export default function Join() {
       result.ok
         ? {
             ok: true,
-            message: "This invitation is good. Joining between phones is coming soon.",
+            message: `This invitation is good. It comes from ${shortDid(result.value.creator)}. Joining between phones is coming soon.`,
           }
         : { ok: false, message: result.error.message },
     );
