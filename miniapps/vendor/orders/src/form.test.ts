@@ -2,9 +2,12 @@ import { checkQuote } from "@shopong/community";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  deadlineOf,
+  deadlineText,
   deliveryText,
   emptyLine,
   parseRand,
+  proposalInput,
   parseWhole,
   quoteInput,
   randText,
@@ -124,5 +127,63 @@ describe("plain words", () => {
     expect(deliveryText({ feeCents: 5000, days: 2 })).toBe("R50.00, 2 days");
     expect(deliveryText({ feeCents: 0, days: 0 })).toBe("free, same day");
     expect(deliveryText({ feeCents: 0, days: 1 })).toBe("free, 1 day");
+  });
+});
+
+describe("deadlineOf", () => {
+  it("reads a date as the end of that day in South Africa (UTC+2)", () => {
+    expect(deadlineOf("2026-11-30")).toBe(Date.UTC(2026, 10, 30, 21, 59, 59, 999));
+    expect(deadlineOf(" 2026-11-30 ")).toBe(Date.UTC(2026, 10, 30, 21, 59, 59, 999));
+  });
+
+  it("is undefined when blank, and NaN for anything that is not a real date", () => {
+    expect(deadlineOf("  ")).toBeUndefined();
+    expect(deadlineOf("2026-02-30")).toBeNaN();
+    expect(deadlineOf("30/11/2026")).toBeNaN();
+    expect(deadlineOf("2026-13-01")).toBeNaN();
+  });
+});
+
+describe("deadlineText", () => {
+  it("says the date in plain words, in South Africa time", () => {
+    expect(deadlineText(Date.UTC(2026, 10, 30, 21, 59, 59, 999))).toBe("30 November 2026");
+    expect(deadlineText(Date.UTC(2026, 0, 1, 0, 0, 0, 0))).toBe("1 January 2026");
+  });
+});
+
+describe("proposalInput", () => {
+  it("is the input the record checks: the typed name, the needed items, the budget and the deadline", () => {
+    expect(
+      proposalInput({
+        name: "April groceries",
+        wants: [
+          { item: "Cooking oil", quantity: "12" },
+          { item: "", quantity: "" },
+        ],
+        budgetText: "R500",
+        deadlineText: "2026-11-30",
+      }),
+    ).toEqual({
+      name: "April groceries",
+      items: [{ item: "Cooking oil", quantity: 12 }],
+      budgetPerMemberMinor: 50_000,
+      deadline: Date.UTC(2026, 10, 30, 21, 59, 59, 999),
+    });
+  });
+
+  it("leaves a missing budget or deadline blank, and a mistyped quantity as NaN", () => {
+    expect(
+      proposalInput({
+        name: "April groceries",
+        wants: [{ item: "Cooking oil", quantity: "x" }],
+        budgetText: "",
+        deadlineText: "",
+      }),
+    ).toEqual({
+      name: "April groceries",
+      items: [{ item: "Cooking oil", quantity: Number.NaN }],
+      budgetPerMemberMinor: undefined,
+      deadline: undefined,
+    });
   });
 });

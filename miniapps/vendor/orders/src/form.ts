@@ -80,3 +80,69 @@ export function deliveryText(delivery: {
     delivery.days === 0 ? "same day" : delivery.days === 1 ? "1 day" : `${delivery.days} days`;
   return `${fee}, ${days}`;
 }
+
+/** A row of "what the order needs", as typed. */
+export interface ItemDraft {
+  readonly item: string;
+  /** Units wanted, as typed. */
+  readonly quantity: string;
+}
+
+/**
+ * The deadline as typed, a date such as "2026-11-30", read as the end of that day in South Africa (UTC+2, no daylight
+ * saving). Blank is `undefined`; anything that is not a real date is `NaN`, which `checkOrder` refuses.
+ */
+export function deadlineOf(text: string): number | undefined {
+  const t = text.trim();
+  if (t === "") return undefined;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (match === null) return Number.NaN;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const real =
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  if (!real) return Number.NaN;
+  return Date.UTC(year, month - 1, day, 21, 59, 59, 999);
+}
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/** A deadline in plain words, in South Africa time: "30 November 2026". */
+export function deadlineText(ms: number): string {
+  if (!Number.isFinite(ms)) return "";
+  const local = new Date(ms + 2 * 60 * 60 * 1000);
+  return `${local.getUTCDate()} ${MONTHS[local.getUTCMonth()]} ${local.getUTCFullYear()}`;
+}
+
+/**
+ * The input `propose` takes, from what the Orders form holds. A row with neither name nor quantity is dropped. `checkOrder`
+ * decides what is missing: a blank budget or deadline stays `undefined`, a mistyped one is `NaN`.
+ */
+export function proposalInput(values: {
+  readonly name: string;
+  readonly wants: readonly ItemDraft[];
+  readonly budgetText: string;
+  readonly deadlineText: string;
+}): unknown {
+  return {
+    name: values.name,
+    items: values.wants
+      .filter((want) => want.item.trim() !== "" || want.quantity.trim() !== "")
+      .map((want) => ({ item: want.item, quantity: parseWhole(want.quantity) ?? Number.NaN })),
+    budgetPerMemberMinor: parseRand(values.budgetText),
+    deadline: deadlineOf(values.deadlineText),
+  };
+}

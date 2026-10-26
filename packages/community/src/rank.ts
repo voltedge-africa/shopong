@@ -67,7 +67,7 @@ export type RankCheck =
   | { readonly ok: true; readonly value: Ranking }
   | { readonly ok: false; readonly problems: readonly string[] };
 
-interface WantedItem {
+export interface WantedItem {
   readonly text: string;
   readonly key: string;
   readonly quantity: number;
@@ -78,7 +78,11 @@ const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 /** Case-insensitive, tidied key for matching item names. */
 const keyOf = (text: string): string => tidy(text).toLowerCase();
 
-function checkWanted(
+/**
+ * The items an order needs, checked as ranking checks them (story 6.9) and as a proposal records them (story 8.2). The
+ * items come back tidied and sorted by name, so every phone reads the same list.
+ */
+export function checkWanted(
   wanted: readonly Wanted[],
 ): { ok: true; items: WantedItem[] } | { ok: false; problems: string[] } {
   if (wanted.length === 0) return { ok: false, problems: ["Add the items the order needs."] };

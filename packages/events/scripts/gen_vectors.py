@@ -179,11 +179,12 @@ def pretty(obj):
 
 EVENT_ACCEPT = [
     (
-        "known order.proposed",
+        "known agent.action (loose payload)",
         "known",
         None,
         pretty(
             env(
+                type="agent.action",
                 payload={
                     "title": "Month-end bulk order \u2013 maize meal",
                     "lines": [

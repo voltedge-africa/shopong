@@ -123,20 +123,20 @@ async function appendRaw(
 describe("apply refuses raw personal values (matrix: raw phone in a field)", () => {
   it("refuses a raw phone number in a field, with the plain reason, and records the refusal", async () => {
     const w = await world();
-    const result = await appendRaw(w.community, "order.proposed", { phone: "082 123 4567" });
-    expect(result.rejected).toEqual({ type: "order.proposed", reason: PERSONAL_DATA_MESSAGE });
+    const result = await appendRaw(w.community, "agent.action", { phone: "082 123 4567" });
+    expect(result.rejected).toEqual({ type: "agent.action", reason: PERSONAL_DATA_MESSAGE });
     expect(PERSONAL_DATA_MESSAGE).toBe("Personal details can't be written to the shared record.");
   });
 
   it("refuses phone-shaped free text in an event of any type", async () => {
     const w = await world();
-    const result = await appendRaw(w.community, "order.proposed", { title: "Call 0821234567" });
+    const result = await appendRaw(w.community, "agent.action", { title: "Call 0821234567" });
     expect(result.rejected?.reason).toBe(PERSONAL_DATA_MESSAGE);
   });
 
   it("accepts a commitment in a personal field", async () => {
     const w = await world();
-    const result = await appendRaw(w.community, "order.proposed", { phone: commitment });
+    const result = await appendRaw(w.community, "agent.action", { phone: commitment });
     expect(result.rejected).toBeUndefined();
   });
 
@@ -186,7 +186,7 @@ describe("appending is checked before anything is written (review H1)", () => {
     const w = await world();
     const appendsBefore = w.written.length;
     const event = createEvent({
-      type: "order.proposed",
+      type: "agent.action",
       space: w.community.key,
       actor: w.community.me,
       proof: [],

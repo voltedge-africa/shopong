@@ -69,6 +69,14 @@ import {
 } from "./invitation.js";
 import { encodeProof } from "./proof.js";
 import { EMPTY_NAME_MESSAGE, NAMING_TYPE, namingProblem } from "./naming.js";
+import {
+  ORDER_MESSAGES,
+  checkOrder,
+  orderPayloadOf,
+  ordersOf,
+  proposalProblem,
+  type StoredOrder,
+} from "./orders.js";
 import { newCommunityKey, toHex } from "./space.js";
 
 export interface CommunityDeps {
@@ -165,6 +173,15 @@ export interface DeliveryDispute {
 }
 
 export type ProofError = PortError<"refused">;
+
+export type OrderError = PortError<"not_permitted" | "incomplete" | "refused">;
+
+export interface OrderReceipt {
+  /** The event id of the `order.proposed` or `order.approved` entry. */
+  readonly id: string;
+  /** True when this exact event was already in the log. */
+  readonly duplicate: boolean;
+}
 
 export interface QuoteReceipt {
   /** The event id of the `quote.added` entry. */
@@ -290,6 +307,15 @@ export interface Community {
   addQuote(input: unknown, now: EpochMs): Promise<Result<QuoteReceipt, QuoteError>>;
   /** The quotes recorded for one order, as the view holds them now. */
   quotesFor(order: string): Promise<readonly Quote[]>;
+  /**
+   * Propose a bulk order (story 8.2): any member may. Its name, items, budget per member and deadline are checked first;
+   * a refusal is a plain sentence and nothing is written. The proposal's event id is the order's identity.
+   */
+  proposeOrder(input: unknown, now: EpochMs): Promise<Result<OrderReceipt, OrderError>>;
+  /** Approve a proposed order by its event id (story 8.2). Only the treasurer may; this opens quotes and pledges. */
+  approveOrder(id: string, now: EpochMs): Promise<Result<OrderReceipt, OrderError>>;
+  /** Every order on the record, as this phone's copy of the view holds it. */
+  orders(): Promise<readonly StoredOrder[]>;
   /** The driver whose role stands at log time, judged as `apply` judges a driver (patch of story 7.4). */
   currentDriver(now: EpochMs): Promise<string | undefined>;
   /** Record a place the Node made (story 7.4). Only the treasurer may. */
@@ -521,6 +547,83 @@ function wrap(
     async quotesFor(order) {
       await space.update();
       return quotesOf(space.view, order);
+    },
+    async proposeOrder(input, now) {
+      await space.update();
+      const at = await logAt(space);
+      if ((await space.view.get(`members/${me}`)) === undefined) {
+        return err("not_permitted", ORDER_MESSAGES.not_member);
+      }
+      const checked = checkOrder(input, at);
+      if (!checked.ok) return err("incomplete", checked.problems.join(" "));
+      const problem = proposalProblem(await ordersOf(space.view));
+      if (problem !== undefined) return err("refused", problem);
+      let event: EventEnvelope;
+      try {
+        event = createEvent({
+          type: "order.proposed",
+          space: key,
+          actor: space.local,
+          proof: [],
+          claimedAt: now,
+          nonce: toHex(deps.randomBytes(16)),
+          payload: orderPayloadOf(checked.value),
+        } as never) as EventEnvelope;
+      } catch {
+        return err("refused", ORDER_MESSAGES.save_failed);
+      }
+      const receipt = await appendChecked(space, event);
+      if (!receipt.ok) {
+        return err(
+          "refused",
+          receipt.error.code === "personal_data"
+            ? receipt.error.message
+            : ORDER_MESSAGES.not_writable,
+        );
+      }
+      await space.update();
+      const rejected = await space.view.get(`rejected/${receipt.value.id}`);
+      if (rejected !== undefined) {
+        const reason = field(rejected, "reason");
+        return err("refused", typeof reason === "string" ? reason : ORDER_MESSAGES.unreadable);
+      }
+      return ok({ id: receipt.value.id, duplicate: receipt.value.duplicate });
+    },
+    async approveOrder(id, now) {
+      await space.update();
+      const at = await logAt(space);
+      if (!(await isTreasurer(standingOf(), space.view, me, at))) {
+        const problem = await coTreasurerProblem(standingOf(), space.view, me, at);
+        return err("not_permitted", problem ?? ORDER_MESSAGES.approve_not_permitted);
+      }
+      if (!/^[0-9a-f]{128}$/.test(id)) return err("refused", ORDER_MESSAGES.unknown_order);
+      let event: EventEnvelope;
+      try {
+        event = createEvent({
+          type: "order.approved",
+          space: key,
+          actor: space.local,
+          proof: [],
+          claimedAt: now,
+          nonce: toHex(deps.randomBytes(16)),
+          payload: { order: id },
+        } as never) as EventEnvelope;
+      } catch {
+        return err("refused", ORDER_MESSAGES.save_failed);
+      }
+      const receipt = await appendChecked(space, event);
+      if (!receipt.ok) return err("refused", ORDER_MESSAGES.not_writable);
+      await space.update();
+      const rejected = await space.view.get(`rejected/${receipt.value.id}`);
+      if (rejected !== undefined) {
+        const reason = field(rejected, "reason");
+        return err("refused", typeof reason === "string" ? reason : ORDER_MESSAGES.unreadable);
+      }
+      return ok({ id: receipt.value.id, duplicate: receipt.value.duplicate });
+    },
+    async orders() {
+      await space.update();
+      return ordersOf(space.view);
     },
     async members() {
       await space.update();

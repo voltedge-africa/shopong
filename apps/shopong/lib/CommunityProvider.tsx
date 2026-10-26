@@ -34,6 +34,7 @@ import {
   type RoleCheck,
   type RoleError,
   type RoleRecord,
+  type StoredOrder,
 } from "@shopong/community";
 import type { EventEnvelope } from "@shopong/events";
 import type { Did, JsonValue, PortError, Result } from "@shopong/ports";
@@ -42,6 +43,7 @@ import type { BankForm, PaymentRecord, PaymentView, PayoutsReading } from "@shop
 import { createCommunityService, type CommunityService } from "./community";
 import { paymentStatusOfFailure } from "./paymentStatus";
 import { quoteEventOf, quotesToShow, type SavedQuote } from "./quotes";
+import { approveEventOf, gateProblemIn, memberCountIn, orderEventOf, ordersInView } from "./orders";
 import {
   approvalEvent,
   collectionConfirmedEvent,
@@ -107,6 +109,15 @@ type CommunityContextValue = {
   /** Record a quote. Resolves with the plain reasons it was refused, or `undefined` when recorded. */
   addQuote: (input: unknown) => Promise<string | undefined>;
   quotesFor: (order: string) => Promise<readonly Quote[]>;
+  /** The orders on the record and how many members there are (story 8.2). */
+  ordersOf: () => Promise<{
+    readonly orders: readonly StoredOrder[];
+    readonly memberCount: number;
+  }>;
+  /** Propose a bulk order (story 8.2). Resolves with the plain reasons refused, or undefined when queued or recorded. */
+  proposeOrder: (input: unknown) => Promise<string | undefined>;
+  /** Approve a proposed order by its event id (story 8.2). Resolves with the plain reason refused, or undefined. */
+  approveOrder: (id: string) => Promise<string | undefined>;
   /** The files on an order (story 3.7). Null until this phone has a Node session for the community. */
   files: FilesSurface | null;
   /** The delivery of an order (story 7.6). Null until this phone has a Node session for the community. */
@@ -744,6 +755,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           input,
         });
         if (!made.ok) return made.problems.join(" ");
+        const held = gateProblemIn(
+          bundle.sync.viewOf(nodeCommunity.key) ?? new Map<string, JsonValue>(),
+          made.value.payload.order,
+          "quote",
+        );
+        if (held !== undefined) return held;
         const queued = await bundle.sync.enqueue(nodeCommunity.key, made.value);
         if (!queued.ok) return unqueuedMessage("The quote was saved", queued.reason);
         // Shown at once from this phone's own copy, before the Node pulls it back (quotesToShow).
@@ -774,6 +791,78 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     [serviceFor, nodeFor, nodeCommunity, syncVersion],
   );
 
+  const ordersOf = useCallback(async () => {
+    const bundle = nodeFor();
+    if (bundle !== null && nodeCommunity !== null) {
+      const view = bundle.sync.viewOf(nodeCommunity.key) ?? new Map<string, JsonValue>();
+      return { orders: ordersInView(view), memberCount: memberCountIn(view) };
+    }
+    const service = serviceFor();
+    return { orders: await service.orders(), memberCount: (await service.members()).length };
+    // Each sync change makes a new function, so the Orders list re-reads the record (as quotesFor does).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceFor, nodeFor, nodeCommunity, syncVersion]);
+
+  const proposeOrder = useCallback(
+    async (input: unknown) => {
+      const bundle = nodeFor();
+      // With a Node, the proposal is sent to the record as an `order.proposed` event; the phone checks it first (story 8.2).
+      if (
+        bundle !== null &&
+        bundle.client !== undefined &&
+        did !== null &&
+        nodeCommunity !== null
+      ) {
+        const made = orderEventOf({
+          community: nodeCommunity.key,
+          me: did as Did,
+          now: Date.now(),
+          randomBytes: getRandomBytes,
+          input,
+          view: bundle.sync.viewOf(nodeCommunity.key) ?? new Map<string, JsonValue>(),
+        });
+        if (!made.ok) return made.problems.join(" ");
+        const queued = await bundle.sync.enqueue(nodeCommunity.key, made.value);
+        if (!queued.ok) return unqueuedMessage("The order was saved", queued.reason);
+        void tick({ once: true });
+        return undefined;
+      }
+      const made = await serviceFor().proposeOrder(input);
+      setRefusals(serviceFor().refusals());
+      return messageOf(made);
+    },
+    [serviceFor, nodeFor, did, nodeCommunity, tick],
+  );
+
+  const approveOrder = useCallback(
+    async (id: string) => {
+      if (!canAddQuotes) return "Only the treasurer can approve an order.";
+      const bundle = nodeFor();
+      if (
+        bundle !== null &&
+        bundle.client !== undefined &&
+        did !== null &&
+        nodeCommunity !== null
+      ) {
+        const event = approveEventOf({
+          community: nodeCommunity.key,
+          me: did as Did,
+          now: Date.now(),
+          randomBytes: getRandomBytes,
+          order: id,
+        });
+        const queued = await bundle.sync.enqueue(nodeCommunity.key, event);
+        if (!queued.ok) return unqueuedMessage("The approval was saved", queued.reason);
+        void tick({ once: true });
+        return undefined;
+      }
+      const made = await serviceFor().approveOrder(id);
+      setRefusals(serviceFor().refusals());
+      return messageOf(made);
+    },
+    [serviceFor, nodeFor, did, nodeCommunity, canAddQuotes, tick],
+  );
+
   /** The event id of the newest pledge this phone queued for each order (keyed by the order's tidied name). */
   const queuedPledges = useRef(new Map<string, string>());
 
@@ -793,6 +882,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         did as Did,
       );
       if (!checked.ok) return checked.problem;
+      const held = gateProblemIn(
+        bundle.sync.viewOf(nodeCommunity.key) ?? new Map<string, JsonValue>(),
+        checked.value.order,
+        "pledge",
+      );
+      if (held !== undefined) return held;
       const event = pledgeEvent({
         community: nodeCommunity.key,
         me: did as Did,
@@ -1260,6 +1355,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       canAddQuotes,
       addQuote,
       quotesFor,
+      ordersOf,
+      proposeOrder,
+      approveOrder,
       files: filesSurface,
       proof: proofSurface,
       refusals,
@@ -1307,6 +1405,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       canAddQuotes,
       addQuote,
       quotesFor,
+      ordersOf,
+      proposeOrder,
+      approveOrder,
       filesSurface,
       proofSurface,
       refusals,

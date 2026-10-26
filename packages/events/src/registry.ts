@@ -574,6 +574,80 @@ const paymentApproved: PayloadValidator = (payload) => [
   ...requireString(payload, "signature", nonEmpty, "must be a non-empty signature"),
 ];
 
+/** The limits of a proposed order's shape (story 8.2). The community's `checkOrder` judges the rest in plain words. */
+export const ORDER_LIMITS = {
+  nameChars: 80,
+  items: 50,
+  quantity: 10_000,
+  /** R100,000.00 in cents. */
+  budgetPerMemberMinor: 10_000_000,
+} as const;
+
+/**
+ * `order.proposed` (story 8.2): the name, the items it needs (each with a quantity), the budget per member in whole rand
+ * cents, and the deadline as epoch milliseconds. The shape only; the record judges the rest at log time.
+ */
+const orderProposed: PayloadValidator = (payload) => {
+  const issues: Issue[] = [
+    ...onlyKeys(payload, ["name", "items", "budgetPerMemberMinor", "deadline"]),
+    ...requireString(
+      payload,
+      "name",
+      boundedText(1, ORDER_LIMITS.nameChars),
+      `must be an order name of 1 to ${ORDER_LIMITS.nameChars} characters, on one line`,
+    ),
+    ...(boundedInt(payload.budgetPerMemberMinor, 1, ORDER_LIMITS.budgetPerMemberMinor)
+      ? []
+      : [
+          {
+            path: "$.payload.budgetPerMemberMinor",
+            message: "must be a whole number of cents, 1 or more",
+          },
+        ]),
+    ...(boundedInt(payload.deadline, WINDOW_MIN, WINDOW_MAX)
+      ? []
+      : [{ path: "$.payload.deadline", message: "must be a time between 2020 and 2100" }]),
+  ];
+  const items = payload.items;
+  if (!Array.isArray(items) || items.length < 1 || items.length > ORDER_LIMITS.items) {
+    issues.push({
+      path: "$.payload.items",
+      message: `must be a list of 1 to ${ORDER_LIMITS.items} items`,
+    });
+  } else {
+    items.forEach((raw) => {
+      const line =
+        typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as JsonObject) : {};
+      issues.push(
+        ...onlyKeys(line, ["item", "quantity"]),
+        ...requireString(
+          line,
+          "item",
+          boundedText(1, ORDER_LIMITS.nameChars),
+          `must be an item name of 1 to ${ORDER_LIMITS.nameChars} characters`,
+        ),
+      );
+      if (!boundedInt(line.quantity, 1, ORDER_LIMITS.quantity))
+        issues.push({
+          path: "$.payload.items[].quantity",
+          message: `must be a whole number, 1 to ${ORDER_LIMITS.quantity}`,
+        });
+    });
+  }
+  return issues;
+};
+
+/** `order.approved` (story 8.2): the treasurer's approval, naming the proposal by its event id. */
+const orderApproved: PayloadValidator = (payload) => [
+  ...onlyKeys(payload, ["order"]),
+  ...requireString(
+    payload,
+    "order",
+    (v) => SHA512_HEX.test(v),
+    "must be the event id of the proposed order",
+  ),
+];
+
 export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator } = {
   ...(Object.fromEntries(EVENT_TYPES.map((t) => [t, anyObject])) as {
     [T in EventType]: PayloadValidator;
@@ -592,4 +666,6 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "collection.confirmed": collectionConfirmed,
   "delivery.disputed": deliveryDisputed,
   "community.named": communityNamed,
+  "order.proposed": orderProposed,
+  "order.approved": orderApproved,
 };
