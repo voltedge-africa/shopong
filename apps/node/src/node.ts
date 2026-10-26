@@ -15,6 +15,8 @@ import { masterKeyOf, nodeIdentityOf, openRecordComponent } from "./record.ts";
 import { ConfigError, missingRequiredFor, type ResolvedSecrets } from "./secrets.ts";
 import { openSimulatedPayments, paymentsComponent } from "./payments.ts";
 import { communitySecretFromHex, nodeHmacSha512 } from "./commitments.ts";
+import { PlaceRegistry, RouteStore } from "./places.ts";
+import { StraightLineRouting } from "./routing.ts";
 import { payerCommitmentOf, type PaymentRequestOptions } from "./payment-request-route.ts";
 import { openCheckingStore, type ConfirmationDeps } from "./payment-confirmation.ts";
 import { startChecking, type RunningChecking } from "./reconciler.ts";
@@ -210,6 +212,22 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
               : { failRecordWrite: options.faults.failRecordWrite }),
           };
 
+    // Route planning (story 7.4): the straight-line fallback behind the Routing port, the place registry and the route
+    // store in the data folder. The community secret is the Node's one secret, as for the payer commitment.
+    const communitySecret = secrets.get("COMMUNITY_SECRET");
+    const secretBytes =
+      communitySecret === undefined ? undefined : communitySecretFromHex(communitySecret);
+    const routeOptions =
+      hub === undefined
+        ? undefined
+        : {
+            hub,
+            routing: new StraightLineRouting(),
+            places: new PlaceRegistry(config.dataDir, (line) => logger.warn(line)),
+            routes: new RouteStore(config.dataDir, (line) => logger.warn(line)),
+            secretOf: () => secretBytes,
+          };
+
     app = buildApp({
       logger,
       version: readVersion(),
@@ -217,6 +235,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       auth,
       sync: hub === undefined ? {} : { hub },
       ...(hub === undefined ? {} : { communities: hub }),
+      ...(routeOptions === undefined ? {} : { routes: routeOptions }),
       pool: {
         ...(hub === undefined ? {} : { hub }),
         simulated: payments !== undefined,

@@ -321,7 +321,21 @@ export async function coTreasurerProblem(
   who: string,
   at: EpochMs,
 ): Promise<string | undefined> {
-  const record = await readRole(view, who, "co-treasurer");
+  return roleProblemOf(ctx, view, who, "co-treasurer", at);
+}
+
+/**
+ * The same check for any role (story 7.4 uses it for the driver): why `who` does not hold `role` at `at`, in the plain
+ * words of the role, or `undefined` when they hold no such role or it stands.
+ */
+export async function roleProblemOf(
+  ctx: StandingContext,
+  view: ViewReader,
+  who: string,
+  role: RoleName,
+  at: EpochMs,
+): Promise<string | undefined> {
+  const record = await readRole(view, who, role);
   if (record === undefined) return undefined;
   if (await roleRevokedIn(view, record)) return roleMessage("revoked");
   for (const grant of record.grants) {
@@ -340,6 +354,18 @@ export async function coTreasurerProblem(
     if (!verified.ok) return roleFailure(verified.error).error.message;
   }
   return undefined;
+}
+
+/** Whether `who` holds `role` and it stands at `at`: recorded, not ended, not taken back, every grant verifying. */
+export async function isRoleStanding(
+  ctx: StandingContext,
+  view: ViewReader,
+  who: string,
+  role: RoleName,
+  at: EpochMs,
+): Promise<boolean> {
+  const record = await readRole(view, who, role);
+  return record !== undefined && (await roleProblemOf(ctx, view, who, role, at)) === undefined;
 }
 
 /** Whether `inviter` holds the co-treasurer role and it stands at `at` (may send `member.invited`). */

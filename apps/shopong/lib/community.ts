@@ -27,7 +27,7 @@ import {
   type RoleRecord,
 } from "@shopong/community";
 import { createMemoryRecordNetwork, type MemoryRecordNetwork } from "@shopong/adapters-memory";
-import { addRefusal, type Refusal } from "@shopong/community";
+import { addRefusal, type DeliveryPlan, type PlanError, type Refusal } from "@shopong/community";
 import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import {
   err,
@@ -66,6 +66,10 @@ export type CommunityService = {
   checkAction: (request: ActionRequest) => Promise<Result<RoleCheck, RoleError>>;
   /** Record a typed quote (story 6.8). Only the treasurer can. */
   addQuote: (input: unknown) => Promise<Result<QuoteReceipt, QuoteError>>;
+  /** The driver whose role stands on the record's clock, judged as the record judges it (patch of story 7.4). */
+  currentDriver: (now: number) => Promise<string | undefined>;
+  /** Records an order's planned route (story 7.4): place ids and the fingerprint, queued like every other event. */
+  planDelivery: (plan: DeliveryPlan) => Promise<Result<unknown, PlanError>>;
   /** The quotes recorded for one order. */
   quotesFor: (order: string) => Promise<readonly Quote[]>;
   /** The last refusals on this phone, newest first (story 2.5). Kept on the device only. */
@@ -158,6 +162,14 @@ export function createCommunityService(
         return logged("What can I do?", err("outside", "Your role doesn't cover that."));
       }
       return logged("What can I do?", await current.checkAction(request));
+    },
+    async currentDriver(now) {
+      return current === null ? undefined : current.currentDriver(now);
+    },
+    async planDelivery(plan) {
+      if (current === null)
+        return logged("Plan a route", err("refused", "Make a community first."));
+      return logged("Plan a route", await current.planDelivery(plan, now()));
     },
     async addQuote(input) {
       if (current === null) return logged("Add a quote", err("refused", "Make a community first."));

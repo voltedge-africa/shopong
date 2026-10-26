@@ -178,3 +178,20 @@ export function assertNoPersonalData(payload: unknown, options: PersonalCheckOpt
   const issues = checkPersonalFields(payload, options);
   if (issues.length > 0) throw new PersonalDataError(issues);
 }
+
+const STREET_WORDS =
+  "street|st|road|rd|avenue|ave|drive|dr|lane|ln|crescent|cres|close|way|court|ct|boulevard|blvd|highway|section|ext|extension|unit|flat|erf|stand|house";
+/** A number, then a street word within 40 characters. */
+const NUMBER_THEN_STREET = new RegExp(`\\b\\d+\\b[\\s\\S]{0,40}?\\b(?:${STREET_WORDS})\\b`, "i");
+/** An erf, stand, unit, flat or house with its number. */
+const DESIGNATED_NUMBER = /\b(?:erf|stand|unit|flat|house)\s*(?:no\.?|number|#)?\s*\d+/i;
+
+/**
+ * True when the text reads as a street address: a street number followed by a street word, or an erf, stand, unit,
+ * flat or house number. Place names are names, never addresses (the product owner's rule). Digits are normalised
+ * first, so Unicode digits count. Story 3.7 adds the same-named function for the community's own text.
+ */
+export function looksLikeAddress(text: string): boolean {
+  const normalised = normaliseDigits(text).normalize("NFKC");
+  return NUMBER_THEN_STREET.test(normalised) || DESIGNATED_NUMBER.test(normalised);
+}

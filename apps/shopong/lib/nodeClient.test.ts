@@ -5,6 +5,7 @@ import { isRequestNonce, requestBytes, verifyRequestSignature } from "@shopong/c
 import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import type { Did, Signature } from "@shopong/ports";
 import { describe, expect, it } from "vite-plus/test";
+import { planFailureMessage } from "./route";
 import { createNodeClient, failureOf, type FetchLike } from "./nodeClient";
 
 const KEY = "a".repeat(64);
@@ -274,5 +275,99 @@ describe("the pledge payment calls (story 4.3)", () => {
       ok: false,
       failure: { kind: "refused", reason: "The Node does not have that pledge yet." },
     });
+  });
+});
+
+describe("route planning on the Node (story 7.4)", () => {
+  const FP = "c".repeat(128);
+  const answer = {
+    fingerprint: FP,
+    origin: { id: "a".repeat(64), label: "Mamelodi Wholesale depot", area: "Mamelodi" },
+    destination: { id: "b".repeat(64), label: "Orlando community hall", area: "Soweto" },
+    costing: "auto",
+    distanceMeters: 12_400,
+    durationSeconds: 1_500,
+    tileRelease: "straight-line",
+    straightLine: true,
+    polyline6: "_p~iF~ps|U",
+    sentences: ["Route from A to B.", "About 12.4 km, about 25 minutes by car.", "Straight line."],
+    community: KEY,
+    requestId: "r1",
+  };
+
+  it("sends a signed plan to the Node and reads the summary, the line and the sentences", async () => {
+    const phone = await phoneWith(() => ({ status: 200, body: answer }));
+    const reply = await phone.client.planRoute(KEY, {
+      order: "o1",
+      origin: "a".repeat(64),
+      destination: "b".repeat(64),
+    });
+    expect(reply.ok).toBe(true);
+    if (reply.ok) expect(reply.value.sentences).toHaveLength(3);
+    const [sent] = phone.sent;
+    expect(sent!.method).toBe("POST");
+    expect(sent!.url).toBe(`https://node.example/communities/${KEY}/routes`);
+    expect(JSON.parse(sent!.body!)).toEqual({
+      order: "o1",
+      origin: "a".repeat(64),
+      destination: "b".repeat(64),
+    });
+    const parts = {
+      method: "POST",
+      path: `/communities/${KEY}/routes`,
+      body: sent!.body!,
+      nonce: sent!.headers["x-ocn-nonce"]!,
+      time: Number(sent!.headers["x-ocn-time"]),
+      actor: phone.did,
+    };
+    expect(
+      await verifyRequestSignature(
+        phone.auth,
+        parts,
+        sent!.headers["x-ocn-signature"] as Signature,
+        webCryptoSha512,
+      ),
+    ).toBe(true);
+    expect(isRequestNonce(parts.nonce)).toBe(true);
+  });
+
+  it("reads a planned route by its fingerprint from a query value", async () => {
+    const phone = await phoneWith(() => ({ status: 200, body: answer }));
+    const reply = await phone.client.route(KEY, "o1", FP);
+    expect(reply.ok).toBe(true);
+    expect(phone.sent[0]!.url).toBe(
+      `https://node.example/communities/${KEY}/route?order=o1&fingerprint=${FP}`,
+    );
+  });
+
+  it("says a plan needs a connection when the Node cannot be reached", async () => {
+    const phone = await phoneWith(() => "throw");
+    const reply = await phone.client.planRoute(KEY, {
+      order: "o1",
+      origin: "a".repeat(64),
+      destination: "b".repeat(64),
+    });
+    expect(reply.ok).toBe(false);
+    if (!reply.ok)
+      expect(planFailureMessage(reply.failure)).toBe("Planning a route needs a connection.");
+  });
+
+  it("shows the Node's plain refusal for a plain member", async () => {
+    const phone = await phoneWith(() => ({
+      status: 403,
+      body: {
+        problem: "not_permitted",
+        reason: "Only the treasurer or the driver can plan a route.",
+      },
+    }));
+    const reply = await phone.client.planRoute(KEY, {
+      order: "o1",
+      origin: "a".repeat(64),
+      destination: "b".repeat(64),
+    });
+    if (reply.ok) throw new Error("expected a refusal");
+    expect(planFailureMessage(reply.failure)).toBe(
+      "Only the treasurer or the driver can plan a route.",
+    );
   });
 });

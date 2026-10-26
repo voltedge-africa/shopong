@@ -14,9 +14,14 @@ export {
   type CommunityError,
   type GrantOptions,
   type Member,
+  type DeliveryPlan,
+  type PlaceRecord,
+  type PlanError,
   type QuoteError,
   type QuoteReceipt,
 } from "./community.js";
+export { DELIVERY_MESSAGES, plannerProblem } from "./delivery.js";
+export { isRoleStanding } from "./roles.js";
 export {
   PAYMENT_TYPE_MESSAGE,
   PLEDGE_LIMITS,
