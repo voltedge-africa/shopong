@@ -5,6 +5,10 @@
 // An event that fails a check is not dropped (logs cannot be edited): the view records
 // `rejected/<event id>` with the plain reason, so every device sees the same thing.
 //
+// Every decision here is made on `event.actor`, a field the sender writes, so `apply` first requires it
+// to be the writer who actually appended the entry (`entry.writer`). Without that, any admitted writer
+// (an invitee, before they have even joined) could claim to be the creator and invite anyone.
+//
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
 // `joined/<invitation id>` { member }, `rejected/<event id>` { type, reason }.
 
@@ -16,6 +20,9 @@ import { spaceUri } from "./space.js";
 
 /** The `invitation` a creator's own first `member.joined` carries. It needs no token. */
 export const FOUNDER_INVITATION = "founder";
+
+/** Why an event is refused when its `actor` is not the writer who appended it. */
+export const NOT_THE_WRITER = "This was not written by the person it names.";
 
 export interface CommunityApplyEnvironment {
   readonly auth: CapabilityAuth;
@@ -82,11 +89,13 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
       const event = entry.event;
       if (event.type !== "member.invited" && event.type !== "member.joined") continue;
       const reason =
-        event.space !== env.spaceKey
-          ? INVITATION_MESSAGES.unreadable
-          : event.type === "member.invited"
-            ? await invited(event, view, host)
-            : await joined(entry, view);
+        entry.writer !== event.actor
+          ? NOT_THE_WRITER
+          : event.space !== env.spaceKey
+            ? INVITATION_MESSAGES.unreadable
+            : event.type === "member.invited"
+              ? await invited(event, view, host)
+              : await joined(entry, view);
       if (reason !== undefined) {
         await view.put(`rejected/${entry.id}`, { type: event.type, reason });
       }
