@@ -3,7 +3,7 @@ title: 'Start a stokvel and invite members'
 type: 'feature'
 ticket: 1
 created: '2026-10-26'
-status: draft
+status: done
 baseline_revision: '5471d90'
 route: 'full'
 route_source: 'auto'
