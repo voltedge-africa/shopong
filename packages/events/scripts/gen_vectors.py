@@ -202,7 +202,18 @@ EVENT_ACCEPT = [
         None,
         pretty(env(type="member.invited", payload={"phone": "c" * 128, "role": "member", "invitation": "bafyinvitation", "invitee": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK", "expiresAt": 1793606400000})),
     ),
-    ("known root event without proof", "known", None, pretty(env(type="role.granted", proof=[], payload={}))),
+    (
+        "known root event without proof",
+        "known",
+        None,
+        pretty(
+            env(
+                type="role.granted",
+                proof=[],
+                payload={"role": "driver", "grantee": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK", "expiresAt": 1793606400000},
+            )
+        ),
+    ),
     (
         "unknown type",
         "opaque",

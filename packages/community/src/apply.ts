@@ -10,12 +10,14 @@
 // (an invitee, before they have even joined) could claim to be the creator and invite anyone.
 //
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
-// `joined/<invitation id>` { member }, `rejected/<event id>` { type, reason }.
+// `joined/<invitation id>` { member }, `roles/<did>/<role>` (see roles.ts), `rejected/<event id>` { type, reason }.
 
 import type { EventEnvelope, JsonObject } from "@shopong/events";
 import type { Apply, CapabilityAuth, Did, RecordEntry, ViewWriter } from "@shopong/ports";
+import { invitePassOnAllowed } from "./chain.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
 import { decodeProof } from "./proof.js";
+import { coTreasurerJoinRecorded, isCoTreasurer, recordRoleGrant } from "./roles.js";
 import { spaceUri } from "./space.js";
 
 /** The `invitation` a creator's own first `member.joined` carries. It needs no token. */
@@ -43,7 +45,9 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     view: ViewWriter,
     host: Parameters<Apply<EventEnvelope>>[2],
   ): Promise<string | undefined> {
-    if (event.actor !== env.creator) return "Only the creator can invite.";
+    if (event.actor !== env.creator && !(await isCoTreasurer(view, event.actor, event.claimedAt))) {
+      return "Only the creator can invite.";
+    }
     const invitation = str(event.payload, "invitation");
     const invitee = str(event.payload, "invitee");
     const expiresAt = event.payload.expiresAt;
@@ -76,6 +80,12 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         audience: event.actor as Did,
       });
       if (!verified.ok) return INVITATION_MESSAGES[problemOf(verified.error.code)];
+      const passedOn = await invitePassOnAllowed(
+        env.auth,
+        verified.value.chain,
+        (inviter, parentId) => coTreasurerJoinRecorded(view, inviter, parentId, event.claimedAt),
+      );
+      if (!passedOn) return INVITATION_MESSAGES.unreadable;
       // The token must be the one the event names, so its id cannot be swapped to dodge the reuse check.
       if ((await env.auth.tokenId(token)) !== invitation) return INVITATION_MESSAGES.unreadable;
       await view.put(`joined/${invitation}`, { member: event.actor });
@@ -87,7 +97,13 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
   return async (entries, view, host) => {
     for (const entry of entries) {
       const event = entry.event;
-      if (event.type !== "member.invited" && event.type !== "member.joined") continue;
+      if (
+        event.type !== "member.invited" &&
+        event.type !== "member.joined" &&
+        event.type !== "role.granted"
+      ) {
+        continue;
+      }
       const reason =
         entry.writer !== event.actor
           ? NOT_THE_WRITER
@@ -95,7 +111,9 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
             ? INVITATION_MESSAGES.unreadable
             : event.type === "member.invited"
               ? await invited(event, view, host)
-              : await joined(entry, view);
+              : event.type === "role.granted"
+                ? await recordRoleGrant(env, view, event)
+                : await joined(entry, view);
       if (reason !== undefined) {
         await view.put(`rejected/${entry.id}`, { type: event.type, reason });
       }

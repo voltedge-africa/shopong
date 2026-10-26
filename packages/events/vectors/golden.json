@@ -187,9 +187,9 @@
         "name": "known root event without proof",
         "status": "known",
         "reason": null,
-        "input": "{\n  \"v\": 1,\n  \"type\": \"role.granted\",\n  \"space\": \"5f0cabababababababababababababababababababababababababababababab\",\n  \"actor\": \"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\n  \"proof\": [],\n  \"claimedAt\": 1793001600000,\n  \"nonce\": \"000102030405060708090a0b0c0d0e0f\",\n  \"payload\": {}\n}",
-        "canonical": "{\"actor\":\"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"claimedAt\":1793001600000,\"nonce\":\"000102030405060708090a0b0c0d0e0f\",\"payload\":{},\"proof\":[],\"space\":\"5f0cabababababababababababababababababababababababababababababab\",\"type\":\"role.granted\",\"v\":1}",
-        "eventId": "98dc2ee6c370df89c7b1e0e63dd8fd11d95f4f71b7e986f9ae7bf428eb94e5a784b41d27bd735c8f0ac7e73d5ed29583c36562aa4cce371973d63f8fd0388f12"
+        "input": "{\n  \"v\": 1,\n  \"type\": \"role.granted\",\n  \"space\": \"5f0cabababababababababababababababababababababababababababababab\",\n  \"actor\": \"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\n  \"proof\": [],\n  \"claimedAt\": 1793001600000,\n  \"nonce\": \"000102030405060708090a0b0c0d0e0f\",\n  \"payload\": {\n    \"role\": \"driver\",\n    \"grantee\": \"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\n    \"expiresAt\": 1793606400000\n  }\n}",
+        "canonical": "{\"actor\":\"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"claimedAt\":1793001600000,\"nonce\":\"000102030405060708090a0b0c0d0e0f\",\"payload\":{\"expiresAt\":1793606400000,\"grantee\":\"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"role\":\"driver\"},\"proof\":[],\"space\":\"5f0cabababababababababababababababababababababababababababababab\",\"type\":\"role.granted\",\"v\":1}",
+        "eventId": "c917604e7ab03d2c1b21a7ab6bc3e2b6ca16e63099aff538b52da54ee9e076270fe3577dc1fa914e996dc51cc73fba1877f1bb4a8893576e935f83ae48d4bd1d"
       },
       {
         "name": "unknown type",

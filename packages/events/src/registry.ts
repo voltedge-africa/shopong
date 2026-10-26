@@ -1,7 +1,7 @@
 // The event types of the first release (architecture.md section 6).
 // Payload schemas are loose placeholders until the story that first writes a type
 // replaces its entry in PayloadMap and PAYLOAD_VALIDATORS with a strict schema
-// (member.invited and member.joined: story 2.3). The envelope itself is strict (envelope.ts).
+// (member.invited and member.joined: story 2.3; role.granted: story 2.4). The envelope itself is strict (envelope.ts).
 
 import type { JsonObject } from "./json.js";
 
@@ -60,10 +60,24 @@ export interface MemberJoinedPayload extends JsonObject {
   readonly invitation: string;
 }
 
+/**
+ * `role.granted`: the actor gave `grantee` the named role until `expiresAt`. The proof is one delegation
+ * token per ability of the role, each checked by `CapabilityAuth.verify` in `apply`.
+ */
+export interface RoleGrantedPayload extends JsonObject {
+  /** A role name from the community's fixed list (`co-treasurer`, `driver`, `supplier`). */
+  readonly role: string;
+  /** `did:key` of the person given the role. */
+  readonly grantee: string;
+  /** When the role ends, milliseconds since the Unix epoch. */
+  readonly expiresAt: number;
+}
+
 /** Payload shape per type. Placeholders until each type's owning story defines it. */
 export type PayloadMap = { [T in EventType]: JsonObject } & {
   "member.invited": MemberInvitedPayload;
   "member.joined": MemberJoinedPayload;
+  "role.granted": RoleGrantedPayload;
 };
 
 export interface Issue {
@@ -112,10 +126,27 @@ const memberInvited: PayloadValidator = (payload) => {
 const memberJoined: PayloadValidator = (payload) =>
   requireString(payload, "invitation", nonEmpty, "must be a non-empty token id");
 
+const roleGranted: PayloadValidator = (payload) => {
+  const issues = [
+    ...requireString(payload, "role", nonEmpty, "must be a non-empty role name"),
+    ...requireString(payload, "grantee", (v) => DID_KEY.test(v), "must be a did:key"),
+  ];
+  const expiresAt = payload.expiresAt;
+  if (expiresAt === undefined)
+    issues.push({ path: "$.payload.expiresAt", message: "required field is missing" });
+  else if (typeof expiresAt !== "number" || !Number.isSafeInteger(expiresAt) || expiresAt < 0)
+    issues.push({
+      path: "$.payload.expiresAt",
+      message: "must be a non-negative integer of milliseconds",
+    });
+  return issues;
+};
+
 export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator } = {
   ...(Object.fromEntries(EVENT_TYPES.map((t) => [t, anyObject])) as {
     [T in EventType]: PayloadValidator;
   }),
   "member.invited": memberInvited,
   "member.joined": memberJoined,
+  "role.granted": roleGranted,
 };

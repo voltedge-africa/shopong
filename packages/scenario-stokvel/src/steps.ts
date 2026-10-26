@@ -184,7 +184,12 @@ export const STEPS: readonly StepDefinition[] = [
       await w.emit(
         treasurer,
         "role.granted",
-        { grantee: node.actor, key: node.key, role: "node" },
+        {
+          grantee: node.actor,
+          key: node.key,
+          role: "node",
+          expiresAt: at(t, 1) + 90 * 24 * 60 * 60 * 1000,
+        },
         {
           at: at(t, 1),
           label: "grant:node",
@@ -441,7 +446,12 @@ export const STEPS: readonly StepDefinition[] = [
       await w.emit(
         treasurer,
         "role.granted",
-        { grantee: driver.actor, key: driver.key, role: "driver" },
+        {
+          grantee: driver.actor,
+          key: driver.key,
+          role: "driver",
+          expiresAt: at(t, 0) + 90 * 24 * 60 * 60 * 1000,
+        },
         {
           at: at(t, 0),
           label: "grant:driver",
