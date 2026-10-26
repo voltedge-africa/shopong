@@ -113,3 +113,15 @@ covers = []
 after = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 hitl = false
 risk = "low"
+
+[[entry]]
+id = 11
+type = "story"
+title = "Admit a writer on a verified join"
+description = "Moves a member's writer admission from the moment they are invited to the moment their join is verified (shortcut S-3.3-1): a person with an invited key may write exactly one member.joined event, the record admits them as a writer only when that join's invitation chain verifies, and the invite-time admission is removed."
+verify = "A person invited but not yet joined can write nothing except their own member.joined, a join with a bad, reused, expired or revoked invitation never admits a writer, and the community and Node tests still pass."
+covers = ["FR3", "AR4"]
+after = ["3.3", "3.6"]
+hitl = false
+risk = "high"
+references = ["architecture-ocn/architecture-ocn.md#12-writer-keys"]

@@ -6,6 +6,8 @@ import {
   checkInvitation,
   coTreasurerJoinRecorded,
   isCurrentGrantIn,
+  isRevokedIn,
+  logTimeOf,
   createCommunity,
   type ActionRequest,
   type CheckedInvitation,
@@ -127,10 +129,19 @@ export function createCommunityService(
           now: now(),
           isUsed: async (id) =>
             held !== null && (await held.space.view.get(`joined/${id}`)) !== undefined,
-          mayPassOn: (inviter, parentId) =>
-            held !== null && coTreasurerJoinRecorded(held.space.view, inviter, parentId, now()),
+          // Pass-on and grant checks run at log time, as `apply` runs them (story 3.6). The invitation's own
+          // end is still checked with the device clock (S-2.3-7).
+          mayPassOn: async (inviter, parentId) =>
+            held !== null &&
+            coTreasurerJoinRecorded(
+              held.space.view,
+              inviter,
+              parentId,
+              (await logTimeOf(held.space.view)) ?? 0,
+            ),
           isCurrentGrant: (holder, id) =>
             held !== null && isCurrentGrantIn(held.space.view, holder, id),
+          isRevoked: (id) => held !== null && isRevokedIn(held.space.view, id),
         }),
       );
     },
@@ -146,7 +157,7 @@ export function createCommunityService(
       if (current === null) {
         return logged("What can I do?", err("outside", "Your role doesn't cover that."));
       }
-      return logged("What can I do?", await current.checkAction(request, now()));
+      return logged("What can I do?", await current.checkAction(request));
     },
     async addQuote(input) {
       if (current === null) return logged("Add a quote", err("refused", "Make a community first."));
