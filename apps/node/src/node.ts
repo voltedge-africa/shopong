@@ -9,8 +9,11 @@ import { loadConfig, type LoadOptions } from "./config.ts";
 import { ReplicaHub } from "./hub.ts";
 import { createLogger, type LogSink } from "./logger.ts";
 import { masterKeyOf, nodeIdentityOf, openRecordComponent } from "./record.ts";
-import { missingRequiredFor } from "./secrets.ts";
+import { missingRequiredFor, type ResolvedSecrets } from "./secrets.ts";
 import { openSimulatedPayments, paymentsComponent } from "./payments.ts";
+import { communitySecretFromHex, nodeHmacSha512 } from "./commitments.ts";
+
+import { payerCommitmentOf, type PaymentRequestOptions } from "./payment-request-route.ts";
 import { readVersion } from "./version.ts";
 
 export interface RunningNode {
@@ -55,6 +58,40 @@ export async function closeInOrder(steps: readonly (() => unknown)[]): Promise<v
     }
   }
   if (failed) throw first;
+}
+
+/**
+ * The member pay routes' options (story 4.3), when the simulated payments and the record are both on. The payer
+ * reference is committed with the community secret; without it the routes answer 503 (the phone is told plainly).
+ */
+export function paymentRequestOptionsOf(options: {
+  readonly auth: IsoUcanCapabilityAuth;
+  readonly hub: ReplicaHub | undefined;
+  readonly payments: SimulatedStitch | undefined;
+  readonly secrets: ResolvedSecrets;
+  /** The Node's did:key identity (`nodeIdentityOf`), or undefined when the record is off. */
+  readonly identity: Did | undefined;
+}): PaymentRequestOptions | undefined {
+  const { auth, hub, payments, secrets, identity } = options;
+  if (identity === undefined) return undefined;
+  if (hub === undefined || payments === undefined) return undefined;
+  const hex = secrets.get("COMMUNITY_SECRET");
+  const secret = hex === undefined ? undefined : communitySecretFromHex(hex);
+  return {
+    auth,
+    payments,
+    hub,
+    nodeIdentity: identity,
+    payerCommitment: async (community, member) => {
+      if (secret === undefined) return undefined;
+      try {
+        // Keyed per community (review item 3): the same member has a different reference in each community.
+        return await payerCommitmentOf(secret, community, member, nodeHmacSha512);
+      } catch {
+        return undefined;
+      }
+    },
+  };
 }
 
 /**
@@ -107,6 +144,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
             auth,
             maxCommunities: config.maxCommunities,
           });
+    const paymentRequests = paymentRequestOptionsOf({ auth, hub, payments, secrets, identity });
     app = buildApp({
       logger,
       version: readVersion(),
@@ -124,6 +162,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       allowedCreators: config.allowedCreators,
       cors: { origins: config.corsOrigins, environment: config.environment },
       ...(payments === undefined ? {} : { payments }),
+      ...(paymentRequests === undefined ? {} : { paymentRequests }),
     });
     await app.listen({ host: config.server.host, port: config.server.port });
   } catch (error) {

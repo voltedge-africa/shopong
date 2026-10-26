@@ -22,13 +22,13 @@ interface Base {
 }
 
 const build = (fields: {
-  type: "member.joined" | "member.invited";
+  type: "member.joined" | "member.invited" | "pledge.created";
   space: string;
   actor: Did;
   proof: readonly string[];
   claimedAt: number;
   nonce: string;
-  payload: Record<string, string | number>;
+  payload: Record<string, unknown>;
 }): EventEnvelope => createEvent(fields as never) as EventEnvelope;
 
 /** The founding `member.joined` of a community the phone created. Apply admits the creator on it. */
@@ -75,5 +75,27 @@ export function joinEvent(
     claimedAt: input.now,
     nonce: hex(input.randomBytes(16)),
     payload: { invitation: input.checked.id },
+  });
+}
+
+/**
+ * The member's pledge of `minor` cents to `order` (story 4.3). The payload names the member, who must be the actor, and
+ * the amount in whole rand cents. The phone never writes a payment: that is the Node's, from this event's id.
+ */
+export function pledgeEvent(
+  input: Base & { readonly me: Did; readonly order: string; readonly minor: number },
+): EventEnvelope {
+  return build({
+    type: "pledge.created",
+    space: input.community,
+    actor: input.me,
+    proof: [],
+    claimedAt: input.now,
+    nonce: hex(input.randomBytes(16)),
+    payload: {
+      order: input.order,
+      member: input.me,
+      amount: { currency: "ZAR", minor: input.minor },
+    },
   });
 }

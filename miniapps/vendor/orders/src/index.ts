@@ -1,6 +1,7 @@
 import type { MiniAppManifest } from "@shopong/miniapp";
 
-export { OrdersHostContext, type OrdersHost } from "./host";
+export { OrdersHostContext, type OrdersHost, type PaymentHost } from "./host";
+export { SIMULATED_NOTE, payCardOf, type PaymentView, type PayAction, type PayCard } from "./pay";
 
 export const manifest: MiniAppManifest = {
   id: "orders",

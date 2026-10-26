@@ -192,8 +192,11 @@ export function registerSyncRoutes(
       if (!parsed.ok) return refuse("invalid_event", actor);
       const event = parsed.event as EventEnvelope;
       if (event.space !== key) return refuse("wrong_space", actor);
-      // Money postings are written by the Node alone (story 4.6): a phone's `ledger.posted` would count as money.
-      if (event.type === "ledger.posted") return refuse("node_only", actor);
+      // Money postings and payment requests are written by the Node alone (stories 4.6, 4.3): a phone's `ledger.posted`
+      // would count as money, and a phone's `payment.requested` would ask the bank for money.
+      if (event.type === "ledger.posted" || event.type === "payment.requested") {
+        return refuse("node_only", actor);
+      }
 
       // Only the signer's own events, written through the signer's own replica. `apply` still decides their meaning.
       if (event.actor !== actor || space.local !== actor) return refuse("not_yours", actor);

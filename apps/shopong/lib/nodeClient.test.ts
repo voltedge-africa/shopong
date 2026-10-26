@@ -3,6 +3,7 @@
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import { isRequestNonce, requestBytes, verifyRequestSignature } from "@shopong/community";
 import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
+import type { Did, Signature } from "@shopong/ports";
 import { describe, expect, it } from "vite-plus/test";
 import { createNodeClient, failureOf, type FetchLike } from "./nodeClient";
 
@@ -212,5 +213,66 @@ describe("the Node's record-off answer (triage 9)", () => {
       expect(reply.failure.kind).toBe("refused");
       expect(reply.failure.reason).toBe("The Node record is not running.");
     }
+  });
+});
+
+describe("the pledge payment calls (story 4.3)", () => {
+  const PLEDGE = "cd".repeat(64);
+
+  it("sends only the community and the pledge's event id, never an amount", async () => {
+    const phone = await phoneWith(() => ({
+      status: 200,
+      body: {
+        bankPath: "/simulated-bank/pir_1",
+        status: "pending",
+        amountMinor: 15000,
+        recorded: false,
+      },
+    }));
+    const reply = await phone.client.payPledge(KEY, PLEDGE);
+    expect(reply.ok).toBe(true);
+    const sent = phone.sent[0]!;
+    expect(sent.url).toBe("https://node.example/payments/requests");
+    expect(JSON.parse(sent.body!)).toEqual({ community: KEY, pledge: PLEDGE });
+    expect(reply.ok && reply.value.bankPath).toBe("/simulated-bank/pir_1");
+  });
+
+  it("signs the status read over its query, so the Node sees the same path", async () => {
+    const phone = await phoneWith(() => ({
+      status: 200,
+      body: { status: "cancelled", amountMinor: 15000 },
+    }));
+    const reply = await phone.client.paymentStatus(KEY, PLEDGE);
+    expect(reply).toMatchObject({ ok: true, value: { status: "cancelled", amountMinor: 15000 } });
+    const sent = phone.sent[0]!;
+    expect(sent.url).toBe(`https://node.example/payments/status?community=${KEY}&pledge=${PLEDGE}`);
+    const parts = {
+      method: "GET",
+      path: `/payments/status?community=${KEY}&pledge=${PLEDGE}`,
+      body: "",
+      nonce: sent.headers["x-ocn-nonce"]!,
+      time: Number(sent.headers["x-ocn-time"]),
+      actor: sent.headers["x-ocn-actor"] as Did,
+    };
+    expect(
+      await verifyRequestSignature(
+        phone.auth,
+        parts,
+        sent.headers["x-ocn-signature"] as Signature,
+        webCryptoSha512,
+      ),
+    ).toBe(true);
+  });
+
+  it("reports a refused pay request as a plain refusal, not as offline", async () => {
+    const phone = await phoneWith(() => ({
+      status: 404,
+      body: { problem: "unknown_pledge", reason: "The Node does not have that pledge yet." },
+    }));
+    const reply = await phone.client.payPledge(KEY, PLEDGE);
+    expect(reply).toMatchObject({
+      ok: false,
+      failure: { kind: "refused", reason: "The Node does not have that pledge yet." },
+    });
   });
 });

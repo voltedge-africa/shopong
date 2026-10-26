@@ -110,8 +110,11 @@ export const hasIdNumberShape = (text: string): boolean =>
 
 /** A DID as `did:key` writes it: `z`, then base58 (no 0, O, I or l), at least 40 characters. Whole value only. */
 const DID_KEY = /^did:key:z[1-9A-HJ-NP-Za-km-z]{40,}$/;
-/** A 64-character lowercase hex id (a space key or similar). Whole value only. */
-const HEX_64 = /^[0-9a-f]{64}$/;
+/**
+ * A 64-character lowercase hex id (a space key or similar), or a 128-character one (an event id: SHA-512 hex, story 4.3).
+ * Whole value only, so a hex id is never read as digits; a phone or ID number is never 64 or 128 hex characters.
+ */
+const HEX_64 = /^(?:[0-9a-f]{64}|[0-9a-f]{128})$/;
 /** The shape of an invitation token id: a CIDv1, DAG-CBOR and SHA-256, base32 lower-case (59 characters). */
 const INVITATION_ID = /^bafyrei[a-z2-7]{52}$/;
 

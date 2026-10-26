@@ -13,6 +13,10 @@ import { registerCommunityRoutes, type CommunityHub } from "./community-routes.t
 import { registerPoolRoute, type PoolRouteOptions } from "./pool-routes.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { registerPaymentRoutes } from "./payments-routes.ts";
+import {
+  registerPaymentRequestRoutes,
+  type PaymentRequestOptions,
+} from "./payment-request-route.ts";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import type { SimulatedStitch } from "@shopong/adapter-stitch-sim";
 import type { CapabilityAuth, Commitments } from "@shopong/ports";
@@ -49,6 +53,8 @@ export interface AppOptions {
   pool?: PoolRouteOptions;
   /** The simulated payments (story 4.4). Without it, the payment routes are not served. */
   payments?: SimulatedStitch;
+  /** The member's pay routes for a pledge (story 4.3). Without it, they are not served. */
+  paymentRequests?: PaymentRequestOptions;
 }
 
 async function report(options: AppOptions): Promise<HealthReport> {
@@ -101,6 +107,9 @@ export function buildApp(options: AppOptions): FastifyInstance {
   registerSyncRoutes(app, auth, options.sync ?? {});
   registerPoolRoute(app, auth, options.pool ?? {});
   if (options.payments !== undefined) registerPaymentRoutes(app, options.payments);
+  if (options.paymentRequests !== undefined) {
+    registerPaymentRequestRoutes(app, options.paymentRequests);
+  }
   if (options.communities !== undefined) {
     registerCommunityRoutes(app, {
       hub: options.communities,

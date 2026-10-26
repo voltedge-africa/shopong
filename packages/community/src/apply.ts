@@ -15,7 +15,8 @@
 //
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
 // `joined/<invitation id>` { member }, `roles/<did>/<role>` and `revoked/<grant id>` (see roles.ts),
-// `quotes/<order>/<supplier>` (see quotes.ts), `log/time` (see log-time.ts), `indexers/<did>` (true; the
+// `quotes/<order>/<supplier>` (see quotes.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
+// pledges.ts), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
 
@@ -39,6 +40,17 @@ import {
 } from "./log-time.js";
 import { decodeProof } from "./proof.js";
 import { QUOTE_MESSAGES, checkQuote, isTreasurer, quoteJson, quoteKey } from "./quotes.js";
+import {
+  PAYMENT_REQUEST_KEYS,
+  PAYMENT_TYPE_MESSAGE,
+  PLEDGE_MESSAGES,
+  checkPledge,
+  paymentKey,
+  pledgeByEvent,
+  pledgeEventKey,
+  pledgeJson,
+  pledgeKey,
+} from "./pledges.js";
 import {
   coTreasurerJoinRecorded,
   coTreasurerProblem,
@@ -84,6 +96,9 @@ export const EVENT_UNREADABLE = "This event can't be read.";
 
 const INDEXERS = "indexers/";
 
+/** A did:key, as the Node's identity is written in `by`. */
+const NODE_DID_KEY = /^did:key:z[1-9A-HJ-NP-Za-km-z]{40,}$/;
+
 /** The event types `apply` checks. Other types are not applied yet, and do not move log time. */
 const CHECKED: ReadonlySet<string> = new Set([
   "member.invited",
@@ -92,6 +107,8 @@ const CHECKED: ReadonlySet<string> = new Set([
   "role.granted",
   "role.revoked",
   "quote.added",
+  "pledge.created",
+  "payment.requested",
 ]);
 
 export function createCommunityApply(env: CommunityApplyEnvironment): Apply<EventEnvelope> {
@@ -203,6 +220,70 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /**
+   * A pledge (story 4.3): the writer must be a member, and the pledge must pass `checkPledge` for that member. A
+   * pledge is recorded once per event id, so a second arrival of the same event is refused as a duplicate.
+   */
+  async function pledgeCreated(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if ((await view.get(`members/${event.actor}`)) === undefined) return PLEDGE_MESSAGES.not_member;
+    const checked = checkPledge(event.payload, event.actor as Did);
+    if (!checked.ok) return checked.problem;
+    if ((await view.get(pledgeEventKey(entry.id))) !== undefined) return PLEDGE_MESSAGES.duplicate;
+    const stored = pledgeJson(entry.id, checked.value, event.claimedAt);
+    await view.put(pledgeEventKey(entry.id), stored);
+    await view.put(pledgeKey(checked.value.order, checked.value.member), stored);
+    return undefined;
+  }
+
+  /**
+   * The Node's request for a pledge (story 4.3). A current member may not write one (AGENTS rule 4: the phone never
+   * creates a payment request). The request must name a recorded pledge and carry that pledge's amount.
+   */
+  /**
+   * The Node's request for a pledge (story 4.3, written as `ledger.posted` is: the Node makes the event, the creator's
+   * replica writes it). The actor is the record's creator, and `by` names the Node's did:key. A member's own event is
+   * refused, so a phone cannot make a payment request. The pledge's member must still be a member, and the amount must
+   * be the pledge's. One request per pledge.
+   */
+  async function paymentRequested(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if (event.actor !== env.creator) return PAYMENT_TYPE_MESSAGE;
+    const payload = event.payload;
+    if (
+      !Object.keys(payload).every((key) =>
+        (PAYMENT_REQUEST_KEYS as readonly string[]).includes(key),
+      )
+    ) {
+      return PLEDGE_MESSAGES.payment_fields;
+    }
+    const by = payload.by;
+    if (typeof by !== "string" || !NODE_DID_KEY.test(by)) return PLEDGE_MESSAGES.payment_fields;
+    if (payload.direction !== "in") return PLEDGE_MESSAGES.not_pay_in;
+    const pledgeEvent = str(payload, "pledgeEvent");
+    const pledge = pledgeEvent === undefined ? undefined : await pledgeByEvent(view, pledgeEvent);
+    if (pledgeEvent === undefined || pledge === undefined) return PLEDGE_MESSAGES.unknown_pledge;
+    // A member who has since been removed has no standing to pay (story 3.3).
+    if ((await view.get(`members/${pledge.member}`)) === undefined)
+      return PLEDGE_MESSAGES.pay_no_role;
+    const amount = payload.amount;
+    const minor =
+      typeof amount === "object" && amount !== null && !Array.isArray(amount)
+        ? (amount as { minor?: unknown }).minor
+        : undefined;
+    if (minor !== pledge.minor) return PLEDGE_MESSAGES.amount_must_match;
+    // One request per pledge: the Node makes it once, keyed by the pledge's event id (AGENTS rule 5).
+    if ((await view.get(paymentKey(pledgeEvent))) !== undefined) return PLEDGE_MESSAGES.duplicate;
+    await view.put(paymentKey(pledgeEvent), { minor: pledge.minor });
+    return undefined;
+  }
+
   /** A quote is the treasurer's: the creator or a co-treasurer. Its shape is checked as in the form. */
   async function quoteAdded(
     event: EventEnvelope,
@@ -282,6 +363,10 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return recordRoleGrant(env, view, event, at);
       case "role.revoked":
         return recordRoleRevocation(env, view, event);
+      case "pledge.created":
+        return pledgeCreated(entry, view);
+      case "payment.requested":
+        return paymentRequested(entry, view);
       default:
         return quoteAdded(event, view, at);
     }

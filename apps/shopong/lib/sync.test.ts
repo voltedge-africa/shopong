@@ -49,6 +49,9 @@ function fakeNode(admitted: Did[]) {
     admitMember: async () => ({ ok: true, value: { admitted: true } }),
     // The pool is read by the card, not by the queue (story 4.6): not part of these sync tests.
     pool: async () => ({ ok: false, failure: { kind: "offline", reason: "not used here" } }),
+    // Pledge payments are not exercised by the sync tests.
+    payPledge: async () => offline(),
+    paymentStatus: async () => offline(),
     async postEvent(_key, event) {
       if (state.down) return offline();
       const id = await eventIdOf(event, webCryptoSha512);

@@ -575,14 +575,29 @@ export class ReplicaHub implements SyncHub {
   async mirror(
     communityKey: string,
     event: EventEnvelope,
-  ): Promise<{ id: string; duplicate: boolean } | undefined> {
+  ): Promise<{ id: string; duplicate: boolean; rejected?: string } | undefined> {
     const entry = this.#registry[communityKey];
     if (entry === undefined) return undefined;
     const slot = await this.#slot(entry.creator, communityKey);
     const receipt = await slot.space.append(event);
     if (!receipt.ok) return undefined;
     this.acknowledge(entry.creator, communityKey, receipt.value.id);
-    return { id: receipt.value.id, duplicate: receipt.value.duplicate };
+    // The creator's own replica applies the event here, so its verdict is known now (a refused event leaves
+    // `rejected/<id>`), without waiting for the indexer to replicate it (review item 7).
+    await slot.space.update();
+    const verdict = (await slot.space.view.get(`rejected/${receipt.value.id}`)) as
+      | { reason?: unknown }
+      | undefined;
+    return {
+      id: receipt.value.id,
+      duplicate: receipt.value.duplicate,
+      ...(verdict === undefined
+        ? {}
+        : {
+            rejected:
+              typeof verdict.reason === "string" ? verdict.reason : "The record refused it.",
+          }),
+    };
   }
 
   async onChange(

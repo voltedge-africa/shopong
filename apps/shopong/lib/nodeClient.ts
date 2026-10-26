@@ -79,6 +79,34 @@ export interface NodeClient {
   pull(key: string, after: string, limit?: number): Promise<NodeReply<PulledPage>>;
   /** The pool as the Node reads the books and the record (story 4.6). Members only. */
   pool(key: string): Promise<NodeReply<PoolView>>;
+  /** Asks the Node to make the bank request for the member's own pledge (story 4.3). The phone sends only the id. */
+  payPledge(key: string, pledge: string): Promise<NodeReply<PledgeRequested>>;
+  /** The status of the request for the member's own pledge, as the Node's record and payments hold it. */
+  paymentStatus(key: string, pledge: string): Promise<NodeReply<PaymentStatusReply>>;
+}
+
+/** What the Node answers for a request: its bank page on the Node (a path), and whether the record took its event. */
+export interface PledgeRequested {
+  readonly bankPath: string;
+  readonly status: string;
+  readonly amountMinor: number;
+  readonly recorded: boolean;
+}
+
+export type NodePaymentStatus =
+  | "none"
+  | "pending"
+  | "completed"
+  | "cancelled"
+  | "expired"
+  | "failed";
+
+export interface PaymentStatusReply {
+  readonly status: NodePaymentStatus;
+  readonly amountMinor: number;
+  readonly bankPath?: string;
+  /** Whether this pledge can still be paid on the Node's clock (false: make a new pledge to pay). */
+  readonly windowOpen: boolean;
 }
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -192,6 +220,25 @@ export function createNodeClient(options: NodeClientOptions): NodeClient {
       })),
     pool: (key) =>
       request("GET", `/communities/${key}/pool`, undefined, (j) => j as unknown as PoolView),
+    payPledge: (key, pledge) =>
+      request("POST", "/payments/requests", { community: key, pledge }, (j) => ({
+        bankPath: String(j.bankPath),
+        status: String(j.status),
+        amountMinor: Number(j.amountMinor),
+        recorded: j.recorded === true,
+      })),
+    paymentStatus: (key, pledge) =>
+      request(
+        "GET",
+        `/payments/status?community=${encodeURIComponent(key)}&pledge=${encodeURIComponent(pledge)}`,
+        undefined,
+        (j) => ({
+          status: String(j.status) as NodePaymentStatus,
+          amountMinor: Number(j.amountMinor),
+          windowOpen: j.windowOpen !== false,
+          ...(typeof j.bankPath === "string" ? { bankPath: j.bankPath } : {}),
+        }),
+      ),
     pull: (key, after, limit = 100) =>
       request(
         "GET",

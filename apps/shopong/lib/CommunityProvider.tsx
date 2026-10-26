@@ -12,8 +12,11 @@ import {
 } from "react";
 import { Platform } from "react-native";
 import {
+  checkPledge,
   EMPTY_NAME_MESSAGE,
   newCommunityKey,
+  pledgeKey,
+  tidy,
   type ActionRequest,
   type CheckedInvitation,
   type Refusal,
@@ -27,9 +30,11 @@ import {
   type RoleRecord,
 } from "@shopong/community";
 import type { Did, JsonValue, PortError, Result } from "@shopong/ports";
+import type { PaymentView } from "@shopong/miniapp-orders";
 
 import { createCommunityService, type CommunityService } from "./community";
-import { founderEvent, inviteEvent, joinEvent } from "./communityEvents";
+import { paymentStatusOfFailure } from "./paymentStatus";
+import { founderEvent, inviteEvent, joinEvent, pledgeEvent } from "./communityEvents";
 import { nodeFailureMessage, unqueuedMessage } from "./nodeMessages";
 import { NODE_ADDRESS } from "./nodeAddress";
 import { createNodeClient, type NodeClient } from "./nodeClient";
@@ -88,6 +93,12 @@ type CommunityContextValue = {
   pool: PoolScreen | null;
   /** Reads the pool from the Node again now. */
   refreshPool: () => Promise<void>;
+  /** Pledges `minor` cents to an order on the Node, queued like every other event. Resolves a plain reason on refusal. */
+  pledgeOrder: (order: string, minor: number) => Promise<string | undefined>;
+  /** What the Node's record and payments hold for this member's pledge to an order, and whether one is queued here. */
+  paymentOf: (order: string) => Promise<PaymentView>;
+  /** Asks the Node for the bank request for this member's pledge. Resolves the bank page's address, or a plain reason. */
+  payOrder: (order: string) => Promise<{ ok: true; url: string } | { ok: false; message: string }>;
 };
 
 /** What the session needs to talk to the Node: the client (absent without an address) and the sync service. */
@@ -422,6 +433,129 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     (isCreator ||
       roles.some((role) => role.role === "co-treasurer" && role.expiresAt > Date.now()));
 
+  /** The event id of the newest pledge this phone queued for each order (keyed by the order's tidied name). */
+  const queuedPledges = useRef(new Map<string, string>());
+
+  const pledgeOrder = useCallback(
+    async (order: string, minor: number) => {
+      const bundle = nodeFor();
+      if (
+        bundle === null ||
+        bundle.client === undefined ||
+        did === null ||
+        nodeCommunity === null
+      ) {
+        return "Make or join a community on the OCN Node first, in Settings.";
+      }
+      const checked = checkPledge(
+        { order, member: did, amount: { currency: "ZAR", minor } },
+        did as Did,
+      );
+      if (!checked.ok) return checked.problem;
+      const event = pledgeEvent({
+        community: nodeCommunity.key,
+        me: did as Did,
+        now: Date.now(),
+        randomBytes: getRandomBytes,
+        order: checked.value.order,
+        minor,
+      });
+      const queued = await bundle.sync.enqueue(nodeCommunity.key, event);
+      if (!queued.ok) return unqueuedMessage("The pledge was made", queued.reason);
+      queuedPledges.current.set(checked.value.order, queued.id);
+      void tick({ once: true });
+      return undefined;
+    },
+    [nodeFor, did, nodeCommunity, tick],
+  );
+
+  const paymentOf = useCallback(
+    async (order: string): Promise<PaymentView> => {
+      const bundle = nodeFor();
+      if (
+        bundle === null ||
+        bundle.client === undefined ||
+        did === null ||
+        nodeCommunity === null
+      ) {
+        return { onNode: false, queued: false };
+      }
+      const name = tidy(order);
+      const stored = bundle.sync.viewOf(nodeCommunity.key)?.get(pledgeKey(name, did)) as
+        | { event?: unknown; minor?: unknown }
+        | undefined;
+      // A newer pledge still on this phone (Pay again) shows as saved here until the Node's record has it.
+      const pending = queuedPledges.current.get(name);
+      const onRecord = typeof stored?.event === "string" ? stored.event : undefined;
+      if (pending !== undefined && pending !== onRecord) {
+        return { onNode: true, queued: true };
+      }
+      if (pending !== undefined) queuedPledges.current.delete(name);
+      if (
+        stored === undefined ||
+        typeof stored.event !== "string" ||
+        typeof stored.minor !== "number"
+      ) {
+        return { onNode: true, queued: false };
+      }
+      const status = await bundle.client.paymentStatus(nodeCommunity.key, stored.event);
+      // A failed read says why, by its kind (review item 6); only the Node's own answer carries a payment status.
+      return status.ok
+        ? {
+            onNode: true,
+            pledgedMinor: stored.minor,
+            queued: false,
+            status: status.value.status,
+            windowOpen: status.value.windowOpen,
+          }
+        : {
+            onNode: true,
+            pledgedMinor: stored.minor,
+            queued: false,
+            status: paymentStatusOfFailure(status.failure),
+          };
+    },
+    [nodeFor, did, nodeCommunity],
+  );
+
+  const payOrder = useCallback(
+    async (order: string) => {
+      const bundle = nodeFor();
+      if (
+        bundle === null ||
+        bundle.client === undefined ||
+        did === null ||
+        nodeCommunity === null
+      ) {
+        return {
+          ok: false as const,
+          message: "Make or join a community on the OCN Node first, in Settings.",
+        };
+      }
+      const stored = bundle.sync.viewOf(nodeCommunity.key)?.get(pledgeKey(tidy(order), did)) as
+        | { event?: unknown }
+        | undefined;
+      if (stored === undefined || typeof stored.event !== "string") {
+        return {
+          ok: false as const,
+          message: "Your pledge has not reached the OCN Node yet. Try Pay again in a moment.",
+        };
+      }
+      const reply = await bundle.client.payPledge(nodeCommunity.key, stored.event);
+      if (!reply.ok) {
+        return {
+          ok: false as const,
+          message: nodeFailureMessage(reply.failure, "start your payment"),
+        };
+      }
+      if (NODE_ADDRESS.ok === false) {
+        return { ok: false as const, message: NODE_ADDRESS.reason };
+      }
+      return { ok: true as const, url: `${NODE_ADDRESS.url}${reply.value.bankPath}` };
+    },
+    [nodeFor, did, nodeCommunity],
+  );
+
   const shownMembers = nodeCommunity === null ? members : nodeMembers;
   const noNodeReason =
     did === null || auth === null || NODE_ADDRESS.ok ? undefined : NODE_ADDRESS.reason;
@@ -455,6 +589,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       joinOnNode,
       pool: nodeCommunity === null ? null : pool,
       refreshPool,
+      pledgeOrder,
+      paymentOf,
+      payOrder,
     }),
     [
       community,
@@ -483,6 +620,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       nodeCommunity,
       pool,
       refreshPool,
+      pledgeOrder,
+      paymentOf,
+      payOrder,
     ],
   );
   return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;
