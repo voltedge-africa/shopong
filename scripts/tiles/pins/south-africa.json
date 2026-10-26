@@ -1,0 +1,25 @@
+{
+  "region": "south-africa",
+  "pinned": true,
+  "note": "D-8, option A (product owner, 2026-10-26): the national South Africa extract. Geofabrik publishes no KwaZulu-Natal file. A later release can clip it to a smaller box (option B) if the size matters.",
+  "source": {
+    "file": "south-africa-261025.osm.pbf",
+    "url": "https://download.geofabrik.de/africa/south-africa-261025.osm.pbf",
+    "md5Url": "https://download.geofabrik.de/africa/south-africa-261025.osm.pbf.md5",
+    "snapshotDate": "2026-10-25",
+    "sha256": "511968e475fc09f4346a9e1d7b56898bf4732123fe0c5e46196bd88d463176d8"
+  },
+  "builder": {
+    "valhallaVersion": "3.8.3",
+    "valhallaRevision": "a60c7cbfc83e073f50887cd27e0109d02e6b64e5",
+    "wrapper": "valhalla-wasm v0.2.1 (b09d0ceb6673801d9e8eeb30c43927b89300c553)"
+  },
+  "coverage": [16.3, -35.0, 33.1, -22.0],
+  "attribution": {
+    "text": "\u00a9 OpenStreetMap contributors, ODbL 1.0",
+    "linkText": "\u00a9 OpenStreetMap contributors (ODbL)",
+    "url": "https://www.openstreetmap.org/copyright",
+    "licence": "ODbL 1.0",
+    "note": "Tiles built from OpenStreetMap are treated as a derived database: attribution is shown and the share-alike position needs counsel's confirmation before the first public release (question 5)."
+  }
+}

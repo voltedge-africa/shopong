@@ -132,9 +132,10 @@ No account needed.
 
 The tile build for the served map is `scripts/tiles/` (the Eswatini file above is only a rehearsal pin).
 
-- **Region.** The pilot region is the KwaZulu-Natal province (D-8). Geofabrik publishes no KwaZulu-Natal extract:
-  its South Africa page lists only the national file, so `scripts/tiles/pins/kwazulu-natal.json` is unpinned and the
-  build refuses. Pin a source there (file, SHA-256 and coverage box) before any South African release.
+- **Region.** D-8 was decided by the product owner on 2026-10-26 as option A: the national South Africa extract
+  (`scripts/tiles/pins/south-africa.json`, Geofabrik snapshot 2026-10-25, SHA-256 and MD5 checked). Geofabrik publishes
+  no KwaZulu-Natal file. The pilot still runs in KwaZulu-Natal; a later release can clip to a smaller box (option B) if
+  the size or build time becomes a problem.
 - **Scratch.** Downloads and builds go to `$SCRATCH`, which defaults to `~/.cache/ocn-tiles`, never a shared `/tmp`
   path. Each run checks it: it must be a real folder (not a symbolic link) owned by you, with no group or other write
   access. It is created with mode 0700 when missing; for an existing folder run `chmod 700` on it. The builder
