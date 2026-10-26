@@ -3,3 +3,10 @@ export { COMPONENT_NAMES, type ComponentName, type ComponentStatus } from "./com
 export { loadConfig, type NodeConfig } from "./config.ts";
 export { ConfigError, SECRET_DEFINITIONS, ResolvedSecrets } from "./secrets.ts";
 export { startNode, type RunningNode } from "./node.ts";
+export {
+  createCapabilityServer,
+  defineTool,
+  type CapabilityServer,
+  type CapabilityTool,
+} from "./capability-mcp.ts";
+export { defaultCapabilityTools } from "./capability-tools.ts";
