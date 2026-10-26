@@ -69,6 +69,20 @@ context: []
 
 ## Review Triage Log
 
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 8 findings: 1 high, 3 medium, 4 low. One more gap found by the orchestrator's mutation check.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | A comma used as a decimal ("12,50") became R1250 | high, real | patch | Comma accepted only as thousands groups; anything else refused with "write the price like 125.50"; test failed first; mutation-checked; checked on web and emulator |
+| 2 | A phone number next to words in a supplier name was accepted | medium, real | patch | A run of 7 or more digits is refused in supplier and item names; test failed first; mutation-checked |
+| 3 | An expired co-treasurer can backdate a quote | medium, known | defer | S-6.8-5 and S-6.8-11 (same gap as S-2.4-5) |
+| 4 | No bound on name length, control characters, line count | medium, real | patch | Limits and plain reasons; tested at the edge |
+| 5 | Very large prices and sizes accepted | low, real | patch | Limits (R100,000 per pack and fee, 10,000 per pack size, 90 days) |
+| 6 | Internal whitespace not folded in names | low, real | patch | Folded to one space; tested |
+| 7 | Raw port error (with a DID) could reach the screen | low, real | patch | Mapped to a plain sentence; tested |
+| 8 | A stale reply could overwrite the list for a newer order | low, real | patch | Cancel flag; no render test (S-6.8-9) |
+| 9 | (mutation check) Removing apply's shape check changed no test | medium, real | patch | Tests write malformed quotes straight to the record; 4 fail with the check removed |
+
 ## Open Questions
 
 **Answered 2026-10-26 by the product owner: all recommended answers accepted.**

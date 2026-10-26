@@ -27,6 +27,7 @@
     "@shopong/miniapp-chat": "workspace:*",
     "@shopong/miniapp-delivery": "workspace:*",
     "@shopong/miniapp-insights": "workspace:*",
+    "@shopong/miniapp-orders": "workspace:*",
     "@shopong/miniapp-shop": "workspace:*",
     "@shopong/miniapp-wallet": "workspace:*",
     "@shopong/ports": "workspace:*",

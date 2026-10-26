@@ -10,7 +10,8 @@
 // (an invitee, before they have even joined) could claim to be the creator and invite anyone.
 //
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
-// `joined/<invitation id>` { member }, `roles/<did>/<role>` (see roles.ts), `rejected/<event id>` { type, reason }.
+// `joined/<invitation id>` { member }, `roles/<did>/<role>` (see roles.ts), `quotes/<order>/<supplier>`
+// (see quotes.ts), `rejected/<event id>` { type, reason }.
 
 import type { EventEnvelope, JsonObject } from "@shopong/events";
 import type { Apply, CapabilityAuth, Did, RecordEntry, ViewWriter } from "@shopong/ports";
@@ -18,6 +19,7 @@ import { invitePassOnAllowed } from "./chain.js";
 import { verifyAuthority } from "./authority.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
 import { decodeProof } from "./proof.js";
+import { QUOTE_MESSAGES, checkQuote, isTreasurer, quoteJson, quoteKey } from "./quotes.js";
 import {
   coTreasurerJoinRecorded,
   isCoTreasurer,
@@ -101,13 +103,25 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /** A quote is the treasurer's: the creator or a co-treasurer. Its shape is checked as in the form. */
+  async function quoteAdded(event: EventEnvelope, view: ViewWriter): Promise<string | undefined> {
+    if (!(await isTreasurer(view, env.creator, event.actor, event.claimedAt))) {
+      return QUOTE_MESSAGES.not_permitted;
+    }
+    const checked = checkQuote(event.payload);
+    if (!checked.ok) return checked.problems.join(" ");
+    await view.put(quoteKey(checked.value.order, checked.value.supplier), quoteJson(checked.value));
+    return undefined;
+  }
+
   return async (entries, view, host) => {
     for (const entry of entries) {
       const event = entry.event;
       if (
         event.type !== "member.invited" &&
         event.type !== "member.joined" &&
-        event.type !== "role.granted"
+        event.type !== "role.granted" &&
+        event.type !== "quote.added"
       ) {
         continue;
       }
@@ -120,7 +134,9 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
               ? await invited(event, view, host)
               : event.type === "role.granted"
                 ? await recordRoleGrant(env, view, event)
-                : await joined(entry, view);
+                : event.type === "quote.added"
+                  ? await quoteAdded(event, view)
+                  : await joined(entry, view);
       if (reason !== undefined) {
         await view.put(`rejected/${entry.id}`, { type: event.type, reason });
       }

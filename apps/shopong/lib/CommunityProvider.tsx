@@ -16,6 +16,7 @@ import type {
   Invitation,
   InvitationError,
   Member,
+  Quote,
   RoleCheck,
   RoleError,
   RoleRecord,
@@ -40,6 +41,11 @@ type CommunityContextValue = {
   check: (text: string) => Promise<Result<CheckedInvitation, InvitationError>>;
   grant: (grantee: string, role: string, options: GrantOptions) => Promise<string | undefined>;
   checkAction: (request: ActionRequest) => Promise<Result<RoleCheck, RoleError>>;
+  /** Whether I may add a quote: the creator, or a co-treasurer whose role has not ended. */
+  canAddQuotes: boolean;
+  /** Record a quote. Resolves with the plain reasons it was refused, or `undefined` when recorded. */
+  addQuote: (input: unknown) => Promise<string | undefined>;
+  quotesFor: (order: string) => Promise<readonly Quote[]>;
   /** The last refusals on this phone, newest first (story 2.5). */
   refusals: readonly Refusal[];
 };
@@ -132,6 +138,22 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     [serviceFor],
   );
 
+  const addQuote = useCallback(
+    async (input: unknown) => {
+      const made = await serviceFor().addQuote(input);
+      setRefusals(serviceFor().refusals());
+      return messageOf(made);
+    },
+    [serviceFor],
+  );
+
+  const quotesFor = useCallback((order: string) => serviceFor().quotesFor(order), [serviceFor]);
+
+  const canAddQuotes =
+    community !== null &&
+    (isCreator ||
+      roles.some((role) => role.role === "co-treasurer" && role.expiresAt > Date.now()));
+
   const value = useMemo(
     () => ({
       community,
@@ -144,6 +166,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       check,
       grant,
       checkAction,
+      canAddQuotes,
+      addQuote,
+      quotesFor,
       refusals,
     }),
     [
@@ -157,6 +182,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       check,
       grant,
       checkAction,
+      canAddQuotes,
+      addQuote,
+      quotesFor,
       refusals,
     ],
   );

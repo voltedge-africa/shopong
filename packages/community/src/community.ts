@@ -26,6 +26,14 @@ import {
 } from "@shopong/ports";
 import { createCommunityApply, FOUNDER_INVITATION } from "./apply.js";
 import {
+  QUOTE_MESSAGES,
+  checkQuote,
+  isTreasurer,
+  quoteJson,
+  quotesOf,
+  type Quote,
+} from "./quotes.js";
+import {
   checkAction,
   coTreasurerJoinGrant,
   issueRole,
@@ -79,6 +87,16 @@ export interface GrantOptions {
 }
 
 export const EMPTY_NAME_MESSAGE = "Give your community a name.";
+
+/** `not_permitted`: not the treasurer. `incomplete`: nothing is recorded; the reasons are in the message. */
+export type QuoteError = PortError<"not_permitted" | "incomplete" | "refused">;
+
+export interface QuoteReceipt {
+  /** The event id of the `quote.added` entry. */
+  readonly id: string;
+  /** True when this exact event was already in the log: nothing new was written, so one quote stands. */
+  readonly duplicate: boolean;
+}
 
 function field(value: JsonValue, key: string): JsonValue | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -143,6 +161,13 @@ export interface Community {
   roles(): Promise<readonly RoleRecord[]>;
   /** "What can I do?": may I do this now? */
   checkAction(request: ActionRequest, now: EpochMs): Promise<Result<RoleCheck, RoleError>>;
+  /**
+   * Record a typed quote (story 6.8). Only the treasurer may; an incomplete quote is refused with the
+   * reasons and nothing is written. A quote for the same supplier and order replaces the older one.
+   */
+  addQuote(input: unknown, now: EpochMs): Promise<Result<QuoteReceipt, QuoteError>>;
+  /** The quotes recorded for one order, as the view holds them now. */
+  quotesFor(order: string): Promise<readonly Quote[]>;
 }
 
 function wrap(
@@ -233,6 +258,42 @@ function wrap(
         request,
         now,
       );
+    },
+    async addQuote(input, now) {
+      await space.update();
+      if (!(await isTreasurer(space.view, creator, me, now))) {
+        return err("not_permitted", QUOTE_MESSAGES.not_permitted);
+      }
+      const checked = checkQuote(input);
+      if (!checked.ok) return err("incomplete", checked.problems.join(" "));
+      // Every refusal here is a plain sentence: a raw port or envelope message can name a DID or a path.
+      let event: EventEnvelope;
+      try {
+        event = createEvent({
+          type: "quote.added",
+          space: key,
+          actor: space.local,
+          proof: [],
+          claimedAt: now,
+          nonce: toHex(deps.randomBytes(16)),
+          payload: quoteJson(checked.value),
+        } as never) as EventEnvelope;
+      } catch {
+        return err("refused", QUOTE_MESSAGES.save_failed);
+      }
+      const receipt = await space.append(event);
+      if (!receipt.ok) return err("refused", QUOTE_MESSAGES.not_writable);
+      await space.update();
+      const rejected = await space.view.get(`rejected/${receipt.value.id}`);
+      if (rejected !== undefined) {
+        const reason = field(rejected, "reason");
+        return err("refused", typeof reason === "string" ? reason : INVITATION_MESSAGES.unreadable);
+      }
+      return ok({ id: receipt.value.id, duplicate: receipt.value.duplicate });
+    },
+    async quotesFor(order) {
+      await space.update();
+      return quotesOf(space.view, order);
     },
     async members() {
       await space.update();

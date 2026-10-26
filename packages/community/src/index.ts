@@ -14,7 +14,21 @@ export {
   type CommunityError,
   type GrantOptions,
   type Member,
+  type QuoteError,
+  type QuoteReceipt,
 } from "./community.js";
+export {
+  QUOTE_LIMITS,
+  QUOTE_MESSAGES,
+  checkQuote,
+  isTreasurer,
+  quoteKey,
+  quotesOf,
+  type DeliveryTerms,
+  type Quote,
+  type QuoteCheck,
+  type QuoteLine,
+} from "./quotes.js";
 export { chainOf, invitePassOnAllowed } from "./chain.js";
 export {
   ACTIONS,

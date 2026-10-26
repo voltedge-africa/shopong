@@ -23,11 +23,12 @@ describe("miniApps", () => {
     }
   });
 
-  it("installs Shop, Wallet and Chat by default and leaves two vendored apps for Discover", () => {
+  it("installs Shop, Wallet and Chat by default and leaves three vendored apps for Discover", () => {
     expect(installedMiniApps.map((app) => app.id)).toEqual(["shop", "wallet", "chat"]);
     expect(miniApps.filter((app) => !app.installed).map((app) => app.id)).toEqual([
       "insights",
       "delivery",
+      "orders",
     ]);
   });
 
@@ -38,6 +39,7 @@ describe("miniApps", () => {
     expect(kind("chat")).toBe("native");
     expect(kind("insights")).toBe("native");
     expect(kind("delivery")).toBe("bundle");
+    expect(kind("orders")).toBe("native");
   });
 });
 
@@ -51,7 +53,11 @@ describe("filterMiniApps", () => {
 
   it("matches the title ignoring case and surrounding spaces", () => {
     expect(titles(filterMiniApps(miniApps, { query: "  WALL " }))).toEqual(["Wallet"]);
-    expect(titles(filterMiniApps(miniApps, { query: "e" }))).toEqual(["Wallet", "Delivery"]);
+    expect(titles(filterMiniApps(miniApps, { query: "e" }))).toEqual([
+      "Wallet",
+      "Delivery",
+      "Orders",
+    ]);
   });
 
   it("filters by category", () => {

@@ -1,0 +1,35 @@
+{
+  "name": "@shopong/miniapp-orders",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The orders mini app: a treasurer types each supplier's quote for an order, and members compare them",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@shopong/community": "workspace:*",
+    "@shopong/miniapp": "workspace:*"
+  },
+  "devDependencies": {
+    "@expo/vector-icons": "15.1.1",
+    "@types/react": "19.3.0",
+    "panelui-native": "0.114.0",
+    "react": "19.3.0",
+    "react-native": "0.88.0",
+    "typescript": "7.0.2",
+    "uniwind": "1.13.0",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "@expo/vector-icons": "*",
+    "panelui-native": "*",
+    "react": "*",
+    "react-native": "*",
+    "uniwind": "*"
+  }
+}
