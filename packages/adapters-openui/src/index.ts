@@ -1,5 +1,11 @@
 // The OpenUI adapter for the GenUi port. See README.md.
-export { OpenUiGenUi, inspectScreen, openUiLibraryOf } from "./gen-ui.js";
+export {
+  OpenUiGenUi,
+  generateSpec,
+  generateSystemPrompt,
+  inspectScreen,
+  openUiLibraryOf,
+} from "./gen-ui.js";
 export {
   ACTION,
   CHILDREN,

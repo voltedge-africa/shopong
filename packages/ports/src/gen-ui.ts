@@ -17,6 +17,8 @@ export interface ComponentSpec {
   readonly props: { readonly [prop: string]: PropSpec };
   /** Component names allowed as children; empty or absent means no children. `"*"` allows any. */
   readonly children?: readonly string[];
+  /** Capability read tool names whose data this component may show. Absent means none. */
+  readonly reads?: readonly string[];
   /** Capability tool names a node of this component may trigger. Absent means none. */
   readonly actions?: readonly string[];
 }

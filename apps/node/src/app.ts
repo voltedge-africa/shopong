@@ -7,6 +7,8 @@ import {
   type NodeComponent,
 } from "./components.ts";
 import { createAuthorityGuard, type AuthorityConfig } from "./authority.ts";
+import { registerCapabilityRoutes } from "./capability-mcp-routes.ts";
+import type { CapabilityServer } from "./capability-mcp.ts";
 import { registerCommitmentRoute } from "./commitment-route.ts";
 import { keepRawJsonBody } from "./signed.ts";
 import { registerCors, type CorsOptions } from "./cors.ts";
@@ -75,6 +77,8 @@ export interface AppOptions {
   books?: { readonly configureCommunity: (communityKey: string) => Promise<void> };
   /** The signed file routes (story 3.7). Without it, they are not served. */
   files?: FileRouteOptions;
+  /** The OCN Capability MCP server (story 11.2). Without it, `/mcp` and `/capability/confirm` are not served. */
+  capabilityMcp?: CapabilityServer;
   /** The map tile releases (story 7.2). Without a releases folder the `/map` routes are not served. */
   tiles?: TileRouteOptions;
 }
@@ -140,6 +144,13 @@ export function buildApp(options: AppOptions): FastifyInstance {
   if (options.files !== undefined) registerFileRoutes(app, options.files);
   registerPoolRoute(app, auth, options.pool ?? {});
   if (options.routes !== undefined) registerRouteRoutes(app, auth, options.routes);
+  if (options.capabilityMcp !== undefined) {
+    registerCapabilityRoutes(app, {
+      server: options.capabilityMcp,
+      auth,
+      ...(options.authority?.now === undefined ? {} : { now: options.authority.now }),
+    });
+  }
   if (options.tiles !== undefined) registerTileRoutes(app, options.tiles);
   if (options.payments !== undefined) {
     registerPaymentRoutes(app, options.payments, options.paymentConfirmation);

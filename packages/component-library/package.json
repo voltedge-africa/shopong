@@ -1,0 +1,23 @@
+{
+  "name": "@shopong/component-library",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The approved OCN component library for generated interfaces (AD-11): what a model may use, what each part may bind to, built locally",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@shopong/ports": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  }
+}
