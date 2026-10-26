@@ -26,6 +26,7 @@ import {
   isTreasurer,
   logTimeOf,
   ordersOf,
+  paidPayoutsOf,
   poolView,
   selectionOf,
   type PoolReading,
@@ -212,5 +213,8 @@ async function readOnce(request: PoolReadRequest): Promise<Parameters<typeof poo
     memberIds,
     you: memberIdOf(request.masterKey, communityKey, request.caller),
     target,
+    // Which payments the record shows as paid: derived by `apply` from the mirrored postings, so it is the same on every
+    // replica and is not the Node's word (story 8.5).
+    paid: view === undefined ? [] : await paidPayoutsOf(view),
   };
 }

@@ -135,6 +135,7 @@ export function PayoutsSection({ host, order, selection, recommendation, treasur
       {cards.map((card) => (
         <View key={card.payout} className="gap-2 rounded-lg border border-border p-3">
           <Text weight="bold">{card.title}</Text>
+          {card.paid ? <Text weight="bold">Supplier paid</Text> : null}
           <Text muted>{card.approvalsText}</Text>
           <Text>{card.statusText}</Text>
           {card.notice !== undefined ? (

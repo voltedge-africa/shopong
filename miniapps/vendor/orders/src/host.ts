@@ -140,6 +140,8 @@ export interface PayoutsReading {
   /** The DID of the person looking at the screen. */
   readonly me: string;
   readonly treasurer: boolean;
+  /** The payments this phone's copy of the record shows as paid (story 8.5), by payment id. The record's word, not the Node's reply. */
+  readonly paid?: ReadonlyMap<string, number>;
   /** The record's plain reason for each approval this phone sent that did not count, by payment id. */
   readonly approvalNotices?: ReadonlyMap<string, string>;
   /** The record's plain reasons for payments this phone proposed that the record refused. */

@@ -1103,6 +1103,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           }
         }
       }
+      // "Supplier paid" is the record's: `apply` notes a payment as paid when it sees the Node's mirrored posting for it.
+      const paid = new Map<string, number>();
+      for (const payment of found) {
+        if (view.get(`payouts-paid/${payment.payout}`) !== undefined)
+          paid.set(payment.payout, payment.amountMinor);
+      }
       const payments = found
         .filter((payment) => payment.order === tidy(order))
         .map((payment) => ({ ...payment, approvers: approvers.get(payment.payout) ?? [] }));
@@ -1124,6 +1130,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         sent: sentPayments.current,
         me,
         treasurer: canAddQuotes,
+        paid,
         approvalNotices,
         proposalNotices,
       };

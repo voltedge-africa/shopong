@@ -14,7 +14,10 @@ describe("the reconciler's schedule (simulated)", () => {
     const lines: string[] = [];
     const store: Store = new CheckingStore(join(folder, "schedule.json"));
     const deps: ReconcilerDeps = {
-      simulated: { payIn: { requests: () => [] } } as unknown as ReconcilerDeps["simulated"],
+      simulated: {
+        payIn: { requests: () => [] },
+        payOut: { payouts: () => [] },
+      } as unknown as ReconcilerDeps["simulated"],
       ledger: {} as ReconcilerDeps["ledger"],
       hub: {
         heldCommunities: () => [],

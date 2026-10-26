@@ -55,6 +55,17 @@ export function PoolCard() {
               </Alert.Content>
             </Alert>
           ))}
+          {sections.supplierPaid.length > 0 ? (
+            <Alert variant="info">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Supplier paid</Alert.Title>
+                {sections.supplierPaid.map((line) => (
+                  <Alert.Description key={line}>{line}</Alert.Description>
+                ))}
+              </Alert.Content>
+            </Alert>
+          ) : null}
           {sections.figures.map((line) => (
             <Text key={line}>{line}</Text>
           ))}

@@ -10,6 +10,7 @@ const view: PoolView = {
   total: { minor: "50000", text: "The pool holds R500.00." },
   target: { minor: "100000", text: "The target is R1000.00." },
   funding: { percent: 50, text: "R500.00 of R1000.00 is in." },
+  supplierPaid: null,
   you: {
     minor: "10000",
     text: "You have paid R100.00",
@@ -228,5 +229,35 @@ describe("no bank detail on a member's screen (story 8.4)", () => {
     for (const screen of screens) {
       for (const line of poolLines(screen)) expect(line).not.toMatch(bankOrPhone);
     }
+  });
+});
+
+describe("Supplier paid on the pool card (story 8.5)", () => {
+  const paid: PoolView = {
+    ...view,
+    funding: null,
+    supplierPaid: {
+      supplier: "Makro Soweto",
+      order: "March groceries",
+      amount: { minor: "418000", text: "R4180.00" },
+      text: "Supplier paid: Makro Soweto was paid R4180.00 from the pool.",
+      note: "Test payment (simulated): no real money moved.",
+    },
+  };
+
+  it("shows the Node's two sentences, with the simulated label, ahead of the figures", () => {
+    const sections = poolSections({ state: "shown", view: paid, checkedAt: 1_000 });
+    expect(sections.supplierPaid).toEqual([
+      "Supplier paid: Makro Soweto was paid R4180.00 from the pool.",
+      "Test payment (simulated): no real money moved.",
+    ]);
+    expect(poolLines({ state: "shown", view: paid, checkedAt: 1_000 })[0]).toContain(
+      "Supplier paid",
+    );
+  });
+
+  it("shows nothing about a supplier before the record shows a payment, or when the Node is out of reach", () => {
+    expect(poolSections({ state: "shown", view, checkedAt: 1_000 }).supplierPaid).toEqual([]);
+    expect(poolSections({ state: "unreachable", message: "x" }).supplierPaid).toEqual([]);
   });
 });

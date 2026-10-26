@@ -6,6 +6,7 @@ import {
   payConfirmationOf,
   payoutCardsOf,
   PAYOUT_SIMULATED_NOTE,
+  SUPPLIER_PAID_NOTE,
   type PayoutCard,
   type PaymentRecord,
 } from "./payouts";
@@ -134,6 +135,7 @@ describe("the pay confirmation and the approval notices [S-4.7 fixes 4, 7]", () 
     canApprove: false,
     approvedByMe: true,
     canPay: true,
+    paid: false,
     ...over,
   });
 
@@ -159,5 +161,32 @@ describe("the pay confirmation and the approval notices [S-4.7 fixes 4, 7]", () 
     );
     expect(mine?.notice).toBe("That is above your limit of R1000.");
     expect(mine?.approvalsText).toBe("1 of 2 approvals so far.");
+  });
+});
+
+describe("Supplier paid, from the record (story 8.5)", () => {
+  const base = {
+    payments: [payment({ approvers: [ME, BOB] })],
+    required: 2,
+    me: ME,
+    treasurer: true,
+    sent: new Map<string, string>(),
+  };
+
+  it("shows 'Supplier paid' with the amount and the simulated label when the record says so, though this phone never sent the payment", () => {
+    const [card] = payoutCardsOf({ ...base, paid: new Map([["p1", 50000]]) });
+    expect(card?.paid).toBe(true);
+    expect(card?.statusText).toBe(
+      `Supplier paid: Makro Soweto was paid R500.00. ${SUPPLIER_PAID_NOTE}`,
+    );
+    expect(card?.canPay).toBe(false);
+    expect(card?.canApprove).toBe(false);
+  });
+
+  it("offers the payment, and says nothing about a paid supplier, until the record shows it", () => {
+    const [card] = payoutCardsOf(base);
+    expect(card?.paid).toBe(false);
+    expect(card?.canPay).toBe(true);
+    expect(card?.statusText).not.toContain("Supplier paid");
   });
 });

@@ -125,11 +125,14 @@ import {
   PAYOUT_MESSAGES,
   PAYOUT_RECOMMENDATIONS,
   PAYOUT_TYPE,
+  POSTING_TYPE,
   type PayoutRecommendation,
   approvalBytes,
   approvalKey,
   approverStanding,
   checkApprovalsSetting,
+  paidKey,
+  paysSupplier,
   payoutKey,
   termsOf,
 } from "./payout.js";
@@ -818,6 +821,24 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /**
+   * A mirrored posting (story 4.6) that pays a supplier (story 8.5): written by the creator's replica as the creator (the
+   * Node's request, as `payment.requested` is), keyed by a recorded payment's id, and debiting the supplier payable by the
+   * payment's amount. Then the payment is noted as paid. Any other posting is left alone, as before, and nothing here reads
+   * a clock, so every replica derives the same answer.
+   */
+  async function postingNoted(entry: RecordEntry<EventEnvelope>, view: ViewWriter): Promise<void> {
+    const event = entry.event;
+    if (event.actor !== env.creator || entry.writer !== env.creator) return;
+    const key = event.payload.key;
+    if (typeof key !== "string") return;
+    const recorded = (await view.get(payoutKey(key))) as { amountMinor?: unknown } | undefined;
+    if (recorded === undefined || typeof recorded.amountMinor !== "number") return;
+    if (!paysSupplier(event.payload.entries, recorded.amountMinor)) return;
+    if ((await view.get(paidKey(key))) !== undefined) return;
+    await view.put(paidKey(key), { event: entry.id });
+  }
+
   return async (entries, view, host) => {
     for (const entry of entries) {
       const event = entry.event;
@@ -841,6 +862,10 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         checkPersonalFields(event.payload).length > 0
       ) {
         await view.put(`rejected/${entry.id}`, { type: event.type, reason: PERSONAL_DATA_MESSAGE });
+        continue;
+      }
+      if (event.type === POSTING_TYPE) {
+        await postingNoted(entry, view);
         continue;
       }
       if (!CHECKED.has(event.type)) continue;

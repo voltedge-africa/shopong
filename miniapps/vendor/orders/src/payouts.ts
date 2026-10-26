@@ -6,6 +6,9 @@ import { randText } from "./form";
 export const PAYOUT_SIMULATED_NOTE =
   "Payments are simulated: no real money moves and no bank is contacted.";
 
+/** Said beside every "Supplier paid": the bank is the simulation. */
+export const SUPPLIER_PAID_NOTE = "Test payment (simulated): no real money moved.";
+
 /** A payment the treasurer recorded for this order, as the record holds it. */
 export interface PaymentRecord {
   /** The record event id of the treasurer's payment: the key of the payment everywhere (AGENTS rule 5). */
@@ -30,6 +33,8 @@ export interface PayoutCardInput {
   readonly treasurer: boolean;
   /** The Node's plain sentence for each payment it has sent, by payment id. */
   readonly sent: ReadonlyMap<string, string>;
+  /** The payments the record shows as paid out of the pool, by payment id, with the amount paid in cents (story 8.5). */
+  readonly paid?: ReadonlyMap<string, number>;
   /** The record's plain reason for an approval this phone sent that did not count, by payment id. */
   readonly approvalNotices?: ReadonlyMap<string, string>;
 }
@@ -49,6 +54,8 @@ export interface PayoutCard {
   readonly canApprove: boolean;
   readonly approvedByMe: boolean;
   readonly canPay: boolean;
+  /** True when the record shows the supplier as paid (story 8.5). */
+  readonly paid: boolean;
   /** Set once the Node has sent the payment: the payment is then never offered again. */
   readonly sentText?: string;
 }
@@ -80,7 +87,12 @@ export function payoutCardsOf(input: PayoutCardInput, order?: string): PayoutCar
       const count = new Set(payment.approvers).size;
       const approvedByMe = payment.approvers.includes(input.me);
       const enough = count >= input.required;
-      const sentText = input.sent.get(payment.payout);
+      const paidMinor = input.paid?.get(payment.payout);
+      const paid = paidMinor !== undefined;
+      // The record's word comes first: a person who opens the app later, or on another phone, sees the same thing.
+      const sentText = paid
+        ? `Supplier paid: ${payment.supplier} was paid ${randText(paidMinor)}. ${SUPPLIER_PAID_NOTE}`
+        : input.sent.get(payment.payout);
       const statusText =
         sentText ??
         (enough
@@ -100,6 +112,7 @@ export function payoutCardsOf(input: PayoutCardInput, order?: string): PayoutCar
         canApprove: !approvedByMe && sentText === undefined,
         approvedByMe,
         canPay: input.treasurer && enough && sentText === undefined,
+        paid,
         ...(sentText === undefined ? {} : { sentText }),
       };
     });
