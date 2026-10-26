@@ -8,6 +8,14 @@ import { fileAttachedIssues } from "./attachment.js";
 import type { JsonObject } from "./json.js";
 import { coarseArea } from "./area.js";
 import { looksLikeAddress } from "./personal.js";
+import {
+  BUSINESS_NAME_MAX,
+  BUSINESS_KINDS,
+  PROFILE_SIGNATURE,
+  profileAreaOk,
+  profileKindOk,
+  businessNameOk,
+} from "./profile.js";
 
 export const EVENT_TYPES = [
   "member.invited",
@@ -45,6 +53,7 @@ export const EVENT_TYPES = [
   "file.attached",
   "member.area",
   "community.named",
+  "business.profile",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -101,6 +110,17 @@ export interface RoleGrantedPayload extends JsonObject {
 export interface CommunityNamedPayload extends JsonObject {
   readonly name: string;
   readonly rules: string;
+}
+
+/**
+ * `business.profile` (story 9.1): a small retailer's business profile in one community. The actor is the retailer, and
+ * `signature` is their DID's signature over the shown fields (`businessProfileBytes`). `kind` and `area` are optional:
+ * a field the retailer keeps back is left out of the event, and the type does not name it (an optional field cannot
+ * sit under `JsonObject`).
+ */
+export interface BusinessProfilePayload extends JsonObject {
+  readonly name: string;
+  readonly signature: string;
 }
 
 /**
@@ -181,6 +201,7 @@ export type PayloadMap = { [T in EventType]: JsonObject } & {
   "collection.confirmed": CollectionConfirmedPayload;
   "delivery.disputed": DeliveryDisputedPayload;
   "community.named": CommunityNamedPayload;
+  "business.profile": BusinessProfilePayload;
 };
 
 export interface Issue {
@@ -438,6 +459,49 @@ const coarseDegrees = (value: unknown, max: number): boolean =>
  * optionally the place it was confirmed at: an opaque place id, or a coarse latitude and longitude (both or neither,
  * two decimal places at most). No other coordinate is accepted (AGENTS rule 6).
  */
+/**
+ * `business.profile` (story 9.1): the name (always shown), and optionally the kind and the suburb or town, each only
+ * when the retailer chose to show it. Nothing else: no phone, ID number, address or registration number.
+ */
+const businessProfile: PayloadValidator = (payload) => {
+  const issues: Issue[] = [
+    ...onlyKeys(payload, ["name", "kind", "area", "signature"]),
+    ...requireString(
+      payload,
+      "name",
+      businessNameOk,
+      `must be a business name of 1 to ${BUSINESS_NAME_MAX} characters, not an address`,
+    ),
+    ...requireString(
+      payload,
+      "signature",
+      (v) => PROFILE_SIGNATURE.test(v),
+      "must be a signature in base64url, 86 characters",
+    ),
+  ];
+  if (payload.kind !== undefined) {
+    issues.push(
+      ...requireString(
+        payload,
+        "kind",
+        profileKindOk,
+        `must be one of: ${BUSINESS_KINDS.join(", ")}`,
+      ),
+    );
+  }
+  if (payload.area !== undefined) {
+    issues.push(
+      ...requireString(
+        payload,
+        "area",
+        profileAreaOk,
+        "must be a suburb or town name of up to 60 characters, with no street, number or erf",
+      ),
+    );
+  }
+  return issues;
+};
+
 const deliveryConfirmed: PayloadValidator = (payload) => {
   const issues: Issue[] = [
     ...onlyKeys(payload, ["order", "photoSha512", "place", "lat", "lng"]),
@@ -693,4 +757,5 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "order.proposed": orderProposed,
   "order.approved": orderApproved,
   "quote.selected": quoteSelected,
+  "business.profile": businessProfile,
 };

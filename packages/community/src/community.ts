@@ -16,6 +16,7 @@ import {
   type EventType,
   type JsonObject,
   type Sha512,
+  businessProfileBytes,
 } from "@shopong/events";
 import {
   err,
@@ -87,6 +88,14 @@ import {
   type Selection,
 } from "./selection.js";
 import { newCommunityKey, toHex } from "./space.js";
+import {
+  PROFILE_MESSAGES,
+  PROFILE_TYPE,
+  profileFieldsOf,
+  profilesOf,
+  type BusinessProfile,
+  type BusinessProfileDraft,
+} from "./profile.js";
 
 export interface CommunityDeps {
   readonly auth: CapabilityAuth;
@@ -346,6 +355,16 @@ export interface Community {
    */
   setMemberArea(area: string, now: EpochMs): Promise<Result<EventEnvelope, PlanError>>;
   /**
+   * Publish my business profile in this community (story 9.1): only the fields given are shown, and the profile is signed
+   * with my key over them. A profile I keep back is simply not given.
+   */
+  publishProfile(
+    draft: BusinessProfileDraft,
+    now: EpochMs,
+  ): Promise<Result<EventEnvelope, PortError<"refused">>>;
+  /** Every shown business profile in this community, one per member (story 9.1). */
+  profiles(): Promise<readonly BusinessProfile[]>;
+  /**
    * Record an order's route between two registered places (story 7.4). The treasurer, or a driver whose role stands
    * at log time, may plan it. Refused with the plain reason otherwise.
    */
@@ -495,6 +514,26 @@ function wrap(
       if (!coarse.ok) return err("refused", coarse.reason);
       await space.update();
       return append(deps, space, key, "member.area", { area: coarse.area }, [], now);
+    },
+    async publishProfile(draft, now) {
+      const checked = profileFieldsOf(draft);
+      if (!checked.ok) return err("refused", checked.reason);
+      const signed = await deps.auth.sign(me, businessProfileBytes(key, checked.fields));
+      if (!signed.ok) return err("refused", PROFILE_MESSAGES.unreadable);
+      await space.update();
+      return append(
+        deps,
+        space,
+        key,
+        PROFILE_TYPE,
+        { ...checked.fields, signature: signed.value },
+        [],
+        now,
+      );
+    },
+    async profiles() {
+      await space.update();
+      return profilesOf(await space.view.list("profiles/"));
     },
     async planDelivery(plan, now) {
       await space.update();
