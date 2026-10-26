@@ -172,6 +172,8 @@ export function OrdersHostProvider({ children }: { children: ReactNode }) {
             },
             collect: (order) => proof.collect(order),
             dispute: (order, note) => proof.dispute(order, note),
+            closingOf: proof.closingOf,
+            close: proof.close,
           };
     return {
       canAdd: canAddQuotes,

@@ -3,7 +3,7 @@
 // package never reaches into the app.
 
 import { createContext } from "react";
-import type { Quote, Selection, StoredOrder } from "@shopong/community";
+import type { ClosingSummary, Quote, Selection, StoredOrder } from "@shopong/community";
 import type { PaymentView } from "./pay";
 import type { PaymentRecord } from "./payouts";
 import type { FileCheck, FilePurpose, FileRowView } from "./files";
@@ -79,6 +79,10 @@ export interface ProofHost {
   collect(order: string): Promise<string | undefined>;
   /** A dispute of the delivery, with the person's own short note. Resolves with a plain reason or undefined. */
   dispute(order: string, note: string): Promise<string | undefined>;
+  /** The closing summary, read from the record and the pool (story 8.7). Undefined when there is no community to read. */
+  closingOf(order: string): Promise<ClosingSummary | undefined>;
+  /** The treasurer closes the order, after confirming on screen. Resolves with a plain reason or undefined once queued. */
+  close(order: string): Promise<string | undefined>;
 }
 
 /** The orders on the record, and how many members there are (story 8.2). The screen works out the totals. */

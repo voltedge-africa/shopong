@@ -21,6 +21,7 @@ import {
   newCommunityKey,
   pledgeKey,
   tidy,
+  type ClosingSummary,
   type OrderProgress,
   type ActionRequest,
   type CheckedInvitation,
@@ -59,6 +60,7 @@ import {
 import {
   approvalEvent,
   collectionConfirmedEvent,
+  orderClosedEvent,
   deliveryConfirmedEvent,
   deliveryDisputedEvent,
   founderEvent,
@@ -250,6 +252,10 @@ export interface ProofSurface {
   /** The driver's arrival: attaches the picked photo, then queues the confirmation with its SHA-512. */
   readonly confirmArrival: (order: string, picked: PickedFile) => Promise<string | undefined>;
   readonly collect: (order: string) => Promise<string | undefined>;
+  /** The closing summary, read from the record and the pool when the Node gave one (story 8.7). */
+  readonly closingOf: (order: string) => Promise<ClosingSummary | undefined>;
+  /** The treasurer closes the order after confirming on screen. Resolves with a plain reason, or undefined once queued. */
+  readonly close: (order: string) => Promise<string | undefined>;
   readonly dispute: (order: string, note: string) => Promise<string | undefined>;
 }
 
@@ -728,6 +734,29 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
           "Your collection was recorded",
         );
       },
+      closingOf: async (order) => {
+        const current = serviceFor().community();
+        if (current === null) return undefined;
+        return current.closingOf(tidy(order), pool?.state === "shown" ? pool.view : undefined);
+      },
+      close: async (order) => {
+        const current = serviceFor().community();
+        if (current === null) return "Make or join a community on the OCN Node first, in Settings.";
+        const wanted = tidy(order);
+        // The same checks the record makes, so the treasurer is told at once who is missing (story 8.7).
+        const problem = await current.closeProblem(wanted);
+        if (problem !== undefined) return problem;
+        return queue(
+          orderClosedEvent({
+            community: key,
+            me,
+            now: Date.now(),
+            randomBytes: getRandomBytes,
+            order: wanted,
+          }),
+          "The close was recorded",
+        );
+      },
       dispute: async (order, note) => {
         const wanted = tidy(order);
         const delivered = await arrivalOf(wanted);
@@ -746,7 +775,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         );
       },
     };
-  }, [nodeCommunity, did, nodeFor, serviceFor, tick]);
+  }, [nodeCommunity, did, nodeFor, serviceFor, tick, pool]);
 
   const canAddQuotes =
     community !== null &&
