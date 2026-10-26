@@ -3,7 +3,7 @@ title: 'Always-on seeder, indexer, relay and bootstrap on the OCN Node'
 type: 'feature'
 ticket: 5
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: 'f90eea4108f3dbdcd21e090488c642995961c015'
 route: 'full'
 route_source: 'auto'
