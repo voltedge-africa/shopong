@@ -13,6 +13,10 @@ import { registerCommunityRoutes, type CommunityHub } from "./community-routes.t
 import { registerPoolRoute, type PoolRouteOptions } from "./pool-routes.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { registerPaymentRoutes } from "./payments-routes.ts";
+import {
+  registerPaymentRequestRoutes,
+  type PaymentRequestOptions,
+} from "./payment-request-route.ts";
 import { registerCheckingRoute, type CheckingRouteOptions } from "./checking-routes.ts";
 import type { ConfirmationDeps } from "./payment-confirmation.ts";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
@@ -51,6 +55,8 @@ export interface AppOptions {
   pool?: PoolRouteOptions;
   /** The simulated payments (story 4.4). Without it, the payment routes are not served. */
   payments?: SimulatedStitch;
+  /** The member's pay routes for a pledge (story 4.3). Without it, they are not served. */
+  paymentRequests?: PaymentRequestOptions;
   /** Confirms a verified pay-in webhook: books, record, status, in order (story 4.5). Without it, the webhook only sets status. */
   paymentConfirmation?: ConfirmationDeps;
   /** The treasurer's "Needs checking" list (story 4.5). Without it, the route is not served. */
@@ -112,6 +118,9 @@ export function buildApp(options: AppOptions): FastifyInstance {
     registerPaymentRoutes(app, options.payments, options.paymentConfirmation);
   }
   if (options.checking !== undefined) registerCheckingRoute(app, auth, options.checking);
+  if (options.paymentRequests !== undefined) {
+    registerPaymentRequestRoutes(app, options.paymentRequests);
+  }
   if (options.communities !== undefined) {
     registerCommunityRoutes(app, {
       hub: options.communities,

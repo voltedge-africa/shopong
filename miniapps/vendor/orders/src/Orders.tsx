@@ -1,13 +1,21 @@
 // Orders: the quotes for one order, side by side. The treasurer types each supplier's prices and delivery
 // terms and what the order needs; everyone can read them. The lowest total is shown by a simple rule, with
 // the margin and the rule in plain words (story 6.9). Nothing is chosen here: a person chooses the supplier.
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { Alert, Button, Input, Text } from "panelui-native";
-import type { Quote } from "@shopong/community";
+import { amountProblem, type Quote } from "@shopong/community";
 
-import { OrdersHostContext, type OrdersHost } from "./host";
-import { deliveryText, emptyLine, quoteInput, randText, type LineDraft } from "./form";
+import { OrdersHostContext, type OrdersHost, type PaymentHost } from "./host";
+import { deliveryText, emptyLine, parseRand, quoteInput, randText, type LineDraft } from "./form";
+import {
+  actionLabel,
+  createSingleFlight,
+  payCardOf,
+  SIMULATED_NOTE,
+  type PayAction,
+  type PaymentView,
+} from "./pay";
 import { orderRanking, type WantDraft } from "./ranking";
 
 const emptyWant = (): WantDraft => ({ item: "", quantity: "" });
@@ -90,6 +98,10 @@ function OrdersView({ host }: { host: OrdersHost }) {
         )}
 
         {ranking !== undefined && !loadFailed ? <RankingCard ranking={ranking} /> : null}
+
+        {host.payments !== undefined && name !== "" ? (
+          <PayPanel key={name} payments={host.payments} order={name} />
+        ) : null}
 
         {host.canAdd ? (
           <AddQuote host={host} order={name} onSaved={reload} />
@@ -192,6 +204,110 @@ function RankingCard({ ranking }: { ranking: ReturnType<typeof orderRanking> }) 
           {sentence}
         </Text>
       ))}
+    </View>
+  );
+}
+
+/**
+ * The member's own pledge and its bank payment for this order. What it shows is `payCardOf`'s words for what the Node
+ * says; nothing here is "paid" unless the Node's record says a test payment completed. A pledge is made here with an
+ * amount in rand; the Node checks the amount again before it asks the bank.
+ */
+function PayPanel({ payments, order }: { payments: PaymentHost; order: string }) {
+  const [view, setView] = useState<PaymentView | undefined>();
+  const [amountText, setAmountText] = useState("");
+  const [note, setNote] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setView(await payments.paymentOf(order));
+  }, [payments, order]);
+
+  useEffect(() => {
+    let current = true;
+    setView(undefined);
+    payments.paymentOf(order).then(
+      (found) => {
+        if (current) setView(found);
+      },
+      () => {
+        if (current) setView({ onNode: true, queued: false, status: "unreachable" });
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [payments, order]);
+
+  const pledge = async (minor: number | undefined): Promise<string | undefined> => {
+    if (minor === undefined || Number.isNaN(minor))
+      return "Type the amount in rand, like 150 or 150.50.";
+    const problem = amountProblem(minor);
+    if (problem !== undefined) return problem;
+    return payments.pledge(order, minor);
+  };
+
+  // One action at a time: a second tap while one runs is ignored, so two taps open one bank tab (review item 12).
+  const flight = useRef(createSingleFlight());
+  const run = (action: PayAction) => flight.current.run(() => doRun(action)).then(() => undefined);
+
+  const doRun = async (action: PayAction) => {
+    setBusy(true);
+    setNote(undefined);
+    let reason: string | undefined;
+    if (action === "pledge") {
+      reason = await pledge(parseRand(amountText));
+      if (reason === undefined) setAmountText("");
+    } else if (action === "pay") {
+      reason = await payments.pay(order);
+    } else if (action === "pay_again") {
+      // A new attempt is a new pledge event for the same amount. It must reach the Node's record before Pay can ask
+      // the bank for it, so this only queues it; the card then shows it as saved until it has arrived.
+      const minor = view?.pledgedMinor;
+      reason = minor === undefined ? "Make a pledge first." : await pledge(minor);
+    }
+    setNote(reason);
+    await load();
+    setBusy(false);
+  };
+
+  const card = view === undefined ? undefined : payCardOf(view);
+  return (
+    <View className="gap-3 rounded-xl border border-border p-3">
+      <Text weight="bold">Your pledge and payment</Text>
+      {card === undefined ? (
+        <Text muted>Checking your pledge...</Text>
+      ) : (
+        <>
+          <Text weight="bold">{card.heading}</Text>
+          {card.body.map((line) => (
+            <Text key={line} muted>
+              {line}
+            </Text>
+          ))}
+          {card.actions.includes("pledge") ? (
+            <Input
+              label="How much will you pay (R)?"
+              value={amountText}
+              onChangeText={setAmountText}
+              keyboardType="decimal-pad"
+            />
+          ) : null}
+          {note !== undefined ? <ErrorNote message={note} /> : null}
+          {card.actions.map((action) => (
+            <Button
+              key={action}
+              fullWidth={action === "pledge" || action === "pay"}
+              variant={action === "pay" || action === "pledge" ? "primary" : "outline"}
+              disabled={busy}
+              onPress={() => void run(action)}
+            >
+              {actionLabel(action, card.amountText)}
+            </Button>
+          ))}
+        </>
+      )}
+      <Text muted>{SIMULATED_NOTE}</Text>
     </View>
   );
 }

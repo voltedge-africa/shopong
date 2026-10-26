@@ -103,7 +103,13 @@ const randomKey = (): string => newCommunityKey((n) => crypto.getRandomValues(ne
 async function eventOf(
   key: string,
   who: Phone,
-  type: "member.joined" | "member.invited" | "quote.selected" | "ledger.posted" | "member.removed",
+  type:
+    | "member.joined"
+    | "member.invited"
+    | "quote.selected"
+    | "ledger.posted"
+    | "member.removed"
+    | "payment.requested",
   payload: Record<string, unknown>,
   proof: string[] = [],
   at = Date.now(),
@@ -439,6 +445,20 @@ describe("GET /communities/:key/pool", () => {
       key: "f".repeat(128),
       description: "Forged",
       entries: [],
+    });
+    const reply = await post(node, creator, key, forged);
+    expect(reply.status).toBe(403);
+    expect(reply.json.problem).toBe("node_only");
+  });
+
+  it("[S-4.3] does not let a member, or the creator's phone, write a payment request to the record (only the Node does)", async () => {
+    const node = await start(await books());
+    const { creator, key } = await twoMembers(node);
+    const forged = await eventOf(key, creator, "payment.requested", {
+      direction: "in",
+      pledgeEvent: "ab".repeat(64),
+      amount: { currency: "ZAR", minor: 15000 },
+      by: creator.did,
     });
     const reply = await post(node, creator, key, forged);
     expect(reply.status).toBe(403);

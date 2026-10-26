@@ -47,7 +47,16 @@ export type ReadResult =
  * `isMember` reads only the Node's admission list, so a stranger costs no I/O.
  */
 /** Event types only the Node writes (stories 4.5 and 4.6). A phone that sends one is refused as `node_only`. */
-const NODE_ONLY_TYPES: readonly string[] = ["ledger.posted", "payment.completed", "payment.failed"];
+/**
+ * Types only the Node writes: money postings, the payment request the Node makes (story 4.3, `payment.requested`), and
+ * the payment outcomes the verified webhook confirms (story 4.5). A phone's copy of any of them is refused.
+ */
+const NODE_ONLY_TYPES: readonly string[] = [
+  "ledger.posted",
+  "payment.requested",
+  "payment.completed",
+  "payment.failed",
+];
 
 export interface SyncHub {
   /** Whether `did` is admitted to the community; undefined when the Node holds no such community. */

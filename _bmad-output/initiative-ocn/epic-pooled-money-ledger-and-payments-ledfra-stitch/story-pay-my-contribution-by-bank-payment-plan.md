@@ -112,3 +112,21 @@ baseline_revision: '788a54d8ab1c5cedcf4ab94ed00f62779eefa091'
 8. **What does the member see after the bank page is closed unpaid?**
    - A) (Recommended) "Not paid yet. Your pledge is still open," with Check again and Pay again. Pay again makes a new attempt with a new pledge event.
    - B) "Payment failed." Wrong: nothing has failed yet.
+
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26): no high findings, 6 medium, 6 low. The builder also reported that `payment.requested` was not recorded (a placeholder Node identity the record refuses). The orchestrator ran the whole flow on web and the Android emulator against a real Node.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 0 | (builder) `payment.requested` was not recorded because the Node's identity was a placeholder | real | patch | Recorded through the creator's replica with the Node's `did:key` in `by` (the pattern of 4.5 and 4.6); the request is made only after the record accepts the event; a phone's `payment.requested` is refused (`node_only`); mutation-checked |
+| 1 | The 3-day window came from the member's own clock | medium, real | patch | The bank's expiry is the Node's clock plus the window, never the event's time; mutation-checked |
+| 2 | A member could pay any pledge they ever made | medium, real | patch | Only the member's current pledge for the order, and no second live request; mutation-checked |
+| 3 | The same payer reference in every community (linkable across communities) | medium, real | patch | Keyed per community through the real wiring; mutation-checked |
+| 4 | `apply` does not check `by` equals the Node's identity | medium | defer | S-4.3-18 |
+| 5 | A pledge past its window left only a Pay button that always failed | medium, real | patch | "Your pledge's time to pay has run out" with "Make a new pledge" |
+| 6 | Every failed status read said "Could not reach the Node" | medium, real | patch | Mapped by failure kind (clock, not yet on the Node, busy, unreadable, unreachable) |
+| 7 | The bank request could be made after the record refused the event | low, real | patch | 422 `record_refused`, nothing created; a bank failure after a good record write is said plainly and a retry reuses the event; mutation-checked |
+| 8, 9, 12 | Status reads not rate limited; an unknown status word showed a spinner for ever; a double tap could open two tabs | low, real | patch | Tested |
+| 10 | The bank page's id sits in the in-app browser's history on a shared phone | low | defer | S-4.3-17 |
+

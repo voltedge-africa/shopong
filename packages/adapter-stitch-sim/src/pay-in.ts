@@ -152,6 +152,17 @@ export class SimulatedPayIn implements PayIn {
     return view(record);
   }
 
+  /**
+   * The request made for a pledge's event id (its external reference), if there is one. Used by the Node's status
+   * route, so a phone never has to keep a payment id. Expiry is judged as `getRequest` judges it.
+   */
+  async findRequest(externalReference: EventId): Promise<PaymentRequest | undefined> {
+    const record = this.#store.byReference("pay_in", externalReference);
+    if (record === undefined) return undefined;
+    this.#expireIfDue(record);
+    return view(record);
+  }
+
   async cancelRequest(id: string): Promise<Result<PaymentRequest, PortError<"unknown_payment">>> {
     const record = this.#store.get(id, "pay_in");
     if (record === undefined) {
