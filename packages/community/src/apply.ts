@@ -22,11 +22,13 @@
 // pledges.ts), `orders/<order>` (the proposal and its status) and `order-ids/<event id>` { name } (see orders.ts, story 8.2), `selections/<order>` (the latest choice of a supplier, see selection.ts, story 8.3), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }, `areas/<did>` { area } (a member's
-// suburb or town, story 7.3; see areas.ts).
+// suburb or town, story 7.3; see areas.ts), `profiles/<did>` { name, kind?, area?, signature } (a small retailer's shown
+// business profile, story 9.1; see profile.ts).
 
 import {
   PAYLOAD_VALIDATORS,
   PERSONAL_DATA_MESSAGE,
+  businessProfileBytes,
   checkPersonalFields,
   isPlainObject,
   type EventEnvelope,
@@ -64,6 +66,7 @@ import {
 } from "./delivery-proof.js";
 import { verifyAuthority } from "./authority.js";
 import { MEMBER_AREA_MESSAGES, memberAreaKey } from "./areas.js";
+import { PROFILE_MESSAGES, PROFILE_TYPE, profileFieldsOfPayload, profileKey } from "./profile.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
 import {
   CLAIM_MESSAGE,
@@ -190,6 +193,7 @@ const CHECKED: ReadonlySet<string> = new Set([
   PAYOUT_TYPE,
   APPROVAL_TYPE,
   NAMING_TYPE,
+  PROFILE_TYPE,
   "order.proposed",
   "order.approved",
   "quote.selected",
@@ -679,6 +683,32 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     return undefined;
   }
 
+  /**
+   * A small retailer's business profile (story 9.1): the writer must be a member now, the shape must hold, and the
+   * signature must be the writer's over the shown fields and this community's key. A later profile replaces the earlier.
+   */
+  async function businessProfileRecorded(
+    event: EventEnvelope,
+    view: ViewWriter,
+  ): Promise<string | undefined> {
+    if ((await view.get(`members/${event.actor}`)) === undefined) {
+      return PROFILE_MESSAGES.not_a_member;
+    }
+    if (PAYLOAD_VALIDATORS[PROFILE_TYPE](event.payload).length > 0) {
+      return PROFILE_MESSAGES.unreadable;
+    }
+    const fields = profileFieldsOfPayload(event.payload);
+    const signature = str(event.payload, "signature") ?? "";
+    const signed = await env.auth.verifySignature(
+      event.actor as Did,
+      businessProfileBytes(env.spaceKey, fields),
+      signature as Signature,
+    );
+    if (!signed) return PROFILE_MESSAGES.bad_signature;
+    await view.put(profileKey(event.actor), { ...fields, signature });
+    return undefined;
+  }
+
   /** A quote is the treasurer's: the creator or a co-treasurer. Its shape is checked as in the form. */
   async function quoteAdded(
     event: EventEnvelope,
@@ -912,6 +942,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return approvalRecorded(entry, view, at);
       case NAMING_TYPE:
         return communityNamed(event, view, at);
+      case PROFILE_TYPE:
+        return businessProfileRecorded(event, view);
       default:
         return quoteAdded(event, view, at);
     }

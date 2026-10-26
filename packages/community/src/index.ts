@@ -49,6 +49,15 @@ export { MEMBER_AREA_MESSAGES, memberAreaKey } from "./areas.js";
 export { holdersOf, isRoleStanding, type HeldRole } from "./roles.js";
 export { NAMING_MESSAGES, namingProblem } from "./naming.js";
 export {
+  PROFILE_MESSAGES,
+  PROFILE_TYPE,
+  profileFieldsOf,
+  profileOf,
+  profilesOf,
+  type BusinessProfile,
+  type BusinessProfileDraft,
+} from "./profile.js";
+export {
   PROOF_MESSAGES,
   progressOf,
   type DeliveryRecord,

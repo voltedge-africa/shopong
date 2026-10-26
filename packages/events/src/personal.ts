@@ -117,6 +117,11 @@ const DID_KEY = /^did:key:z[1-9A-HJ-NP-Za-km-z]{40,}$/;
 const HEX_64 = /^(?:[0-9a-f]{64}|[0-9a-f]{128})$/;
 /** The shape of an invitation token id: a CIDv1, DAG-CBOR and SHA-256, base32 lower-case (59 characters). */
 const INVITATION_ID = /^bafyrei[a-z2-7]{52}$/;
+/**
+ * A signature in base64url (86 characters, story 9.1), under the key `signature` only. Its characters can read as digits,
+ * so it is exempt as a whole value; a phone or ID number cannot be a valid signature, and `apply` checks the signature.
+ */
+const SIGNATURE_TEXT = /^[A-Za-z0-9_-]{86}$/;
 
 /** Returns one issue per personal value found, with where it is in the payload. Empty when it is clean. */
 export function checkPersonalFields(
@@ -135,6 +140,7 @@ export function checkPersonalFields(
     }
     if (!freeText || typeof value !== "string") return;
     if (key === "invitation" && INVITATION_ID.test(value)) return;
+    if (key === "signature" && SIGNATURE_TEXT.test(value)) return;
     if (isCommitment(value) || DID_KEY.test(value) || HEX_64.test(value)) return;
     if (hasPhoneNumberShape(value) || hasIdNumberShape(value)) {
       issues.push({ path, message: PERSONAL_DATA_MESSAGE });

@@ -108,6 +108,19 @@ export { COARSE_AREA_MESSAGE, coarseArea } from "./area.js";
 export { type MemberAreaPayload } from "./registry.js";
 export { MAX_ADDRESS_LENGTH, commitAddress, normaliseAddress } from "./commitment.js";
 export {
+  BUSINESS_KINDS,
+  BUSINESS_NAME_MAX,
+  BUSINESS_NAME_RULE,
+  PROFILE_SIGNATURE,
+  businessNameOk,
+  businessProfileBytes,
+  profileAreaOk,
+  profileKindOk,
+  type BusinessKind,
+  type BusinessProfileFields,
+} from "./profile.js";
+export {
+  type BusinessProfilePayload,
   type CommunityNamedPayload,
   type DeliveryPlannedPayload,
   type DeliveryRoute,
