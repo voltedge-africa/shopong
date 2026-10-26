@@ -56,3 +56,15 @@ Columns: **ID** (`S-<epic>.<story>-<n>`), **Shortcut**, **Instead of**, **Cost i
 | S-2.3-22 | Every refused event writes a `rejected/<id>` entry to the view, with no limit | capping or aggregating refusals | A writer can grow every phone's view by sending refused events | Epic 3 |
 | S-2.3-23 | `apply` does not read the recorded `invitations/<id>` at join time: any token the creator signed admits, whether or not a `member.invited` was recorded | requiring a recorded invitation | The recorded invitee and end time are only informational | Story 2.5 |
 | S-2.3-24 | `CapabilityAuth.verify` accepts a chain, so an invitee could re-delegate their `member/join` token. It cannot be used today because only the invitee is an admitted writer, but nothing rejects the chain | requiring a direct creator-to-person token | If a later story admits writers another way, one invitation could admit many people | Story 2.4 (roles) or 2.5 |
+
+## Demonstration 1 path decisions (2026-10-26)
+
+| ID | Shortcut | Instead of | Cost if it bites | Revisit when |
+|---|---|---|---|---|
+| S-3.1-1 | The OCN Node holds the community writers; phones sync to it. No Hyper stack on phones, so no direct phone-to-phone sync (AD-21) | the Bare worklet on each phone | Phones need the Node to sync; the Node is the one place writer keys live; weaker on sovereignty. The on-phone design is untested on any device | A device test of the worklet on a low-end phone and an iPhone |
+| S-3.1-2 | Spike 3.1 closed with Linux evidence only, no phone, no iOS, no throughput number (the 10,000-event test timed out) | the device measurements the ticket asked for | Unknown real-world start-up, memory and battery cost of the on-phone design | The on-phone spike is run |
+| S-4-1 | The ledger is our own code on the OCN Node (AD-22), with no vendor reports and only what we build | Ledfra | Accounting-correctness bugs are ours; persistence, backup and restore are ours | Before real money moves, and in epic 12 |
+| S-4-2 | Spike 4.1 (Ledfra fit) dropped without testing Ledfra | the vendor's written answers on tenancy, reversal, export and self-hosting | If we ever want Ledfra, it is unassessed | Never needed unless D-2 is reopened |
+| S-6-1 | Quotes are typed by the treasurer and ranked by a simple rule; the "confidence" is the rule's margin, not model-derived (AD-23) | OCR and Laya | Typing is slower and error-prone; no source-document link or calibrated confidence | When the OCR and Laya spikes (6.1, 6.4) are run |
+| S-1.6-1 | The sandbox step is narrowed to Stitch, the OSM extract and sample documents; the Solana and EVM wallets are not created | the full set of accounts | Stablecoin work (epic 5) has no wallets until someone makes them | Epic 5 starts |
+

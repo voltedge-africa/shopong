@@ -39,7 +39,7 @@ id = 6
 slug = "epic-documents-and-decisions-unlimited-ocr-laya"
 title = "Documents and decisions (Unlimited OCR, Laya)"
 covers = ["FR5", "FR7", "FR8", "AR1", "AR3", "NFR7"]
-after = [{ epic = 3, needs = "the shared record and Hyperdrive that hold uploads and quote events (3.7)" }]
+after = [{ epic = 3, needs = "the community record and Hyperdrive that hold typed quotes, uploads and quote events (3.2, 3.7)" }]
 
 [[epic]]
 id = 7
@@ -53,7 +53,7 @@ id = 8
 slug = "epic-demonstration-1-stokvel-bulk-order"
 title = "Demonstration 1: stokvel bulk order"
 covers = ["FR2", "FR6", "FR8", "FR9", "FR11", "FR16", "NFR1", "UX-DR1"]
-after = [{ epic = 2, needs = "identity and roles to invite members and approve proposals (2.3, 2.4)" }, { epic = 3, needs = "the community record every order step is written to (3.2)" }, { epic = 4, needs = "Stitch pay-ins and supplier payment (4.3, 4.7)" }, { epic = 6, needs = "structured quotes to compare and rank (6.3, 6.5)" }, { epic = 7, needs = "routes and proof of delivery and collection (7.4, 7.6)" }]
+after = [{ epic = 2, needs = "identity and roles to invite members and approve proposals (2.3, 2.4)" }, { epic = 3, needs = "the community record every order step is written to (3.2)" }, { epic = 4, needs = "Stitch pay-ins and supplier payment (4.3, 4.7)" }, { epic = 6, needs = "typed quotes and a simple ranking to compare (6.8, 6.9)" }, { epic = 7, needs = "routes and proof of delivery and collection (7.4, 7.6)" }]
 
 [[epic]]
 id = 9
