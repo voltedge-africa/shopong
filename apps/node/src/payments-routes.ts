@@ -9,49 +9,95 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from "fastify";
 import { requestRef, stitchAmount, type SimulatedStitch } from "@shopong/adapter-stitch-sim";
 import type { PaymentRequest, WebhookDelivery } from "@shopong/ports";
+import {
+  confirmDelivery,
+  messageOf,
+  WriteStopped,
+  type Confirmation,
+  type ConfirmationDeps,
+  type WriteProblem,
+} from "./payment-confirmation.ts";
 
 const PROBLEM_STATUS: Readonly<Record<string, number>> = {
   invalid_signature: 401,
   malformed: 400,
   unknown_payment: 404,
+  books_written: 503,
+  record_written: 503,
+  status_written: 503,
+  state_unwritten: 503,
 };
 
 type Verdict =
   | {
       readonly ok: true;
       readonly kind: "pay_in" | "pay_out";
-      readonly paymentId: string;
-      readonly status: string;
+      /** Log reference only (`requestRef`), never the payment id. */
+      readonly ref: string;
+      readonly status: string | undefined;
       readonly applied: boolean;
       readonly lateCompletion: boolean;
+      readonly flagged?: string;
     }
   | { readonly ok: false; readonly code: string; readonly message: string };
 
 /**
- * Hands a delivery to the pay-in side, then to the pay-out side when the body is not a pay-in event. Each side
- * verifies the signature itself, so a refused signature is refused on the first side and never reaches the second.
+ * With confirmation wired (story 4.5, the Node's path), a pay-in is confirmed by `confirmDelivery`: the signature is
+ * verified first, then the books, the record and the status are written in order. A body that is not a pay-in event
+ * goes to the pay-out side. Without it, the pay-in side ingests the delivery as before (story 4.4).
+ *
+ * Each side verifies the signature itself, so a refused signature is refused on the first side and never reaches the second.
  */
-async function deliver(simulated: SimulatedStitch, delivery: WebhookDelivery): Promise<Verdict> {
-  const asPayIn = await simulated.payIn.ingestWebhook(delivery);
-  if (asPayIn.ok) {
-    return {
-      ok: true,
-      kind: "pay_in",
-      paymentId: asPayIn.value.payment.id,
-      status: asPayIn.value.payment.status,
-      applied: asPayIn.value.applied,
-      lateCompletion: asPayIn.value.lateCompletion,
-    };
-  }
-  if (asPayIn.error.code !== "malformed") {
-    return { ok: false, code: asPayIn.error.code, message: asPayIn.error.message };
+async function deliver(
+  simulated: SimulatedStitch,
+  delivery: WebhookDelivery,
+  confirmation: ConfirmationDeps | undefined,
+): Promise<Verdict> {
+  if (confirmation !== undefined) {
+    const confirmed: Confirmation = await confirmDelivery(confirmation, delivery);
+    if (confirmed.kind === "refused") {
+      return {
+        ok: false,
+        code: confirmed.problem,
+        message: "The webhook signature does not verify.",
+      };
+    }
+    if (confirmed.kind === "not_acknowledged") {
+      return { ok: false, code: confirmed.problem, message: confirmed.message };
+    }
+    if (confirmed.kind === "answered") {
+      return {
+        ok: true,
+        kind: "pay_in",
+        ref: confirmed.ref,
+        status: confirmed.status,
+        applied: confirmed.applied,
+        lateCompletion: confirmed.lateCompletion,
+        ...(confirmed.flagged === undefined ? {} : { flagged: confirmed.flagged }),
+      };
+    }
+  } else {
+    const asPayIn = await simulated.payIn.ingestWebhook(delivery);
+    if (asPayIn.ok) {
+      return {
+        ok: true,
+        kind: "pay_in",
+        ref: requestRef(asPayIn.value.payment.id),
+        status: asPayIn.value.payment.status,
+        applied: asPayIn.value.applied,
+        lateCompletion: asPayIn.value.lateCompletion,
+      };
+    }
+    if (asPayIn.error.code !== "malformed") {
+      return { ok: false, code: asPayIn.error.code, message: asPayIn.error.message };
+    }
   }
   const asPayOut = await simulated.payOut.ingestWebhook(delivery);
   if (asPayOut.ok) {
     return {
       ok: true,
       kind: "pay_out",
-      paymentId: asPayOut.value.payment.id,
+      ref: requestRef(asPayOut.value.payment.id),
       status: asPayOut.value.payment.status,
       applied: asPayOut.value.applied,
       lateCompletion: false,
@@ -143,7 +189,10 @@ function unavailable(reply: FastifyReply) {
  * with an empty body) or no content type at all, so this scope accepts any body as text, and its answers carry
  * headers that stop framing and caching (review items 2 and 3).
  */
-function bankPlugin(simulated: SimulatedStitch): FastifyPluginAsync {
+function bankPlugin(
+  simulated: SimulatedStitch,
+  confirmation: ConfirmationDeps | undefined,
+): FastifyPluginAsync {
   return async (bank) => {
     bank.addContentTypeParser("*", { parseAs: "string" }, (_request, body, done) => {
       done(null, body);
@@ -181,6 +230,43 @@ function bankPlugin(simulated: SimulatedStitch): FastifyPluginAsync {
         async (request, reply) => {
           const id = request.params.id;
           try {
+            if (confirmation !== undefined) {
+              // The page's buttons go through the same confirmation as a webhook: the books, the record, then the status.
+              const current = await simulated.payIn.getRequest(id);
+              if (current === undefined) return notFound(reply);
+              if (current.status === "expired") {
+                request.log.warn(
+                  {
+                    audit: "simulated_bank",
+                    simulated: true,
+                    action,
+                    requestRef: requestRef(id),
+                    outcome: "expired",
+                    requestId: request.id,
+                  },
+                  `simulated bank ${action} refused (simulated)`,
+                );
+                return reply
+                  .code(409)
+                  .type(HTML)
+                  .send(page("Expired", "<p>This payment request has expired.</p>"));
+              }
+              const delivery = await simulated.payIn.settle(id, outcome);
+              const confirmed = await confirmDelivery(confirmation, delivery);
+              if (confirmed.kind !== "answered") return unavailable(reply);
+              request.log.info(
+                {
+                  audit: "simulated_bank",
+                  simulated: true,
+                  action,
+                  requestRef: requestRef(id),
+                  outcome: confirmed.applied ? "applied" : (confirmed.flagged ?? "not_applied"),
+                  requestId: request.id,
+                },
+                `simulated bank ${action} (simulated)`,
+              );
+              return reply.code(303).header("location", `/simulated-bank/${id}`).send();
+            }
             const result = await simulated.payIn.actAsPayer(id, outcome);
             const ref = requestRef(id);
             if (!result.ok) {
@@ -217,7 +303,23 @@ function bankPlugin(simulated: SimulatedStitch): FastifyPluginAsync {
               `simulated bank ${action} (simulated)`,
             );
             return reply.code(303).header("location", `/simulated-bank/${id}`).send();
-          } catch {
+          } catch (error) {
+            if (error instanceof WriteStopped) {
+              request.log.error(
+                {
+                  audit: "simulated_bank",
+                  simulated: true,
+                  action,
+                  problem: error.problem,
+                  requestId: request.id,
+                },
+                `simulated bank ${action} stopped part way (simulated)`,
+              );
+              return reply
+                .code(503)
+                .type(HTML)
+                .send(page("Unavailable", `<p>${escapeHtml(messageOf(error.problem))}</p>`));
+            }
             return unavailable(reply);
           }
         },
@@ -226,8 +328,15 @@ function bankPlugin(simulated: SimulatedStitch): FastifyPluginAsync {
   };
 }
 
-/** Registers the simulated payment routes. Answers 404 for an unknown request. */
-export function registerPaymentRoutes(app: FastifyInstance, simulated: SimulatedStitch): void {
+/**
+ * Registers the simulated payment routes. With `confirmation`, a verified completion is written to the books and the
+ * record in order (story 4.5). Unknown requests are acknowledged and flagged, not refused.
+ */
+export function registerPaymentRoutes(
+  app: FastifyInstance,
+  simulated: SimulatedStitch,
+  confirmation?: ConfirmationDeps,
+): void {
   app.post("/webhooks/payments", async (request, reply) => {
     const headers: Record<string, string> = {};
     for (const [name, value] of Object.entries(request.headers)) {
@@ -235,38 +344,43 @@ export function registerPaymentRoutes(app: FastifyInstance, simulated: Simulated
     }
     let verdict: Verdict;
     try {
-      verdict = await deliver(simulated, { headers, body: request.rawBody });
-    } catch {
-      // The state could not be written: nothing was applied (the adapter rolls back). Say so, plainly.
+      verdict = await deliver(simulated, { headers, body: request.rawBody }, confirmation);
+    } catch (error) {
+      // A write stopped partway: the problem names what was written, so the message is true (review item 6).
+      const problem: WriteProblem =
+        error instanceof WriteStopped ? error.problem : "state_unwritten";
       request.log.error(
         {
           audit: "payment_webhook",
           simulated: true,
-          outcome: "refused",
-          problem: "state_unavailable",
+          outcome: "not_acknowledged",
+          problem,
           requestId: request.id,
         },
-        "simulated Stitch webhook not applied: the simulated state could not be written (simulated)",
+        `simulated Stitch webhook stopped part way: ${problem} (simulated)`,
       );
       return reply.code(503).send({
         simulated: true,
-        problem: "state_unavailable",
-        message: "The simulated state could not be written. Nothing was applied.",
+        problem,
+        message: messageOf(problem),
         requestId: request.id,
       });
     }
     if (!verdict.ok) {
+      const unavailableNow = PROBLEM_STATUS[verdict.code] === 503;
       request.log.warn(
         {
           audit: "payment_webhook",
           simulated: true,
-          outcome: "refused",
+          outcome: unavailableNow ? "not_acknowledged" : "refused",
           problem: verdict.code,
           requestId: request.id,
         },
-        "simulated Stitch webhook refused (simulated)",
+        unavailableNow
+          ? "simulated Stitch webhook not acknowledged: the provider should send it again (simulated)"
+          : "simulated Stitch webhook refused (simulated)",
       );
-      return reply.code(PROBLEM_STATUS[verdict.code] ?? 400).send({
+      return reply.code(PROBLEM_STATUS[verdict.code] ?? (unavailableNow ? 503 : 400)).send({
         simulated: true,
         problem: verdict.code,
         message: verdict.message,
@@ -275,17 +389,20 @@ export function registerPaymentRoutes(app: FastifyInstance, simulated: Simulated
     }
     const outcome = verdict.applied
       ? "applied"
-      : verdict.lateCompletion
-        ? "late_completion"
-        : "not_applied";
+      : verdict.flagged !== undefined
+        ? "flagged"
+        : verdict.lateCompletion
+          ? "late_completion"
+          : "not_applied";
     request.log.info(
       {
         audit: "payment_webhook",
         simulated: true,
         outcome,
         kind: verdict.kind,
-        requestRef: requestRef(verdict.paymentId),
+        requestRef: verdict.ref,
         status: verdict.status,
+        ...(verdict.flagged === undefined ? {} : { flagged: verdict.flagged }),
         requestId: request.id,
       },
       "simulated Stitch webhook handled (simulated)",
@@ -295,9 +412,10 @@ export function registerPaymentRoutes(app: FastifyInstance, simulated: Simulated
       applied: verdict.applied,
       status: verdict.status,
       lateCompletion: verdict.lateCompletion,
+      ...(verdict.flagged === undefined ? {} : { flagged: verdict.flagged }),
       requestId: request.id,
     });
   });
 
-  app.register(bankPlugin(simulated));
+  app.register(bankPlugin(simulated, confirmation));
 }

@@ -132,31 +132,33 @@ describe("secrets (AC 1.5a)", () => {
       loadConfig({
         env: {
           ...allOn,
-          // LEDFRA_API_TOKEN and SIMULATED_WEBHOOK_SECRET are missing. The Stitch secrets are not needed while
-          // the payments adapter is the simulation, so a value that is present here is not echoed.
+          // SIMULATED_WEBHOOK_SECRET is missing. The Stitch secrets are not needed while the payments adapter is the
+          // simulation, so a value that is present here is not echoed. The ledger needs no secret (AD-22).
           STITCH_CLIENT_ID: FAKE_SECRETS.STITCH_CLIENT_ID,
         },
       }),
     );
-    expect(error.keys).toEqual(["LEDFRA_API_TOKEN", "SIMULATED_WEBHOOK_SECRET"]);
+    expect(error.keys).toEqual(["SIMULATED_WEBHOOK_SECRET"]);
     expect(error.message).toContain("SIMULATED_WEBHOOK_SECRET");
-    expect(error.message).toContain("LEDFRA_API_TOKEN");
+    expect(error.message).not.toContain("LEDFRA");
     expect(error.message).not.toContain("STITCH_CLIENT_SECRET");
     expect(error.message).not.toContain(FAKE_SECRETS.STITCH_CLIENT_ID);
   });
 
   it("treats an empty value as missing", () => {
     const error = failure(() =>
-      loadConfig({ env: { ...RECORD, OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN: "" } }),
+      loadConfig({
+        env: { ...RECORD, OCN_NODE_PAYMENTS_ENABLED: "true", SIMULATED_WEBHOOK_SECRET: "" },
+      }),
     );
-    expect(error.keys).toEqual(["LEDFRA_API_TOKEN"]);
+    expect(error.keys).toEqual(["SIMULATED_WEBHOOK_SECRET"]);
   });
 
-  it("requires only the secrets of enabled components", () => {
-    const { secrets } = loadConfig({
-      env: { ...RECORD, OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN: "abcd1234" },
-    });
-    expect(secrets.keys()).toEqual(["LEDFRA_API_TOKEN", "RECORD_MASTER_KEY"]);
+  it("starts the ledger with no Ledfra token: the books are the Node's own SQLite file (AD-22)", () => {
+    const { secrets, config } = loadConfig({ env: { ...RECORD, OCN_NODE_LEDGER_ENABLED: "true" } });
+    expect(config.components.ledger.enabled).toBe(true);
+    expect(secrets.keys()).toEqual(["RECORD_MASTER_KEY"]);
+    expect(secrets.has("LEDFRA_API_TOKEN")).toBe(false);
   });
 
   it("never requires the optional placeholders, but loads them when present", () => {
@@ -175,24 +177,29 @@ describe("secrets (AC 1.5a)", () => {
     const { secrets } = loadConfig({
       env: {
         ...RECORD,
-        OCN_NODE_LEDGER_ENABLED: "true",
-        LEDFRA_API_TOKEN_FILE: "/run/secrets/ledfra",
+        OCN_NODE_PAYMENTS_ENABLED: "true",
+        SIMULATED_WEBHOOK_SECRET_FILE: "/run/secrets/simulated",
+        OCN_NODE_ALLOW_SIMULATED_PAYMENTS: "true",
       },
-      readSecretFile: (p) => (p === "/run/secrets/ledfra" ? "from-file-token\n" : ""),
+      readSecretFile: (p) => (p === "/run/secrets/simulated" ? "from-file-key\n" : ""),
     });
-    expect(secrets.get("LEDFRA_API_TOKEN")).toBe("from-file-token");
+    expect(secrets.get("SIMULATED_WEBHOOK_SECRET")).toBe("from-file-key");
   });
 
   it("refuses an unreadable secret file, naming the key and error code only", () => {
     const error = failure(() =>
       loadConfig({
-        env: { ...RECORD, OCN_NODE_LEDGER_ENABLED: "true", LEDFRA_API_TOKEN_FILE: "/nope" },
+        env: {
+          ...RECORD,
+          OCN_NODE_PAYMENTS_ENABLED: "true",
+          SIMULATED_WEBHOOK_SECRET_FILE: "/nope",
+        },
         readSecretFile: () => {
           throw Object.assign(new Error("ENOENT: secret-in-message"), { code: "ENOENT" });
         },
       }),
     );
-    expect(error.message).toContain("LEDFRA_API_TOKEN_FILE");
+    expect(error.message).toContain("SIMULATED_WEBHOOK_SECRET_FILE");
     expect(error.message).toContain("ENOENT");
     expect(error.message).not.toContain("secret-in-message");
   });

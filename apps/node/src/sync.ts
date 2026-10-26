@@ -46,6 +46,9 @@ export type ReadResult =
  * The part of the replica hub the routes use. The hub (`hub.ts`) implements it; tests may supply a fake.
  * `isMember` reads only the Node's admission list, so a stranger costs no I/O.
  */
+/** Event types only the Node writes (stories 4.5 and 4.6). A phone that sends one is refused as `node_only`. */
+const NODE_ONLY_TYPES: readonly string[] = ["ledger.posted", "payment.completed", "payment.failed"];
+
 export interface SyncHub {
   /** Whether `did` is admitted to the community; undefined when the Node holds no such community. */
   isMember(did: Did, communityKey: string): Promise<boolean | undefined>;
@@ -192,8 +195,9 @@ export function registerSyncRoutes(
       if (!parsed.ok) return refuse("invalid_event", actor);
       const event = parsed.event as EventEnvelope;
       if (event.space !== key) return refuse("wrong_space", actor);
-      // Money postings are written by the Node alone (story 4.6): a phone's `ledger.posted` would count as money.
-      if (event.type === "ledger.posted") return refuse("node_only", actor);
+      // Money postings and payment outcomes are written by the Node alone (stories 4.5 and 4.6): a phone's copy would
+      // count as money or as a confirmed payment.
+      if (NODE_ONLY_TYPES.includes(event.type)) return refuse("node_only", actor);
 
       // Only the signer's own events, written through the signer's own replica. `apply` still decides their meaning.
       if (event.actor !== actor || space.local !== actor) return refuse("not_yours", actor);

@@ -79,6 +79,20 @@ describe("poolScreenOf: the Node's answer to the state the card shows", () => {
   });
 });
 
+describe("poolLines: the simulated notice (review item 1)", () => {
+  it("shows the Node's sentence first when the figures include simulated payments", () => {
+    const note = "These figures include test payments (simulated). No real money has moved.";
+    const lines = poolLines(poolScreenOf(ok({ ...view, simulatedNote: note } as PoolView), 1_000));
+    expect(lines[0]).toBe(note);
+    expect(lines).toContain("The pool holds R500.00.");
+  });
+
+  it("shows no notice when the Node does not say the payments are simulated", () => {
+    const lines = poolLines(poolScreenOf(ok(view), 1_000));
+    expect(lines.some((line) => line.includes("(simulated)"))).toBe(false);
+  });
+});
+
 describe("poolLines: the plain words the card shows", () => {
   it("shows the total, the target, your own amount and status, and each member's status", () => {
     const lines = poolLines({ state: "shown", view, checkedAt: 1_000 });
