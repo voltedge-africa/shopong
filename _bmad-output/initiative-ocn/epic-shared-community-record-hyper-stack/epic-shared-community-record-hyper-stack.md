@@ -39,7 +39,7 @@ Community members and organisers get one record of what was agreed and done that
 2. Replaying the same events in different arrival orders on two devices gives byte-identical views.
 3. A new member who joins by a valid invitation becomes a writer, and removing a member never removes the last indexer.
 4. An attached file carries its SHA-512; a receiving device fetches and verifies it, and a freed blob is re-fetched on demand.
-5. The OCN Node serves the record when the phones are off, and a device behind NAT syncs through its relay.
+5. The OCN Node serves the record when the phones are off, as seeder and the only indexer for Demonstration 1. Relay and bootstrap for devices behind NAT are later work (AD-19).
 6. The web console runs a SQL query over the exported community view and renders the result as a table.
 
 ## Boundaries

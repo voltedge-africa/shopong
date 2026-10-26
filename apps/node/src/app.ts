@@ -7,7 +7,8 @@ import {
 } from "./components.ts";
 import { createAuthorityGuard, type AuthorityConfig } from "./authority.ts";
 import { registerCommitmentRoute } from "./commitment-route.ts";
-import { createSignedRequests } from "./signed.ts";
+import { keepRawJsonBody } from "./signed.ts";
+import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import type { CapabilityAuth, Commitments } from "@shopong/ports";
 
@@ -27,7 +28,9 @@ export interface AppOptions {
   auth?: CapabilityAuth;
   /** The community the Node checks authority against. Without it, `/authority/check` answers 503. */
   authority?: AuthorityConfig;
-  /** Commits personal values for `POST /commitments`. Without it, that route answers 503. */
+  /** The signed sync routes. Always registered; without a hub (record off) they answer 503. */
+  sync?: SyncOptions;
+  /** Commits personal values for `POST /commitments` (story 2.7). Without it, that route answers 503. */
   commitments?: Commitments;
 }
 
@@ -59,6 +62,7 @@ async function report(options: AppOptions): Promise<HealthReport> {
  */
 export function buildApp(options: AppOptions): FastifyInstance {
   const app: FastifyInstance = Fastify({ loggerInstance: options.logger });
+  const auth = options.auth ?? new IsoUcanCapabilityAuth();
 
   app.get("/health", async () => report(options));
 
@@ -69,21 +73,14 @@ export function buildApp(options: AppOptions): FastifyInstance {
       .send({ ready: health.status === "ok", ...health });
   });
 
-  const auth = options.auth ?? new IsoUcanCapabilityAuth();
-  const signed = createSignedRequests({
-    auth,
-    ...(options.authority?.now === undefined ? {} : { now: options.authority.now }),
-    ...(options.authority?.maxNonces === undefined
-      ? {}
-      : { maxNonces: options.authority.maxNonces }),
-  });
-  signed.register(app);
-  createAuthorityGuard({ auth, signed, config: options.authority }).register(app);
+  keepRawJsonBody(app);
+  createAuthorityGuard({ auth, config: options.authority }).register(app);
   registerCommitmentRoute(app, {
-    signed,
+    auth,
     commitments: options.commitments,
     config: options.authority,
   });
+  registerSyncRoutes(app, auth, options.sync ?? {});
 
   app.setNotFoundHandler((_request, reply) => reply.code(404).send({ error: "not-found" }));
 

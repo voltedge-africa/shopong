@@ -1,5 +1,5 @@
-// The OCN Node's check of authority (story 2.5). A caller must first prove it holds its identity key (the
-// shared signed-request check in `signed.ts`, see `@shopong/community` request-proof). The Node refuses a request
+// The OCN Node's check of authority (story 2.5). A caller must first prove it holds its identity key
+// (a signature over the request, see `@shopong/community` request-proof). The Node refuses a request
 // whose one-time number, signature, time or replay fails before it looks at any capability. Then it checks
 // the token with its own clock (the same `verifyAuthority` the phone and the record use), and every grant
 // the chain goes through against the record as it now stands (review finding 1).
@@ -8,7 +8,7 @@
 // the signature passes; before that, the claimed value is logged truncated, under `claimedActor`.
 // Signatures and tokens are never logged (`redact.ts`).
 
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
   formatDay,
@@ -26,7 +26,13 @@ import {
   type Money,
   type ViewReader,
 } from "@shopong/ports";
-import type { SignedProblem, SignedRequests } from "./signed.ts";
+import {
+  checkSignedRequest,
+  DEFAULT_MAX_NONCES,
+  headerOf,
+  SeenNonces,
+  type SignedGate,
+} from "./signed.ts";
 
 /** The community this Node checks against. Its record view is injected until the Node reads it (story 3.2). */
 export interface AuthorityConfig {
@@ -43,7 +49,15 @@ export interface AuthorityConfig {
 const CLAIMED_ACTOR_LOG_LIMIT = 80;
 
 /** Why the Node refused a request. The first group is about the request, the second about the capability. */
-export type NodeProblem = SignedProblem | "invalid_request" | "not_configured" | AuthorityProblem;
+export type NodeProblem =
+  | "unsigned"
+  | "bad_nonce"
+  | "clock_skew"
+  | "replayed"
+  | "busy"
+  | "invalid_request"
+  | "not_configured"
+  | AuthorityProblem;
 
 const NODE_MESSAGES: {
   readonly [P in Exclude<NodeProblem, "ended" | "not_started" | "over_limit">]: string;
@@ -75,7 +89,7 @@ export function nodeMessage(
   return NODE_MESSAGES[problem];
 }
 
-const HTTP_STATUS: { readonly [P in NodeProblem]?: number } = {
+export const HTTP_STATUS: { readonly [P in NodeProblem]?: number } = {
   unsigned: 401,
   bad_nonce: 400,
   clock_skew: 401,
@@ -102,17 +116,19 @@ export interface AuthorityGuard {
 }
 
 /**
- * Builds the authority guard. `auth` verifies capability chains (`did:key` only, no network). `signed` is the
- * shared signed-request check: the caller's signature, time and one-time number. Without `config` the route
- * still checks the request and then answers `not_configured`.
+ * Builds the authority guard. `auth` verifies signatures and capability chains (`did:key` only, no network).
+ * Without `config` the route still checks signatures and then answers `not_configured`.
  */
 export function createAuthorityGuard(options: {
   auth: CapabilityAuth;
-  signed: SignedRequests;
   config: AuthorityConfig | undefined;
 }): AuthorityGuard {
-  const { auth, config, signed } = options;
-  const clock = config?.now ?? Date.now;
+  const { auth, config } = options;
+  const gate: SignedGate = {
+    auth,
+    nonces: new SeenNonces(config?.maxNonces ?? DEFAULT_MAX_NONCES),
+    clock: config?.now ?? Date.now,
+  };
 
   return {
     register(app) {
@@ -125,7 +141,7 @@ export function createAuthorityGuard(options: {
           const who =
             verifiedActor !== undefined
               ? { actor: verifiedActor }
-              : { claimedActor: truncated(header(request, "x-ocn-actor")) };
+              : { claimedActor: truncated(headerOf(request, "x-ocn-actor")) };
           request.log.warn(
             {
               audit: "authority.check",
@@ -141,15 +157,11 @@ export function createAuthorityGuard(options: {
             .send({ allowed: false, problem, reason: message, requestId: request.id });
         };
 
-        // 1-3. The caller, its signature, the time and the one-time number (shared with every signed route).
-        const checked = await signed.check(request);
-        if (!checked.ok) {
-          verifiedActor = checked.verifiedActor;
-          return refuse(checked.problem as NodeProblem);
-        }
-        const actor = checked.actor;
-        verifiedActor = actor;
-        const now = clock();
+        // 1 to 3. The signed-request gate: headers, signature, skew and replay (shared with the sync routes).
+        const checked = await checkSignedRequest(gate, request);
+        if (checked.actor !== undefined) verifiedActor = checked.actor;
+        if (!checked.ok) return refuse(checked.problem);
+        const { actor, now } = checked;
 
         // 4. The capability, checked by the Node's clock and against the record as it now stands.
         const parsed = checkBody.safeParse(parseJson(request.rawBody));
@@ -202,11 +214,6 @@ export function createAuthorityGuard(options: {
       });
     },
   };
-}
-
-function header(request: FastifyRequest, name: string): string | undefined {
-  const value = request.headers[name];
-  return typeof value === "string" && value !== "" ? value : undefined;
 }
 
 function truncated(value: string | undefined): string | undefined {

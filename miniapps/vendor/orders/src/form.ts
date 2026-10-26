@@ -63,10 +63,11 @@ export function quoteInput(values: FormValues): unknown {
   };
 }
 
-/** Whole cents as rand for people: 14990 is "R149.90". */
+/** Whole cents as rand for people: 14990 is "R149.90", 124950000 is "R1,249,500.00". */
 export function randText(cents: number): string {
   const c = Math.abs(Math.trunc(cents));
-  return `R${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
+  const rand = String(Math.floor(c / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `R${rand}.${String(c % 100).padStart(2, "0")}`;
 }
 
 /** Delivery terms in plain words: "R50.00, 2 days", "free, same day". */

@@ -1,10 +1,12 @@
 import type { FastifyInstance } from "fastify";
+import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import type { AutobaseSharedRecord } from "@shopong/record-autobase";
 import { buildApp } from "./app.ts";
 import { COMPONENT_NAMES, createStubComponent } from "./components.ts";
 import { loadConfig, type LoadOptions } from "./config.ts";
+import { ReplicaHub } from "./hub.ts";
 import { createLogger, type LogSink } from "./logger.ts";
-import { openRecordComponent } from "./record.ts";
+import { masterKeyOf, openRecordComponent } from "./record.ts";
 import { missingRequiredFor } from "./secrets.ts";
 import { readVersion } from "./version.ts";
 
@@ -15,12 +17,32 @@ export interface RunningNode {
   port: number;
   /** The shared record on the data folder, or undefined when the record component is off. */
   record: AutobaseSharedRecord<unknown> | undefined;
+  /** The member replicas and the indexer's sync surface, or undefined when the record component is off. */
+  hub: ReplicaHub | undefined;
   close(): Promise<void>;
 }
 
 export interface StartOptions extends LoadOptions {
   /** Where log lines go. Defaults to standard output. */
   sink?: LogSink;
+}
+
+/**
+ * Runs each step in order even when an earlier one throws, then rethrows the first failure. Used to stop the
+ * Node: the record is closed last and always, so its files are released even when the hub fails to stop.
+ */
+export async function closeInOrder(steps: readonly (() => unknown)[]): Promise<void> {
+  let first: unknown;
+  let failed = false;
+  for (const step of steps) {
+    try {
+      await step();
+    } catch (error) {
+      if (!failed) first = error;
+      failed = true;
+    }
+  }
+  if (failed) throw first;
 }
 
 /**
@@ -47,13 +69,30 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
           secretsPresent: missingRequiredFor(name, secrets).length === 0,
         }),
   );
+  const auth = new IsoUcanCapabilityAuth();
+  let hub: ReplicaHub | undefined;
   let app: FastifyInstance;
   try {
-    app = buildApp({ logger, version: readVersion(), components });
+    hub =
+      opened === undefined
+        ? undefined
+        : new ReplicaHub({
+            dataDir: config.dataDir,
+            masterKey: masterKeyOf(secrets),
+            indexer: opened.record,
+            auth,
+          });
+    app = buildApp({
+      logger,
+      version: readVersion(),
+      components,
+      auth,
+      sync: hub === undefined ? {} : { hub },
+    });
     await app.listen({ host: config.server.host, port: config.server.port });
   } catch (error) {
     // Nothing else owns the record yet, so a failed start must not leave its files locked.
-    await opened?.record.close();
+    await closeInOrder([() => hub?.close(), () => opened?.record.close()]);
     throw error;
   }
   const address = app.server.address();
@@ -76,9 +115,8 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
     url,
     port,
     record: opened?.record,
-    close: async () => {
-      await app.close();
-      await opened?.record.close();
-    },
+    hub,
+    close: () =>
+      closeInOrder([() => app.close(), () => hub?.close(), () => opened?.record.close()]),
   };
 }

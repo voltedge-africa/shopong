@@ -1,98 +1,18 @@
 // The Node's check of authority (story 2.5), with a real community on the in-memory record: members join,
 // hold roles, and present signed requests to `POST /authority/check`. Each refusal is tested with its reason.
-import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
-import { createMemoryRecordNetwork } from "@shopong/adapters-memory";
-import {
-  checkInvitation,
-  communityDefinition,
-  createCommunity,
-  DAY_MS,
-  formatDay,
-  joinCommunity,
-  signRequest,
-  type Community,
-  type CommunityDeps,
-  type RequestParts,
-} from "@shopong/community";
+import { DAY_MS, formatDay, signRequest, spaceUri, type RequestParts } from "@shopong/community";
 import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
-import { spaceUri } from "@shopong/community";
-import type { CapabilityAuth, CapabilityToken, Did } from "@shopong/ports";
+import type { CapabilityToken, Did } from "@shopong/ports";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app.ts";
 import { createLogger } from "./logger.ts";
 import { captureSink } from "./testing/capture.ts";
+import { community, phone, randomHex, T0, type Phone } from "./testing/community.ts";
 
-const T0 = 1_793_000_000_000;
 const DAYS = (n: number) => n * DAY_MS;
 const rand = (n: number) => ({ currency: "ZAR" as const, minor: n * 100 });
 const SPACE_PATH = "/authority/check";
-
-function randomHex(bytes: number): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) =>
-    b.toString(16).padStart(2, "0"),
-  ).join("");
-}
-
-interface Phone {
-  auth: CapabilityAuth;
-  did: Did;
-  deps: CommunityDeps;
-}
-
-async function phone(): Promise<Phone> {
-  const auth = new IsoUcanCapabilityAuth();
-  const did = await auth.createIdentity();
-  return {
-    auth,
-    did,
-    deps: {
-      auth,
-      sha512: webCryptoSha512,
-      randomBytes: (n) => crypto.getRandomValues(new Uint8Array(n)),
-    },
-  };
-}
-
-/** A community with its creator, and a member admitted and joined (as in the roles tests). */
-async function community() {
-  const network = createMemoryRecordNetwork();
-  const creator = await phone();
-  const made = await createCommunity(
-    creator.deps,
-    network.peer<EventEnvelope>(creator.did),
-    "Test",
-    T0,
-  );
-  if (!made.ok) throw new Error(made.error.message);
-  const founder: Community = made.value;
-
-  async function admit(p: Phone, at: number): Promise<Community> {
-    const invited = await founder.invite(p.did, at);
-    if (!invited.ok) throw new Error(invited.error.message);
-    const space = await network
-      .peer<EventEnvelope>(p.did)
-      .open(founder.space.key, communityDefinition(p.deps, creator.did, founder.key));
-    await network.replicate<EventEnvelope>(founder.space, space);
-    const checked = await checkInvitation({
-      auth: p.auth,
-      text: invited.value.code,
-      me: p.did,
-      now: at + DAY_MS,
-    });
-    if (!checked.ok) throw new Error(checked.error.message);
-    const joined = await joinCommunity(p.deps, space, checked.value, at + DAY_MS);
-    if (!joined.ok) throw new Error(joined.error.message);
-    await network.replicate<EventEnvelope>(founder.space, joined.value.space);
-    return joined.value;
-  }
-
-  const driver = await phone();
-  const other = await phone();
-  const driverCommunity = await admit(driver, T0);
-  const otherCommunity = await admit(other, T0);
-  return { network, creator, founder, driver, other, driverCommunity, otherCommunity };
-}
 
 describe("POST /authority/check (AC 2.5)", () => {
   let running: FastifyInstance | undefined;
