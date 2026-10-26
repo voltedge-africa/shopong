@@ -192,3 +192,47 @@ describe("issues", () => {
     ]);
   });
 });
+
+describe("member.invited and member.joined payloads", () => {
+  const base = {
+    space: "ab".repeat(32),
+    actor: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+    proof: [] as string[],
+    claimedAt: 1793001600000,
+    nonce: "00".repeat(16),
+  };
+  const invitee = "did:key:z6MkmtmqQWNzwamfa7QWkNU3Sk2qHpuXK4VrfMXXqVouVZtL";
+
+  it("accepts the strict shapes", () => {
+    expect(
+      createEvent({
+        ...base,
+        type: "member.invited",
+        payload: { invitation: "bafy", invitee, expiresAt: 5 },
+      }).type,
+    ).toBe("member.invited");
+    expect(
+      createEvent({ ...base, type: "member.joined", payload: { invitation: "bafy" } }).type,
+    ).toBe("member.joined");
+  });
+
+  it.each([
+    ["joined without an invitation", "member.joined", {}],
+    ["joined with an empty invitation", "member.joined", { invitation: "" }],
+    ["joined with a number", "member.joined", { invitation: 7 }],
+    ["invited without invitee", "member.invited", { invitation: "x", expiresAt: 5 }],
+    [
+      "invited with a bad invitee",
+      "member.invited",
+      { invitation: "x", invitee: "bob", expiresAt: 5 },
+    ],
+    [
+      "invited with a fractional end",
+      "member.invited",
+      { invitation: "x", invitee, expiresAt: 1.5 },
+    ],
+    ["invited without an end", "member.invited", { invitation: "x", invitee }],
+  ] as const)("rejects %s", (_name, type, payload) => {
+    expect(parseEvent({ v: 1, ...base, type, payload }).ok).toBe(false);
+  });
+});

@@ -161,6 +161,7 @@ export const STEPS: readonly StepDefinition[] = [
         treasurer,
         "member.joined",
         {
+          invitation: "founder",
           member: "m1",
           founder: true,
           community: {
@@ -206,7 +207,13 @@ export const STEPS: readonly StepDefinition[] = [
         await w.emit(
           treasurer,
           "member.invited",
-          { member: m.key, invitee: invitee.actor, role: "member" },
+          {
+            invitation: `invite-${m.key}`,
+            invitee: invitee.actor,
+            expiresAt: at(t, slot) + 90 * 24 * 60 * 60 * 1000,
+            member: m.key,
+            role: "member",
+          },
           {
             at: at(t, slot++),
             label: `invite:${m.key}`,
@@ -226,7 +233,7 @@ export const STEPS: readonly StepDefinition[] = [
         await w.emit(
           person,
           "member.joined",
-          { member: m.key },
+          { invitation: `invite-${m.key}`, member: m.key },
           {
             at: at(t, slot++),
             label: `join:${m.key}`,

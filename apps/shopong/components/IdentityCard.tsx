@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { Share, View } from "react-native";
 import { Alert, Button, Text } from "panelui-native";
 
 import { useIdentity } from "../lib/IdentityProvider";
@@ -32,6 +32,19 @@ export function IdentityCard() {
           <Text muted>Your identity is on this device.</Text>
           <Text selectable weight="bold">
             {shortDid(did)}
+          </Text>
+          <Button
+            fullWidth
+            variant="outline"
+            onPress={() => Share.share({ message: did }).catch(() => undefined)}
+          >
+            Share my identity
+          </Button>
+          <Text muted>
+            Send your identity to the person who runs a community. They use it to invite you.
+          </Text>
+          <Text selectable size="sm">
+            {did}
           </Text>
         </>
       ) : null}

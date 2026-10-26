@@ -21,6 +21,8 @@
     "@shopong/adapter-ucan-iso": "workspace:*",
     "@shopong/adapters-memory": "workspace:*",
     "@shopong/adapters-openui": "workspace:*",
+    "@shopong/community": "workspace:*",
+    "@shopong/events": "workspace:*",
     "@shopong/miniapp": "workspace:*",
     "@shopong/miniapp-chat": "workspace:*",
     "@shopong/miniapp-delivery": "workspace:*",
