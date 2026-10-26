@@ -6,6 +6,7 @@
 
 import { fileAttachedIssues } from "./attachment.js";
 import type { JsonObject } from "./json.js";
+import { coarseArea } from "./area.js";
 import { looksLikeAddress } from "./personal.js";
 
 export const EVENT_TYPES = [
@@ -41,6 +42,7 @@ export const EVENT_TYPES = [
   "solution.shared",
   "agent.action",
   "file.attached",
+  "member.area",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -101,6 +103,14 @@ export interface PlaceRegisteredPayload extends JsonObject {
   readonly addressCommitment: string;
 }
 
+/**
+ * `member.area` (story 7.3): the suburb or town the member is in, and nothing finer. The actor is the member; the
+ * phone coarsens the name before it sends it (`coarseArea`), and the shape refuses anything finer.
+ */
+export interface MemberAreaPayload extends JsonObject {
+  readonly area: string;
+}
+
 /** The route a `delivery.planned` names: its costing, numbers and fingerprint. The line itself stays on the Node. */
 export interface DeliveryRoute extends JsonObject {
   readonly costing: string;
@@ -133,6 +143,7 @@ export type PayloadMap = { [T in EventType]: JsonObject } & {
   "member.joined": MemberJoinedPayload;
   "role.granted": RoleGrantedPayload;
   "member.removed": MemberRemovedPayload;
+  "member.area": MemberAreaPayload;
 };
 
 export interface Issue {
@@ -270,6 +281,17 @@ const placeRegistered: PayloadValidator = (payload) => {
   ];
   return issues;
 };
+
+/** `member.area`: one key, the area, coarse enough to be a suburb or a town (`coarseArea`). */
+const memberArea: PayloadValidator = (payload) => [
+  ...onlyKeys(payload, ["area"]),
+  ...requireString(
+    payload,
+    "area",
+    (v) => coarseArea(v).ok,
+    "must be a suburb or town name of up to 60 characters, with no street, number or erf",
+  ),
+];
 
 const deliveryPlanned: PayloadValidator = (payload) => {
   const issues: Issue[] = [
@@ -438,4 +460,5 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "place.registered": placeRegistered,
   "delivery.planned": deliveryPlanned,
   "delivery.confirmed": deliveryConfirmed,
+  "member.area": memberArea,
 };

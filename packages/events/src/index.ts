@@ -104,6 +104,8 @@ export {
 } from "./registry.js";
 export { Utf8Error, decodeUtf8, encodeUtf8 } from "./utf8.js";
 export { routeFingerprint } from "./route.js";
+export { COARSE_AREA_MESSAGE, coarseArea } from "./area.js";
+export { type MemberAreaPayload } from "./registry.js";
 export { MAX_ADDRESS_LENGTH, commitAddress, normaliseAddress } from "./commitment.js";
 export {
   type DeliveryPlannedPayload,

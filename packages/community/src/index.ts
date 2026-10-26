@@ -21,6 +21,7 @@ export {
   type QuoteReceipt,
 } from "./community.js";
 export { DELIVERY_MESSAGES, plannerProblem } from "./delivery.js";
+export { MEMBER_AREA_MESSAGES, memberAreaKey } from "./areas.js";
 export { isRoleStanding } from "./roles.js";
 export {
   PAYMENT_TYPE_MESSAGE,
