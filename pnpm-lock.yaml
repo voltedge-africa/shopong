@@ -780,6 +780,9 @@ importers:
         specifier: workspace:*
         version: link:../ports
     devDependencies:
+      '@shopong/community':
+        specifier: workspace:*
+        version: link:../community
       typescript:
         specifier: 7.0.2
         version: 7.0.2

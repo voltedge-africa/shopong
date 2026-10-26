@@ -672,6 +672,34 @@ const quoteSelected: PayloadValidator = (payload) => [
     : [{ path: "$.payload.totalMinor", message: "must be a whole number of cents, 0 or more" }]),
 ];
 
+/**
+ * `order.closed` (story 8.7): the treasurer closes an order. The phone sends the order only. The scenario's close step also
+ * writes the figures it summed (`totalCostMinor`, `creditedBackMinor`, `members`); those are accepted but `apply` never
+ * trusts them, because the summary is read from the record and the pool, not from this event.
+ */
+const orderClosed: PayloadValidator = (payload) => {
+  const issues: Issue[] = [
+    ...onlyKeys(payload, ["order", "totalCostMinor", "creditedBackMinor", "members"]),
+    ...requireString(payload, "order", nonEmpty, "must be a non-empty order id"),
+  ];
+  for (const field of ["totalCostMinor", "creditedBackMinor"] as const) {
+    if (payload[field] !== undefined && !boundedInt(payload[field], 0, Number.MAX_SAFE_INTEGER)) {
+      issues.push({ path: `$.payload.${field}`, message: "must be a whole number of cents" });
+    }
+  }
+  const members = payload.members;
+  if (
+    members !== undefined &&
+    !(
+      Array.isArray(members) &&
+      members.every((row) => typeof row === "object" && row !== null && !Array.isArray(row))
+    )
+  ) {
+    issues.push({ path: "$.payload.members", message: "must be a list of member lines" });
+  }
+  return issues;
+};
+
 export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator } = {
   ...(Object.fromEntries(EVENT_TYPES.map((t) => [t, anyObject])) as {
     [T in EventType]: PayloadValidator;
@@ -693,4 +721,5 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "order.proposed": orderProposed,
   "order.approved": orderApproved,
   "quote.selected": quoteSelected,
+  "order.closed": orderClosed,
 };

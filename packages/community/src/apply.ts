@@ -15,7 +15,8 @@
 //
 // View keys: `members/<did>` { invitation, joinedAt }, `invitations/<id>` { invitee, expiresAt },
 // `joined/<invitation id>` { member }, `roles/<did>/<role>` and `revoked/<grant id>` (see roles.ts),
-// `delivered/<order>`, `collected/<order>/<member>` and `disputes/<order>/<event id>` (see delivery-proof.ts),
+// `delivered/<order>`, `collected/<order>/<member>` and `disputes/<order>/<event id>` (see delivery-proof.ts), `closed/<order>`
+// (story 8.7, see closing.ts),
 // `settings/approvals` (story 4.7), `community/name` and `community/rules` (story 8.1), `payouts/<payment id>` and
 // `approvals/<payment id>/<approver>` (story 4.7),
 // `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
@@ -62,6 +63,7 @@ import {
   hasShareIn,
   plannedDriverOf,
 } from "./delivery-proof.js";
+import { CLOSE_MESSAGES, closeBlocker, closedKey } from "./closing.js";
 import { verifyAuthority } from "./authority.js";
 import { MEMBER_AREA_MESSAGES, memberAreaKey } from "./areas.js";
 import { INVITATION_MESSAGES, JOIN_ABILITY, problemOf } from "./invitation.js";
@@ -193,6 +195,7 @@ const CHECKED: ReadonlySet<string> = new Set([
   "order.proposed",
   "order.approved",
   "quote.selected",
+  "order.closed",
 ]);
 
 export function createCommunityApply(env: CommunityApplyEnvironment): Apply<EventEnvelope> {
@@ -497,6 +500,36 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     await view.put(collectedKey(order, event.actor), {
       event: entry.id,
       delivery: str(event.payload, "delivery") ?? "",
+      claimedAt: event.claimedAt,
+    });
+    return undefined;
+  }
+
+  /**
+   * The treasurer's close of an order (story 8.7), judged at log time: the sender is the creator or a co-treasurer whose role
+   * stands, the delivery is confirmed, and every member with a share has confirmed their own collection. An order closes once.
+   * The event's own figures (if it carries any) are never trusted: the summary is read from the record and the pool.
+   */
+  async function orderClosedCheck(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if (!(await isTreasurer(standing, view, event.actor, at))) {
+      return (
+        (await coTreasurerProblem(standing, view, event.actor, at)) ?? CLOSE_MESSAGES.not_permitted
+      );
+    }
+    if (PAYLOAD_VALIDATORS["order.closed"](event.payload).length > 0) {
+      return CLOSE_MESSAGES.unreadable;
+    }
+    const order = str(event.payload, "order") ?? "";
+    const blocker = await closeBlocker(view, order);
+    if (blocker !== undefined) return blocker;
+    await view.put(closedKey(order), {
+      event: entry.id,
+      by: event.actor,
       claimedAt: event.claimedAt,
     });
     return undefined;
@@ -908,6 +941,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
         return collectionConfirmedCheck(entry, view);
       case "delivery.disputed":
         return deliveryDisputedCheck(entry, view);
+      case "order.closed":
+        return orderClosedCheck(entry, view, at);
       case PAYOUT_TYPE:
         return payoutRecorded(entry, view, at);
       case APPROVAL_TYPE:

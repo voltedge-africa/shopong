@@ -42,8 +42,10 @@ import {
   plannerProblem,
   type PlannedDelivery,
 } from "./delivery.js";
+import { CLOSE_MESSAGES, closeBlocker, closingSummary, type ClosingSummary } from "./closing.js";
 import { PROOF_MESSAGES, progressOf, type OrderProgress } from "./delivery-proof.js";
 import { logTimeOf } from "./log-time.js";
+import type { PoolView } from "./pool.js";
 import {
   QUOTE_MESSAGES,
   checkQuote,
@@ -375,6 +377,15 @@ export interface Community {
   disputeDelivery(input: DeliveryDispute, now: EpochMs): Promise<Result<EventEnvelope, ProofError>>;
   /** An order's proof as the view holds it now: arrived, collected of members, disputes (story 7.6). */
   orderProgress(order: string): Promise<OrderProgress>;
+  /**
+   * The treasurer closes an order (story 8.7). Refused with the plain reason unless every member with a share has collected.
+   * No money moves.
+   */
+  closeOrder(order: string, now: EpochMs): Promise<Result<EventEnvelope, ProofError>>;
+  /** Why this person cannot close the order right now, or undefined when they can (the same checks `apply` makes). */
+  closeProblem(order: string): Promise<string | undefined>;
+  /** The closing summary read from the record, with the pool view when the Node gave one (story 8.7). */
+  closingOf(order: string, pool?: PoolView): Promise<ClosingSummary>;
 }
 
 function wrap(
@@ -548,6 +559,24 @@ function wrap(
     async orderProgress(order) {
       await space.update();
       return progressOf(space.view, order);
+    },
+    async closeOrder(order, now) {
+      return appendProof(deps, space, key, "order.closed", { order }, now);
+    },
+    async closeProblem(order) {
+      await space.update();
+      const at = await logAt(space);
+      if (!(await isTreasurer(standingOf(), space.view, me, at))) {
+        return (
+          (await coTreasurerProblem(standingOf(), space.view, me, at)) ??
+          CLOSE_MESSAGES.not_permitted
+        );
+      }
+      return closeBlocker(space.view, order);
+    },
+    async closingOf(order, pool) {
+      await space.update();
+      return closingSummary(space.view, order, me, pool);
     },
     async addQuote(input, now) {
       await space.update();
