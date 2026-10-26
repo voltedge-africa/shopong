@@ -5,8 +5,16 @@
 > git history: `git show 9bc22c4:spikes/2-1-ucan/results/README.md`, or
 > `git restore --source=9bc22c4 --worktree -- spikes/2-1-ucan` to bring them back.
 
-**Status:** proposed; conditional on the device smoke test described in `spikes/2-1-ucan/results/hermes-runtime.md`
-(summarised in `docs/spike-findings.md`).
+**Status:** accepted by the product owner on 2026-10-25 (closes architecture decision D-3), with the device
+test only partly done. The Android emulator part of the smoke test described in
+`spikes/2-1-ucan/results/hermes-runtime.md` (summarised in `docs/spike-findings.md`) was run on 2026-10-25 and
+passed (see [Device run: Android emulator](#device-run-android-emulator-2026-10-25)). A real low-end Android
+phone, an iPhone and a web browser were **not** tested, and the product owner chose to proceed without them.
+That is an accepted risk, not a finished check: if `iso-ucan` misbehaves on iOS, web or a low-end phone, the
+exit path below applies.
+**Implemented in:** `packages/adapter-ucan-iso` (`@shopong/adapter-ucan-iso`), which passes the whole
+`CapabilityAuth` contract (17 cases) plain, with the clock and network trapped during `verify`, and with
+issue-time attenuation checks off.
 **Date:** 2026-10-24
 **Story:** 2.1 (spike: UCAN library on Expo)
 **Evidence:** `spikes/2-1-ucan/results/` (`contract.json`, `owned-logic.md`,
@@ -56,7 +64,9 @@ Expo app on Android, iOS and web?
 The verify-only expected fail is the known contract-suite issue
 `a delegation from someone the proof was not issued to is refused`: the leaf expires exactly
 at the log time, so `expired` is correct but the case expects `broken_chain`. It also fails
-for the in-memory reference adapter and is marked `it.fails`.
+for the in-memory reference adapter and was marked `it.fails` during the spike. **Fixed on 2026-10-25:** the
+case's leaf now expires at `T0 + 2 * HOUR`, so `broken_chain` is the only correct answer, and the adapter's
+verify-only run no longer needs an expected failure.
 
 Full suite: **188 passed, 3 expected fail, 0 failed (191 tests)**.
 
@@ -78,11 +88,80 @@ the app-level figure.
 
 **Not run / only analysed:**
 
-- execution on Hermes, Android, iOS or web in a browser (no device/emulator here);
+- execution on Hermes on a real Android phone, on iOS, or on web in a browser (the Android emulator run
+  came later, see the next section);
 - low-end device performance, cold start, memory;
 - independent security review or audit of any candidate, especially the in-house prototype;
 - long-term maintenance behaviour of the maintainers;
 - per-candidate native bundle sizes (the probe bundles all three together).
+
+## Device run: Android emulator (2026-10-25)
+
+The Expo probe (`spikes/2-1-ucan/expo-probe`, restored from commit `9bc22c4`) was run in Expo Go on an
+Android emulator. It runs the 17 `CapabilityAuth` contract cases plus the AD-18 seed check for each of the
+three candidates, and logs one `UCAN_PROBE` line.
+
+|                       |                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| Device                | AVD `Pixel_API_36`, model `sdk_gphone64_x86_64`, Android 16, CPU `x86_64` (an emulator, not a phone) |
+| Launch path           | Expo Go, Metro on port 8083, probe Metro config                                                      |
+| Engine reported       | `hermes`                                                                                             |
+| `@ucans/ucans` 0.12.0 | 18 passed, 0 failed                                                                                  |
+| `iso-ucan` 2.0.0      | 18 passed, 0 failed                                                                                  |
+| In-house chain        | 18 passed, 0 failed                                                                                  |
+| Seed check            | all three derive `did:key:z6MkmtmqQWNzwamfa7QWkNU3Sk2qHpuXK4VrfMXXqVouVZtL`                          |
+| Run time              | 5,463 ms for all three adapters (emulator on a workstation; not a low-end figure)                    |
+
+**What had to be added to the probe before it would run.** None of these are library bugs.
+
+1. **A `crypto` module stand-in.** `iso-base` runs `import crypto from "crypto"` and then reads
+   `crypto.webcrypto`. The probe's Metro config mapped `crypto` to `expo-crypto`, which has no default export,
+   so the app died at startup with `Cannot read property 'webcrypto' of undefined`. The probe now maps
+   `crypto` to a small module that exports `webcrypto` (the global `crypto` object) as both a named and a
+   default export. It was not tested whether ts-ucan or the in-house chain also need it.
+2. **`crypto.randomUUID`.** The contract's own `unique()` helper (`packages/ports-contract/src/support.ts`)
+   calls `globalThis.crypto.randomUUID()`, which Hermes does not provide. Without it, 16 of 18 cases failed
+   on all three adapters with `undefined is not a function`. The polyfill takes `randomUUID` from `expo-crypto`.
+   Any on-device run of the contract needs it.
+3. **`packages/events` on the Metro watch list.** The in-house adapter imports from it.
+
+With those three changes the polyfill list for Hermes is now: `globalThis.crypto`, `crypto.getRandomValues`
+(expo-crypto), `crypto.randomUUID` (expo-crypto), `crypto.subtle.digest` (`@noble/hashes`), plus the Metro
+aliases for `crypto`, `stream` and `buffer`.
+
+**What this does not show.**
+
+- It is an x86 emulator on a workstation. It says nothing about a low-end phone's memory, cold start or
+  speed.
+- iOS and web were not run. iOS needs a Mac or an iPhone. The earlier web evidence is a bundle only.
+- The emulator process exited twice during the session with no crash message and was restarted with
+  software rendering (`-gpu swiftshader_indirect`). Logcat cuts long lines, so the full result was read from
+  the Metro log, not from `adb logcat`.
+
+The probe changes, the result JSON and a screenshot were kept outside the repo, in
+`/tmp/ucan-probe-results/` on the machine that ran it. They are not committed.
+
+## In the Shopong app (2026-10-26)
+
+The packaged adapter (`packages/adapter-ucan-iso`, not the spike's copy) was added to `apps/shopong` and
+run there. A development-only screen, `/ucan-check`, runs nine cases through the `CapabilityAuth` port
+(identities, a root grant, a request above the ceiling, a delegated chain, a delegation that raises the
+ceiling, expiry at a supplied time, a tampered token, a chain from another root, a revoked token) and logs
+one `UCAN_CHECK` line. It renders nothing in a release build.
+
+| Where                                       | Result             | Polyfills installed                                                                                    |
+| ------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------ |
+| Web (Chromium, `expo start --web`)          | 9 passed, 0 failed | none (the browser has all of it)                                                                       |
+| Android 16 x86_64 emulator, Expo Go, Hermes | 9 passed, 0 failed | `globalThis.crypto`, `getRandomValues` and `randomUUID` (expo-crypto), `subtle.digest` (@noble/hashes) |
+
+What the app needed, all in `apps/shopong`: `lib/cryptoPolyfills.ts` (above), `lib/cryptoShim.js` plus a
+`crypto` / `node:crypto` mapping in `metro.config.js` (iso-base imports Node's `crypto`), and three
+dependencies: `@shopong/adapter-ucan-iso`, `expo-crypto` 58.0.7 and `@noble/hashes` 2.4.0 (MIT). The same
+nine cases also run in Node (`lib/ucanCheck.test.ts`).
+
+Still not run: a real low-end Android phone, any iPhone or iOS simulator, and the full 17-case contract on
+a device (the screen runs a nine-case subset). The seed-to-identity derivation (AD-18) is not built yet, so
+it was not exercised in the app.
 
 ## Decision
 
@@ -110,7 +189,9 @@ Rationale:
 
 The condition: the Hermes smoke test must show all three adapters (or at minimum the chosen
 iso-ucan adapter) running on a real low-end Android phone and an iPhone with 17/17 + AD-18
-and no missing polyfills. Until then this is a conditional go, not a final adoption.
+and no missing polyfills. The Android emulator leg passed on 2026-10-25 (18/18 for all three, with the
+polyfills listed above). The phone and iPhone legs were not run: on 2026-10-25 the product owner accepted the
+decision without them (see Status), so they remain an accepted risk.
 
 ## Exit path through the port
 
