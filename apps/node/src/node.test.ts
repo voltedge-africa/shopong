@@ -73,8 +73,8 @@ describe("a running Node (AC 1.5b)", () => {
         OCN_NODE_LEDGER_ENABLED: "true",
         OCN_NODE_PAYMENTS_ENABLED: "true",
         LEDFRA_API_TOKEN: FAKE_SECRETS.LEDFRA_API_TOKEN,
-        STITCH_CLIENT_ID: FAKE_SECRETS.STITCH_CLIENT_ID,
-        STITCH_CLIENT_SECRET: FAKE_SECRETS.STITCH_CLIENT_SECRET,
+        SIMULATED_WEBHOOK_SECRET: FAKE_SECRETS.SIMULATED_WEBHOOK_SECRET,
+        OCN_NODE_ALLOW_SIMULATED_PAYMENTS: "true",
       },
       sink: captureSink(),
     });
@@ -150,6 +150,7 @@ describe("a running Node (AC 1.5b)", () => {
         ...ephemeral(),
         OCN_NODE_LEDGER_ENABLED: "true",
         OCN_NODE_PAYMENTS_ENABLED: "true",
+        OCN_NODE_ALLOW_SIMULATED_PAYMENTS: "true",
         ...FAKE_SECRETS,
       },
       sink,

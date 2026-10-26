@@ -1,0 +1,26 @@
+{
+  "name": "@shopong/adapter-stitch-sim",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SIMULATED Stitch behind the Payments port (story 4.4). It is not Stitch: no network, no Stitch credentials. Run by the OCN Node only.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@shopong/events": "workspace:*",
+    "@shopong/ports": "workspace:*"
+  },
+  "devDependencies": {
+    "@shopong/ports-contract": "workspace:*",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  }
+}

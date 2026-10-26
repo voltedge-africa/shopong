@@ -3,7 +3,7 @@ title: 'Deterministic capability checks in `apply` using log time'
 type: 'feature'
 ticket: 6
 created: '2026-10-26'
-status: draft
+status: done
 baseline_revision: 'd17c46448ecff8fd7d81b796dec4c239838dbfe8'
 route: 'full'
 route_source: 'auto'

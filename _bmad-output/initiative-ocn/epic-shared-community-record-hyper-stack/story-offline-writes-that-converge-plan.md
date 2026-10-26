@@ -3,7 +3,7 @@ title: 'Offline writes that converge'
 type: 'feature'
 ticket: 4
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: 'dc5111790034a3a152a9ef8d55f5ef88a1be9d89'
 route: 'full'
 route_source: 'auto'

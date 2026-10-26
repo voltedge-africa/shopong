@@ -11,12 +11,17 @@ import type { ComponentName } from "./components.ts";
 /** A component that owns secrets: one of the four, or one that does not exist yet. */
 export type SecretOwner = ComponentName | "stablecoin" | "llm";
 
+/** Which payments adapter the Node runs (`PAYMENTS_ADAPTER`). `stitch` is refused until a real adapter exists. */
+export type PaymentsAdapterName = "simulated" | "stitch";
+
 export interface SecretDefinition {
   key: string;
   owner: SecretOwner;
   /** Required only counts while the owner is an enabled component; placeholders are never required. */
   required: boolean;
   description: string;
+  /** For a payments secret: only the selected adapter needs it. Undefined: needed by the owner alone. */
+  adapter?: PaymentsAdapterName;
 }
 
 export const SECRET_DEFINITIONS: readonly SecretDefinition[] = [
@@ -27,16 +32,26 @@ export const SECRET_DEFINITIONS: readonly SecretDefinition[] = [
     description: "32-byte master key (64 hex characters) for the shared record's keys and storage",
   },
   {
+    key: "SIMULATED_WEBHOOK_SECRET",
+    owner: "payments",
+    required: true,
+    adapter: "simulated",
+    description:
+      "SIMULATED Stitch only (story 4.4): the 32-byte key that signs simulated webhooks, 64 hex characters. Not a Stitch credential; never leaves the Node",
+  },
+  {
     key: "STITCH_CLIENT_ID",
     owner: "payments",
     required: true,
-    description: "Stitch client id (pay-in and pay-out)",
+    adapter: "stitch",
+    description: "Stitch client id (pay-in and pay-out); needed once a real Stitch adapter exists",
   },
   {
     key: "STITCH_CLIENT_SECRET",
     owner: "payments",
     required: true,
-    description: "Stitch client secret",
+    adapter: "stitch",
+    description: "Stitch client secret; needed once a real Stitch adapter exists",
   },
   {
     key: "LEDFRA_API_TOKEN",
@@ -132,6 +147,7 @@ export function resolveSecrets(
   env: Readonly<Record<string, string | undefined>>,
   enabled: Readonly<Record<ComponentName, boolean>>,
   readSecretFile: ReadSecretFile = defaultReadSecretFile,
+  paymentsAdapter: PaymentsAdapterName = "simulated",
 ): ResolvedSecrets {
   const values = new Map<string, string>();
   const missing: string[] = [];
@@ -165,7 +181,7 @@ export function resolveSecrets(
 
     if (value !== undefined && value !== "") {
       values.set(def.key, value);
-    } else if (def.required && isOwnerEnabled(def.owner, enabled)) {
+    } else if (isRequired(def, enabled, paymentsAdapter)) {
       missing.push(def.key);
     }
   }
@@ -184,9 +200,27 @@ function isOwnerEnabled(owner: SecretOwner, enabled: Readonly<Record<ComponentNa
   return owner in enabled && enabled[owner as ComponentName];
 }
 
-/** The required secrets of `component` that were not resolved. */
-export function missingRequiredFor(component: ComponentName, secrets: ResolvedSecrets): string[] {
+/** Required now: the owner is enabled, and the secret's adapter (if it has one) is the selected one. */
+function isRequired(
+  def: SecretDefinition,
+  enabled: Readonly<Record<ComponentName, boolean>>,
+  paymentsAdapter: PaymentsAdapterName,
+): boolean {
+  if (!def.required || !isOwnerEnabled(def.owner, enabled)) return false;
+  return def.adapter === undefined || def.adapter === paymentsAdapter;
+}
+
+/** The required secrets of `component` that were not resolved, for the adapter that is selected. */
+export function missingRequiredFor(
+  component: ComponentName,
+  secrets: ResolvedSecrets,
+  paymentsAdapter: PaymentsAdapterName = "simulated",
+): string[] {
   return SECRET_DEFINITIONS.filter(
-    (d) => d.owner === component && d.required && !secrets.has(d.key),
+    (d) =>
+      d.owner === component &&
+      d.required &&
+      (d.adapter === undefined || d.adapter === paymentsAdapter) &&
+      !secrets.has(d.key),
   ).map((d) => d.key);
 }
