@@ -32,6 +32,7 @@ export const EVENT_TYPES = [
   "delivery.started",
   "delivery.confirmed",
   "collection.confirmed",
+  "delivery.disputed",
   "funding.requested",
   "funding.offered",
   "funding.accepted",
@@ -127,12 +128,37 @@ export interface DeliveryPlannedPayload extends JsonObject {
   // named here, because an optional field cannot sit under `JsonObject` (as `member.removed`'s reason is).
 }
 
+/**
+ * `collection.confirmed` (story 7.6): a member confirms their own share of a delivery. `member` is the signer (the
+ * actor), named so that a confirmation for anyone else is refused as such. `delivery` is the event id of the confirmed
+ * delivery the share came from.
+ */
+export interface CollectionConfirmedPayload extends JsonObject {
+  readonly order: string;
+  readonly delivery: string;
+  /** `did:key` of the member whose share this is. */
+  readonly member: string;
+}
+
+/**
+ * `delivery.disputed` (story 7.6): a member (the treasurer included) says a share did not arrive. The confirmation stays;
+ * this is a later event beside it. `note` is the person's own short words, optional.
+ */
+export interface DeliveryDisputedPayload extends JsonObject {
+  readonly order: string;
+  /** The event id of the `delivery.confirmed` being disputed. */
+  readonly delivery: string;
+  // The optional note is checked by the validator but not named here (an optional field cannot sit under JsonObject).
+}
+
 /** Payload shape per type. Placeholders until each type's owning story defines it. */
 export type PayloadMap = { [T in EventType]: JsonObject } & {
   "member.invited": MemberInvitedPayload;
   "member.joined": MemberJoinedPayload;
   "role.granted": RoleGrantedPayload;
   "member.removed": MemberRemovedPayload;
+  "collection.confirmed": CollectionConfirmedPayload;
+  "delivery.disputed": DeliveryDisputedPayload;
 };
 
 export interface Issue {
@@ -344,22 +370,92 @@ const deliveryPlanned: PayloadValidator = (payload) => {
 };
 
 /**
- * `delivery.confirmed` (patch of story 7.4): the order, the SHA-512 of the delivery photo, and optionally the place it
- * was confirmed at (an opaque id, not a coordinate). No coordinate of any kind is accepted (AGENTS rule 6).
+ * A coarse coordinate (story 7.6): a latitude or longitude in degrees, as a decimal string with at most two decimal
+ * places (about 1 km). The canonical JSON takes no floats (canonical.ts), so the degrees travel as text. Anything finer is
+ * refused, so the record can never hold an exact position (AGENTS rule 6).
  */
-const deliveryConfirmed: PayloadValidator = (payload) => [
-  ...onlyKeys(payload, ["order", "photoSha512", "place"]),
+const coarseDegrees = (value: unknown, max: number): boolean =>
+  typeof value === "string" &&
+  /^-?\d{1,3}(\.\d{1,2})?$/.test(value) &&
+  Math.abs(Number(value)) <= max;
+
+/**
+ * `delivery.confirmed` (story 7.4, with the coarse place of story 7.6): the order, the SHA-512 of the delivery photo, and
+ * optionally the place it was confirmed at: an opaque place id, or a coarse latitude and longitude (both or neither,
+ * two decimal places at most). No other coordinate is accepted (AGENTS rule 6).
+ */
+const deliveryConfirmed: PayloadValidator = (payload) => {
+  const issues: Issue[] = [
+    ...onlyKeys(payload, ["order", "photoSha512", "place", "lat", "lng"]),
+    ...requireString(payload, "order", nonEmpty, "must be a non-empty order id"),
+    ...requireString(
+      payload,
+      "photoSha512",
+      (v) => SHA512_HEX.test(v),
+      "must be a SHA-512 of the photo",
+    ),
+    ...(payload.place === undefined
+      ? []
+      : requireString(payload, "place", (v) => OPAQUE_PLACE.test(v), "must be an opaque place id")),
+  ];
+  const hasLat = payload.lat !== undefined;
+  const hasLng = payload.lng !== undefined;
+  if (hasLat !== hasLng) {
+    issues.push({ path: "$.payload", message: "a place needs both a latitude and a longitude" });
+  } else if (hasLat) {
+    if (!coarseDegrees(payload.lat, 90))
+      issues.push({
+        path: "$.payload.lat",
+        message: "must be a latitude with at most two decimal places",
+      });
+    if (!coarseDegrees(payload.lng, 180))
+      issues.push({
+        path: "$.payload.lng",
+        message: "must be a longitude with at most two decimal places",
+      });
+  }
+  return issues;
+};
+
+/** `collection.confirmed` (story 7.6): the order, the delivery it collects from, and the member whose share it is. */
+const collectionConfirmed: PayloadValidator = (payload) => [
+  ...onlyKeys(payload, ["order", "delivery", "member"]),
   ...requireString(payload, "order", nonEmpty, "must be a non-empty order id"),
   ...requireString(
     payload,
-    "photoSha512",
+    "delivery",
     (v) => SHA512_HEX.test(v),
-    "must be a SHA-512 of the photo",
+    "must be the event id of the delivery",
   ),
-  ...(payload.place === undefined
-    ? []
-    : requireString(payload, "place", (v) => OPAQUE_PLACE.test(v), "must be an opaque place id")),
+  ...requireString(payload, "member", (v) => DID_KEY.test(v), "must be a did:key"),
 ];
+
+/** Words a dispute may carry: a short note, in the person's own words, optional. */
+const DISPUTE_NOTE_MAX = 280;
+
+/** `delivery.disputed` (story 7.6): the order, the confirmation disputed, and an optional short note. */
+const deliveryDisputed: PayloadValidator = (payload) => {
+  const issues: Issue[] = [
+    ...onlyKeys(payload, ["order", "delivery", "note"]),
+    ...requireString(payload, "order", nonEmpty, "must be a non-empty order id"),
+    ...requireString(
+      payload,
+      "delivery",
+      (v) => SHA512_HEX.test(v),
+      "must be the event id of the delivery",
+    ),
+  ];
+  if (payload.note !== undefined)
+    issues.push(
+      ...requireString(
+        payload,
+        "note",
+        boundedText(1, DISPUTE_NOTE_MAX),
+        `must be 1 to ${DISPUTE_NOTE_MAX} characters of text`,
+      ),
+    );
+  return issues;
+};
 
 const PAYOUT_RECOMMENDATIONS: readonly string[] = ["clear", "too_close", "only_one", "none"];
 const PAYOUT_ID = /^[0-9a-f]{128}$/;
@@ -438,4 +534,6 @@ export const PAYLOAD_VALIDATORS: { readonly [T in EventType]: PayloadValidator }
   "place.registered": placeRegistered,
   "delivery.planned": deliveryPlanned,
   "delivery.confirmed": deliveryConfirmed,
+  "collection.confirmed": collectionConfirmed,
+  "delivery.disputed": deliveryDisputed,
 };

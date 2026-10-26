@@ -3,12 +3,22 @@ import type { MiniAppManifest } from "@shopong/miniapp";
 export {
   OrdersHostContext,
   type AttachmentHost,
-  type BankForm,
   type OrdersHost,
   type PaymentHost,
+  type ProofHost,
+  type ProofView,
+  type BankForm,
   type PayoutHost,
   type PayoutsReading,
 } from "./host";
+export {
+  ARRIVAL_HELP,
+  arrivalWords,
+  collectionWords,
+  disputeWords,
+  progressWords,
+  type ArrivalState,
+} from "./proof";
 export { type PaymentRecord } from "./payouts";
 export {
   attachOrReason,

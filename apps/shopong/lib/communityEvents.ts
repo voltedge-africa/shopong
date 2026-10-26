@@ -26,6 +26,9 @@ const build = (fields: {
     | "member.joined"
     | "member.invited"
     | "pledge.created"
+    | "delivery.confirmed"
+    | "collection.confirmed"
+    | "delivery.disputed"
     | "payment.payout"
     | "payment.approved";
   space: string;
@@ -171,6 +174,63 @@ export function pledgeEvent(
       order: input.order,
       member: input.me,
       amount: { currency: "ZAR", minor: input.minor },
+    },
+  });
+}
+
+/**
+ * The driver's arrival (story 7.6): the order and the SHA-512 of the delivery photo, which the phone has already given to
+ * the Node. The place is not sent yet (the phone reads no location; see the story's shortcuts).
+ */
+export function deliveryConfirmedEvent(
+  input: Base & { readonly me: Did; readonly order: string; readonly photoSha512: string },
+): EventEnvelope {
+  return build({
+    type: "delivery.confirmed",
+    space: input.community,
+    actor: input.me,
+    proof: [],
+    claimedAt: input.now,
+    nonce: hex(input.randomBytes(16)),
+    payload: { order: input.order, photoSha512: input.photoSha512 },
+  });
+}
+
+/** A member's own share (story 7.6): the order, the delivery it collects from, and the member, who is the signer. */
+export function collectionConfirmedEvent(
+  input: Base & { readonly me: Did; readonly order: string; readonly delivery: string },
+): EventEnvelope {
+  return build({
+    type: "collection.confirmed",
+    space: input.community,
+    actor: input.me,
+    proof: [],
+    claimedAt: input.now,
+    nonce: hex(input.randomBytes(16)),
+    payload: { order: input.order, delivery: input.delivery, member: input.me },
+  });
+}
+
+/** A dispute of a delivery (story 7.6): the order, the confirmation disputed, and the person's own short note, if any. */
+export function deliveryDisputedEvent(
+  input: Base & {
+    readonly me: Did;
+    readonly order: string;
+    readonly delivery: string;
+    readonly note?: string;
+  },
+): EventEnvelope {
+  return build({
+    type: "delivery.disputed",
+    space: input.community,
+    actor: input.me,
+    proof: [],
+    claimedAt: input.now,
+    nonce: hex(input.randomBytes(16)),
+    payload: {
+      order: input.order,
+      delivery: input.delivery,
+      ...(input.note === undefined ? {} : { note: input.note }),
     },
   });
 }

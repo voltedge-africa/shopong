@@ -324,7 +324,7 @@ export function createApply(env: ApplyEnvironment): Apply<EventEnvelope> {
       case "collection.confirmed": {
         const member = str(p, "member");
         if (status !== "delivered") return "nothing delivered yet";
-        if (actorKey !== member) return "members confirm only their own collection";
+        if (event.actor !== member) return "members confirm only their own collection";
         await view.put(`collections/${member ?? "?"}`, { event: entry.id });
         return undefined;
       }
