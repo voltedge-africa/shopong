@@ -62,7 +62,7 @@ baseline_revision: '788a54d8ab1c5cedcf4ab94ed00f62779eefa091'
 **Execution:**
 - [ ] `packages/community/src/payout.ts` (new) -- pure rule: count distinct approvals that pass `verifyAuthority` at the Node's time with the amount as ceiling; plain refusal reasons; tests per matrix row
 - [ ] `apps/node/src/` -- configure the authority (S-2.5-15); signed `POST /payouts` that checks approvals, posts the ledger entry keyed by the event id, creates the payout through `PayOut` with the approval evidence, and keeps its own idempotency table; tests on the in-memory ledger and `MemoryPayOut`
-- [ ] Record -- approval and payout events per question 3, with registry entries and tests
+- [ ] Record -- approval and payout events per question 3, with registry entries and tests; the per-community `approvals` setting in the founding event (see the change of answer under Open Questions), its validation in `apply` and its default of two
 - [ ] `apps/shopong/` -- confirmation step naming amount, supplier and effect; signs only after confirmation; supplier choice from the ranking; shows refusal reasons
 - [ ] `_bmad-output/initiative-ocn/shortcuts.md` -- close S-2.5-9 and S-2.5-15; domain-tag the approval signature (S-2.5-14); add a row for each shortcut taken
 
@@ -85,6 +85,13 @@ baseline_revision: '788a54d8ab1c5cedcf4ab94ed00f62779eefa091'
 - Payments are simulated: no real Stitch call is made, and the screen says so.
 
 ## Open Questions
+
+**Change of answer, 2026-10-26 (product owner): question 1 is option C, not A.** The number of approvals a supplier payment needs is a per-community setting chosen when the community is created, with a default of two distinct people (the creator counts as one, each within their own limit). Consequences for this story:
+- **Where the setting lives:** a new field in the founding event of the community (for example `approvals`, an integer from 1 to 5), written once at creation, readable in the view, and not changeable in this story (changing it is later work). A community created without the field gets the default of two.
+- **Validation:** `apply` refuses a founding event whose value is missing-but-present-as-text, below 1 or above 5, or not a whole number; the payout rule reads the number from the view, never from the request.
+- **What a person sees:** when creating a community, a plain choice "How many people must approve a payment to a supplier?" with 1, 2 (suggested), 3, 4 or 5; one approver is allowed but the screen says plainly that one person can then pay out alone. The confirmation screen says "This payment needs N approvals. You are approval K of N."
+- **Safety rules that do not change:** each approver still confirms on their own phone, the rand limit is still checked at the Node for each approver, a creator counts as one approver only once, and the same person cannot approve twice.
+- **Extra work:** one more field in the community creation screen (Settings card, web and emulator checked), the founding-event schema and tests, and tests for every N from 1 to 5 and for the default. Record the 'one approver means one person can pay out alone' risk as a shortcut row.
 
 **Answered 2026-10-26 by the product owner: all recommended answers accepted (first option of every question). Testing rule: any story that changes the app is checked on web AND the Android emulator, every time; any older wording that says the emulator is checked only when asked is out of date. Stitch is simulated until the product owner has the Stitch account; the simulation is labelled everywhere and recorded as shortcuts.**
 
