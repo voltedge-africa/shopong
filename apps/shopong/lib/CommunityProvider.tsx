@@ -56,7 +56,8 @@ import {
 } from "./communityEvents";
 import { nodeFailureMessage, unqueuedMessage } from "./nodeMessages";
 import { NODE_ADDRESS } from "./nodeAddress";
-import { createNodeClient, type NodeClient, type RouteAnswer } from "./nodeClient";
+import { createNodeClient, type NodeClient, type NodePlace, type RouteAnswer } from "./nodeClient";
+import { placeFormProblem, type PlaceForm } from "./places";
 import {
   OFFLINE_PLAN_MESSAGE,
   planFailureMessage,
@@ -169,6 +170,19 @@ type CommunityContextValue = {
   ) => Promise<{ ok: true; route: RouteAnswer } | { ok: false; message: string }>;
   /** The community's planned route: its line and sentences from the Node, by the fingerprint the record holds. */
   routeScreen: () => Promise<RouteScreen>;
+  /** Whether I may register a collection point: the treasurer's standing, as for quotes (story 7.3). */
+  canAddPlaces: boolean;
+  /**
+   * Registers a collection point: the Node keeps its point and address, and the record gets its label and area. A
+   * retry of the same form keeps its key, so it is the same place. Resolves the plain reason it was refused, or `undefined`.
+   */
+  registerPlace: (form: PlaceForm) => Promise<string | undefined>;
+  /** The collection points as the Node holds them, with their coordinates (story 7.3). Members only; empty when offline. */
+  nodePlacesOf: () => Promise<readonly NodePlace[]>;
+  /** The members' areas as the record holds them: a member's DID and the suburb or town (story 7.3). */
+  memberAreasOf: () => Promise<readonly { readonly did: string; readonly area: string }[]>;
+  /** Records my suburb or town. Resolves the plain reason it was refused, or `undefined`. */
+  setMemberArea: (area: string) => Promise<string | undefined>;
 };
 
 /** The one delivery the community plans for now; orders are not yet in the record (see shortcuts S-7.4-8). */
@@ -1151,6 +1165,79 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     );
   }, [nodeFor, nodeCommunity, serviceFor]);
 
+  // A registration form's key, kept while the same form is sent again (a retry after a lost answer, S-7.4-15).
+  const placeRequest = useRef<{ form: string; request: string } | null>(null);
+
+  const registerPlace = useCallback(
+    async (form: PlaceForm) => {
+      const bundle = nodeFor();
+      const current = serviceFor().community();
+      if (bundle === null || bundle.client === undefined || nodeCommunity === null) {
+        return "Make or join a community on the OCN Node first, in Settings.";
+      }
+      if (current === null) return "Make a community first.";
+      const text = JSON.stringify(form);
+      if (placeRequest.current?.form !== text) {
+        const bytes = getRandomBytes(16);
+        placeRequest.current = {
+          form: text,
+          request: Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join(""),
+        };
+      }
+      const checked = placeFormProblem(form, placeRequest.current.request);
+      if (!checked.ok) return checked.message;
+      const reply = await bundle.client.registerPlace(nodeCommunity.key, checked.body);
+      if (!reply.ok) return nodeFailureMessage(reply.failure, "save the place");
+      const place = reply.value;
+      // The Node answers the same id for a retry: the record gets the place once, from whichever answer arrives first.
+      await current.space.update();
+      if ((await current.space.view.get(`places/${place.id}`)) === undefined) {
+        const recorded = await serviceFor().registerPlace({
+          id: place.id,
+          label: place.label,
+          area: place.area,
+          addressCommitment: place.addressCommitment,
+        });
+        setRefusals(serviceFor().refusals());
+        if (!recorded.ok) return recorded.error.message;
+      }
+      placeRequest.current = null;
+      return undefined;
+    },
+    [nodeFor, nodeCommunity, serviceFor],
+  );
+
+  const nodePlacesOf = useCallback(async (): Promise<readonly NodePlace[]> => {
+    const bundle = nodeFor();
+    if (bundle === null || bundle.client === undefined || nodeCommunity === null) return [];
+    const reply = await bundle.client.places(nodeCommunity.key);
+    return reply.ok ? reply.value : [];
+  }, [nodeFor, nodeCommunity]);
+
+  const memberAreasOf = useCallback(async () => {
+    const current = serviceFor().community();
+    if (current === null) return [];
+    await current.space.update();
+    const rows = await current.space.view.list("areas/");
+    return rows.map((row) => {
+      const value = (row.value ?? {}) as { area?: unknown };
+      return {
+        did: row.key.slice("areas/".length),
+        area: typeof value.area === "string" ? value.area : "",
+      };
+    });
+  }, [serviceFor]);
+
+  const setMemberArea = useCallback(
+    async (area: string) => {
+      if (serviceFor().community() === null) return "Make or join a community first.";
+      const recorded = await serviceFor().setMemberArea(area);
+      setRefusals(serviceFor().refusals());
+      return recorded.ok ? undefined : recorded.error.message;
+    },
+    [serviceFor],
+  );
+
   const shownMembers = nodeCommunity === null ? members : nodeMembers;
   const shownRoleHolders = nodeCommunity === null ? roleHolders : nodeRoleHolders;
   const noNodeReason =
@@ -1192,6 +1279,11 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       placesOf,
       planRoute,
       routeScreen,
+      canAddPlaces: canAddQuotes,
+      registerPlace,
+      nodePlacesOf,
+      memberAreasOf,
+      setMemberArea,
       paymentOf,
       payOrder,
       paymentsOf,
@@ -1234,6 +1326,10 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       placesOf,
       planRoute,
       routeScreen,
+      registerPlace,
+      nodePlacesOf,
+      memberAreasOf,
+      setMemberArea,
       paymentOf,
       payOrder,
       paymentsOf,

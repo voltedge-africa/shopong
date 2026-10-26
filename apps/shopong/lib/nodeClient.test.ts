@@ -434,3 +434,61 @@ describe("the phone's payout calls (story 4.7)", () => {
     });
   });
 });
+
+describe("the phone's place calls (story 7.3)", () => {
+  const placeAnswer = {
+    id: "a".repeat(64),
+    label: "Mamelodi Wholesale depot",
+    area: "Mamelodi",
+    addressCommitment: "c".repeat(128),
+    requestId: "r1",
+  };
+  const place = {
+    request: "d".repeat(32),
+    label: "Mamelodi Wholesale depot",
+    area: "Mamelodi",
+    lat: -25.7079,
+    lng: 28.4004,
+    address: "12 Church Street, Mamelodi",
+  };
+
+  it("sends the registration key and the place to the Node, signed, and reads its id", async () => {
+    const phone = await phoneWith(() => ({ status: 200, body: placeAnswer }));
+    const reply = await phone.client.registerPlace(KEY, place);
+    expect(reply.ok).toBe(true);
+    if (reply.ok) expect(reply.value.id).toBe("a".repeat(64));
+    const [sent] = phone.sent;
+    expect(sent!.method).toBe("POST");
+    expect(sent!.url).toBe(`https://node.example/communities/${KEY}/places`);
+    expect(JSON.parse(sent!.body!)).toEqual(place);
+    expect(sent!.headers["x-ocn-signature"]).toBeDefined();
+  });
+
+  it("reads the community's places with their coordinates", async () => {
+    const phone = await phoneWith(() => ({
+      status: 200,
+      body: {
+        places: [{ id: "a".repeat(64), label: "Depot", area: "Mamelodi", lat: -25.7, lng: 28.4 }],
+        requestId: "r2",
+      },
+    }));
+    const reply = await phone.client.places(KEY);
+    expect(reply.ok).toBe(true);
+    if (reply.ok)
+      expect(reply.value).toEqual([
+        { id: "a".repeat(64), label: "Depot", area: "Mamelodi", lat: -25.7, lng: 28.4 },
+      ]);
+    expect(phone.sent[0]!.method).toBe("GET");
+    expect(phone.sent[0]!.url).toBe(`https://node.example/communities/${KEY}/places`);
+  });
+
+  it("reports a refused registration with the Node's plain reason", async () => {
+    const phone = await phoneWith(() => ({
+      status: 403,
+      body: { problem: "not_treasurer", reason: "Only the treasurer can add a place." },
+    }));
+    const reply = await phone.client.registerPlace(KEY, place);
+    expect(reply.ok).toBe(false);
+    if (!reply.ok) expect(reply.failure.reason).toBe("Only the treasurer can add a place.");
+  });
+});

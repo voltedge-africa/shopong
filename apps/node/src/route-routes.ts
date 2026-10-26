@@ -3,7 +3,9 @@
 //   POST /communities/:key/places              the treasurer registers a place. The Node keeps its coordinates under an
 //                                              opaque id and answers the id, the label, the area and the keyed commitment
 //                                              of the exact address (the record's copy). The address is committed here
-//                                              and never written anywhere else.
+//                                              and never written anywhere else. The id comes from the phone's registration
+//                                              key (`request`, story 7.3), so a retry after a lost answer is the same place.
+//   GET  /communities/:key/places              a member reads the places with their coordinates (story 7.3). No address.
 //   POST /communities/:key/routes              the treasurer or a current driver plans a route between two registered
 //                                              places. The Node computes it behind the `Routing` port, keeps the line, and
 //                                              answers the summary, the line and three plain sentences. The caller then
@@ -21,6 +23,7 @@ import {
   encodeUtf8,
   commitAddress,
   routeFingerprint,
+  toHex,
   webCryptoSha512,
 } from "@shopong/events";
 import type { CapabilityAuth, Did, Routing, ViewReader } from "@shopong/ports";
@@ -101,6 +104,8 @@ export function routeSentences(
 
 // A place is named, never addressed: a label or area that reads as an address is refused (patch of story 7.4).
 const placeBody = z.strictObject({
+  /** The phone's registration key: 16 random bytes, hex. A retry sends the same one (S-7.4-15). */
+  request: z.string().regex(/^[0-9a-f]{32}$/),
   label: z
     .string()
     .trim()
@@ -117,6 +122,22 @@ const placeBody = z.strictObject({
   lng: z.number().min(-180).max(180),
   address: z.string().min(1).max(200),
 });
+
+/**
+ * The id of a place, from the community and the registration key, under the Node's secret: the same registration gives
+ * the same id, and nobody else can compute it (story 7.3, S-7.4-15).
+ */
+export async function placeIdOf(
+  secret: Uint8Array,
+  communityKey: string,
+  request: string,
+): Promise<string> {
+  const digest = await nodeHmacSha512(
+    secret,
+    encodeUtf8(`ocn/place/v1\n${communityKey}\n${request}`),
+  );
+  return toHex(digest).slice(0, 64);
+}
 
 const planBody = z.strictObject({
   order: z.string().trim().min(1).max(80),
@@ -311,7 +332,19 @@ export function registerRouteRoutes(
         }
         throw error;
       }
-      const id = places.add(key, {
+      const id = await placeIdOf(secret, key, parsed.data.request);
+      const kept = places.get(key, id);
+      if (kept !== undefined) {
+        // A retry of a registration already kept: the same place, with what was kept first.
+        return reply.code(200).send({
+          id,
+          label: kept.label,
+          area: kept.area,
+          addressCommitment: kept.addressCommitment,
+          requestId: request.id,
+        });
+      }
+      places.put(key, id, {
         label: parsed.data.label,
         area: parsed.data.area,
         lat: parsed.data.lat,
@@ -432,6 +465,27 @@ export function registerRouteRoutes(
       return reply.code(200).send(answer(key, fingerprint, entry, origin, destination, request.id));
     },
   );
+
+  /** The community's places for its members (story 7.3): the Node's own coordinates, and never an address. */
+  app.get<{ Params: { key: string } }>("/communities/:key/places", async (request, reply) => {
+    const { key } = request.params;
+    const gated = await gateFor(request, reply, key);
+    if (gated.refused) return reply;
+    const { actor, view } = gated;
+    if (!(await stillMember(actor, key, view))) {
+      return refuse(request, reply, 403, "not_member", ROUTE_MESSAGES.not_member_read, actor);
+    }
+    return reply.code(200).send({
+      places: places.list(key).map(([id, place]) => ({
+        id,
+        label: place.label,
+        area: place.area,
+        lat: place.lat,
+        lng: place.lng,
+      })),
+      requestId: request.id,
+    });
+  });
 
   // The fingerprint is a query value: a 128-character path parameter is longer than Fastify's default limit (100).
   app.get<{ Params: { key: string }; Querystring: { fingerprint?: string; order?: string } }>(

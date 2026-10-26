@@ -28,7 +28,13 @@ import {
   type RoleRecord,
 } from "@shopong/community";
 import { createMemoryRecordNetwork, type MemoryRecordNetwork } from "@shopong/adapters-memory";
-import { addRefusal, type DeliveryPlan, type PlanError, type Refusal } from "@shopong/community";
+import {
+  addRefusal,
+  type DeliveryPlan,
+  type PlaceRecord,
+  type PlanError,
+  type Refusal,
+} from "@shopong/community";
 import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import {
   err,
@@ -78,6 +84,10 @@ export type CommunityService = {
   currentDriver: (now: number) => Promise<string | undefined>;
   /** Records an order's planned route (story 7.4): place ids and the fingerprint, queued like every other event. */
   planDelivery: (plan: DeliveryPlan) => Promise<Result<unknown, PlanError>>;
+  /** Records a collection point the Node made (story 7.3): its id, label, area and address commitment. The treasurer only. */
+  registerPlace: (place: PlaceRecord) => Promise<Result<unknown, PlanError>>;
+  /** Records my suburb or town (story 7.3), coarsened as the record judges it. */
+  setMemberArea: (area: string) => Promise<Result<unknown, PlanError>>;
   /** The quotes recorded for one order. */
   quotesFor: (order: string) => Promise<readonly Quote[]>;
   /** The last refusals on this phone, newest first (story 2.5). Kept on the device only. */
@@ -178,6 +188,16 @@ export function createCommunityService(
     },
     async currentDriver(now) {
       return current === null ? undefined : current.currentDriver(now);
+    },
+    async registerPlace(place) {
+      if (current === null)
+        return logged("Save a place", err("refused", "Make a community first."));
+      return logged("Save a place", await current.registerPlace(place, now()));
+    },
+    async setMemberArea(area) {
+      if (current === null)
+        return logged("Save my area", err("refused", "Make a community first."));
+      return logged("Save my area", await current.setMemberArea(area, now()));
     },
     async planDelivery(plan) {
       if (current === null)
