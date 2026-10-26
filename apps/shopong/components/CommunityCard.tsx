@@ -18,6 +18,43 @@ import { money } from "@shopong/ports";
 import { useCommunity } from "../lib/CommunityProvider";
 import { useIdentity } from "../lib/IdentityProvider";
 import { shortDid } from "../lib/identitySeed";
+import type { Mark } from "../lib/sync";
+import { syncLine } from "../lib/syncMessages";
+
+/** The words for a mark on this phone's own events (story 3.4). Nothing is shown before the phone has one. */
+const MARK_WORDS: Record<Mark, string> = {
+  on_phone: "On your phone",
+  saved: "Saved on the Node",
+  confirmed: "Confirmed",
+};
+
+/** The sync block: connected, offline, waiting to send N, or could not send, each in plain words. */
+function SyncBlock() {
+  const { sync, offlineHint, noNodeReason, onWeb, retry, discardParked } = useCommunity();
+  const line = syncLine({ state: sync, offlineHint, noNodeReason, onWeb });
+  const tone = line.tone === "problem" ? "destructive" : "info";
+  return (
+    <View className="gap-2 rounded-xl border border-border p-3">
+      <Alert variant={tone}>
+        <Alert.Indicator />
+        <Alert.Content>
+          <Alert.Title>{line.headline}</Alert.Title>
+          {line.detail !== undefined ? <Alert.Description>{line.detail}</Alert.Description> : null}
+        </Alert.Content>
+      </Alert>
+      {line.tryAgain ? (
+        <View className="flex-row gap-2">
+          <Button variant="outline" onPress={() => void retry()}>
+            Try again
+          </Button>
+          <Button variant="outline" onPress={() => void discardParked()}>
+            Remove this change
+          </Button>
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 const dateOf = (ms: number) => new Date(ms).toDateString();
 
@@ -65,6 +102,8 @@ export function CommunityCard() {
     grant,
     checkAction,
     refusals,
+    markOfInvitation,
+    markOfCommunity,
   } = useCommunity();
   const [name, setName] = useState("");
   const [invitee, setInvitee] = useState("");
@@ -100,6 +139,7 @@ export function CommunityCard() {
         Your community
       </Text>
       {status !== "ready" ? <Text muted>Make your identity first.</Text> : null}
+      {status === "ready" ? <SyncBlock /> : null}
       {status === "ready" && community === null ? (
         <>
           <Text muted>Start a community, or join one you were invited to.</Text>
@@ -115,6 +155,9 @@ export function CommunityCard() {
       {status === "ready" && community !== null ? (
         <>
           <Text weight="bold">{community.name}</Text>
+          {markOfCommunity() !== undefined ? (
+            <Text muted>{MARK_WORDS[markOfCommunity()!]}</Text>
+          ) : null}
           <Text muted>Members</Text>
           {members.map((member) => (
             <Text key={member.did} selectable>
@@ -264,6 +307,9 @@ export function CommunityCard() {
             <View key={invitation.id} className="gap-2 rounded-xl border border-border p-3">
               <Text weight="bold">{`For ${shortDid(invitation.invitee)}`}</Text>
               <Text muted>{`Good until ${dateOf(invitation.expiresAt)}`}</Text>
+              {markOfInvitation(invitation.id) !== undefined ? (
+                <Text muted>{MARK_WORDS[markOfInvitation(invitation.id)!]}</Text>
+              ) : null}
               <Text selectable size="sm">
                 {invitation.code}
               </Text>

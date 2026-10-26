@@ -8,6 +8,8 @@ import {
 import { createAuthorityGuard, type AuthorityConfig } from "./authority.ts";
 import { registerCommitmentRoute } from "./commitment-route.ts";
 import { keepRawJsonBody } from "./signed.ts";
+import { registerCors, type CorsOptions } from "./cors.ts";
+import { registerCommunityRoutes, type CommunityHub } from "./community-routes.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import type { CapabilityAuth, Commitments } from "@shopong/ports";
@@ -32,6 +34,14 @@ export interface AppOptions {
   sync?: SyncOptions;
   /** Commits personal values for `POST /commitments` (story 2.7). Without it, that route answers 503. */
   commitments?: Commitments;
+  /** Browser origins allowed to call the routes. Default: none, so no CORS header is sent. */
+  cors?: CorsOptions;
+  /** Creates and admits communities (story 3.4). Without it, the community routes answer 503. */
+  communities?: CommunityHub;
+  /** DIDs allowed to create communities. Empty means open (local development only). */
+  allowedCreators?: readonly string[];
+  /** Size of each community route's one-time-number table (review N2). */
+  communityNonces?: { readonly create?: number; readonly members?: number };
 }
 
 async function report(options: AppOptions): Promise<HealthReport> {
@@ -73,6 +83,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
       .send({ ready: health.status === "ok", ...health });
   });
 
+  registerCors(app, options.cors ?? { origins: [], environment: "production" });
   keepRawJsonBody(app);
   createAuthorityGuard({ auth, config: options.authority }).register(app);
   registerCommitmentRoute(app, {
@@ -81,6 +92,14 @@ export function buildApp(options: AppOptions): FastifyInstance {
     config: options.authority,
   });
   registerSyncRoutes(app, auth, options.sync ?? {});
+  if (options.communities !== undefined) {
+    registerCommunityRoutes(app, {
+      hub: options.communities,
+      auth,
+      allowedCreators: options.allowedCreators ?? [],
+      ...(options.communityNonces === undefined ? {} : { nonces: options.communityNonces }),
+    });
+  }
 
   app.setNotFoundHandler((_request, reply) => reply.code(404).send({ error: "not-found" }));
 
