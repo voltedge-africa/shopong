@@ -3,7 +3,7 @@ title: 'Ledger adapter and chart of accounts'
 type: 'feature'
 ticket: 2
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: 'bc9526b'
 route: 'full'
 route_source: 'auto'
