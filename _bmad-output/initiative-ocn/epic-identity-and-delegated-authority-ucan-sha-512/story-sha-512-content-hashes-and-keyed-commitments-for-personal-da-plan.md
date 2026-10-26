@@ -107,6 +107,24 @@ context: []
    - B) As A, but hashed in chunks so a large file is never held whole. Needs an incremental SHA-512 in the app; defer until 3.7 brings large files.
    - C) Use the Hyperdrive Merkle root instead. Rejected: the architecture needs the hash to stand apart from Hyperdrive.
 
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 4 high, 5 medium, 3 low.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| H1 | The guard ran only in `apply`, so a refused raw value stayed in the append-only log | high, real | patch | Same check now runs before any append in the community service (`assertNoPersonalData`); `apply` keeps it as the second line; mutation-checked. Other writers and the Node sync route must call it too (S-2.7-4) |
+| H2 | Quotes skipped the free-text check; `order`, `unit` and extra keys were not checked | high, real | patch | Unknown keys refused, order and unit checked, guard runs on quotes; tests failed first |
+| H3 | Any member could ask for commitments of every possible phone number (a membership oracle) | high, real | patch (departs from plan Q5-A wording "members") | Only the creator and current co-treasurers may ask, 30 requests per 10 minutes per person, plain 429; mutation-checked. Still a shortcut (S-2.7-5, S-2.7-14) |
+| H4 | The `invitation` field was exempt, so a phone number could pass in it | high, real | patch | Exempt only for the exact token-id shape; test failed first; mutation-checked |
+| M1 | Dotted, slashed, zero-width, fullwidth and Arabic-Indic digits bypassed the shape check | medium, real | patch | One shared normaliser; six variants tested; quotes use it too |
+| M2 | Numeric JSON values are checked by field name only | medium, real | defer | S-2.7-11 |
+| M3 | Loose `did:key` and hex exemptions could hide digits | medium, real | patch (DID), defer (hex) | DID exemption is a real base58 shape; hex only as a whole 64 or 128-character value; S-2.7-16 |
+| M4 | Strangers could fill the one-time-number table before the membership check | medium, real | patch | The role check runs before the number is recorded; test |
+| M5 | Dates like 2026-10-26 were refused as phone numbers | medium, real | patch (dates), defer (cents as long strings) | S-2.7-15 |
+| L1 | Field-name list incomplete; `ipAddress` over-refused | low, real | patch | Names added, "address" matched as a word |
+| L2, L3 | Envelope type and nonce not scanned; lookalike letters in key names | low | defer | S-2.7-12, S-2.7-13 |
+
 ## Notes on this draft
 
 - Replaces the earlier stub. Its frozen Intent and matrix were dropped and rewritten to match the current code and rules; its Q1 option B conflicts with rule 4.
