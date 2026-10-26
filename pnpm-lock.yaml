@@ -60,6 +60,9 @@ importers:
       '@shopong/record-autobase':
         specifier: workspace:*
         version: link:../../packages/record-autobase
+      '@shopong/tile-release':
+        specifier: workspace:*
+        version: link:../../packages/tile-release
       fastify:
         specifier: 5.12.7
         version: 5.12.7
@@ -749,6 +752,18 @@ importers:
         specifier: workspace:*
         version: link:../ports
     devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.0(@types/node@24.19.2)(@voidzero-dev/vite-plus-core@0.3.0(@types/node@24.19.2)(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2))(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2)
+
+  packages/tile-release:
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
       typescript:
         specifier: 7.0.2
         version: 7.0.2

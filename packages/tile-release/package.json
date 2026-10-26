@@ -1,0 +1,24 @@
+{
+  "name": "@shopong/tile-release",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Immutable map tile releases: the manifest, SHA-512 checks, the refusal of a rebuild under an existing name, and the read-only file lookup the Node serves (story 7.2)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit",
+    "test": "vp test"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

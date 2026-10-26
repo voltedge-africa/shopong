@@ -1,0 +1,18 @@
+{
+  "region": "kwazulu-natal",
+  "pinned": false,
+  "note": "Geofabrik publishes no KwaZulu-Natal extract: its South Africa page lists only the national file. Choose a source (D-8), then pin its file, SHA-256 and coverage box here; the build refuses until then",
+  "builder": {
+    "valhallaVersion": "3.8.3",
+    "valhallaRevision": "a60c7cbfc83e073f50887cd27e0109d02e6b64e5",
+    "wrapper": "valhalla-wasm v0.2.1 (b09d0ceb6673801d9e8eeb30c43927b89300c553)"
+  },
+  "coverage": null,
+  "attribution": {
+    "text": "© OpenStreetMap contributors, ODbL 1.0",
+    "linkText": "© OpenStreetMap contributors (ODbL)",
+    "url": "https://www.openstreetmap.org/copyright",
+    "licence": "ODbL 1.0",
+    "note": "Tiles built from OpenStreetMap are treated as a derived database: attribution is shown and the share-alike position needs counsel's confirmation before the first public release (question 5)."
+  }
+}

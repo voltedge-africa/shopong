@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { loadConfig } from "./config.ts";
 import { ConfigError, ResolvedSecrets, SECRET_DEFINITIONS } from "./secrets.ts";
@@ -284,5 +287,131 @@ describe("CORS origins and environment (story 3.4)", () => {
     expect(
       failure(() => loadConfig({ env: { ...RECORD, OCN_NODE_ENVIRONMENT: "staging" } })).message,
     ).toContain("OCN_NODE_ENVIRONMENT");
+  });
+});
+
+describe("loadConfig tiles (story 7.2)", () => {
+  it("serves no map data until a releases folder is named", () => {
+    const { config } = loadConfig({ env: RECORD });
+    expect(config.tiles).toEqual({ releasesDir: undefined, activeRelease: undefined });
+  });
+
+  it("reads the releases folder and the active release from the file, and from the environment", () => {
+    const readFile = files({
+      "/c.json": JSON.stringify({
+        tiles: { releasesDir: "/srv/map-releases", activeRelease: "rehearsal-2026-10-23" },
+      }),
+    });
+    const fromFile = loadConfig({
+      env: { ...RECORD, OCN_NODE_CONFIG: "/c.json" },
+      readFile,
+    }).config;
+    expect(fromFile.tiles).toEqual({
+      releasesDir: "/srv/map-releases",
+      activeRelease: "rehearsal-2026-10-23",
+    });
+
+    const fromEnv = loadConfig({
+      env: {
+        ...RECORD,
+        OCN_NODE_TILES_DIR: "/srv/other",
+        OCN_NODE_TILES_RELEASE: "kwazulu-natal-2026-10-23",
+      },
+    }).config;
+    expect(fromEnv.tiles).toEqual({
+      releasesDir: "/srv/other",
+      activeRelease: "kwazulu-natal-2026-10-23",
+    });
+  });
+
+  it("refuses a releases folder inside the data folder", () => {
+    const message = failure(() =>
+      loadConfig({
+        env: { ...RECORD, OCN_NODE_DATA_DIR: "/srv/node", OCN_NODE_TILES_DIR: "/srv/node/maps" },
+      }),
+    ).message;
+    expect(message).toContain("outside the data folder");
+    expect(
+      failure(() =>
+        loadConfig({
+          env: { ...RECORD, OCN_NODE_DATA_DIR: "/srv/node", OCN_NODE_TILES_DIR: "/srv/node" },
+        }),
+      ).message,
+    ).toContain("outside the data folder");
+  });
+
+  it("treats a folder named with leading dots as inside or beside the data folder by its real path", () => {
+    expect(
+      failure(() =>
+        loadConfig({
+          env: {
+            ...RECORD,
+            OCN_NODE_DATA_DIR: "/srv/node",
+            OCN_NODE_TILES_DIR: "/srv/node/..maps",
+          },
+        }),
+      ).message,
+    ).toContain("outside the data folder");
+    expect(
+      loadConfig({
+        env: { ...RECORD, OCN_NODE_DATA_DIR: "/srv/node", OCN_NODE_TILES_DIR: "/srv/..maps" },
+      }).config.tiles.releasesDir,
+    ).toBe("/srv/..maps");
+    expect(
+      loadConfig({
+        env: { ...RECORD, OCN_NODE_DATA_DIR: "/srv/node", OCN_NODE_TILES_DIR: "/srv/node-maps" },
+      }).config.tiles.releasesDir,
+    ).toBe("/srv/node-maps");
+  });
+
+  it("refuses an active release without a folder, and a release name that is not safe", () => {
+    expect(
+      failure(() => loadConfig({ env: { ...RECORD, OCN_NODE_TILES_RELEASE: "x-2026" } })).message,
+    ).toContain("needs tiles.releasesDir");
+    expect(
+      failure(() =>
+        loadConfig({
+          env: { ...RECORD, OCN_NODE_TILES_DIR: "/srv/maps", OCN_NODE_TILES_RELEASE: "../etc" },
+        }),
+      ).message,
+    ).toContain("OCN_NODE_TILES_RELEASE");
+    expect(
+      failure(() =>
+        loadConfig({
+          env: { ...RECORD, OCN_NODE_TILES_DIR: "/srv/maps", OCN_NODE_TILES_RELEASE: "active" },
+        }),
+      ).message,
+    ).toContain("OCN_NODE_TILES_RELEASE");
+  });
+
+  it("refuses a releases folder that contains the data folder", () => {
+    expect(
+      failure(() =>
+        loadConfig({
+          env: { ...RECORD, OCN_NODE_DATA_DIR: "/srv/node", OCN_NODE_TILES_DIR: "/srv" },
+        }),
+      ).message,
+    ).toContain("must not contain");
+  });
+
+  it("compares real paths, so a symbolic link into the data folder is refused", () => {
+    const base = mkdtempSync(join(tmpdir(), "tiles-config-"));
+    try {
+      mkdirSync(join(base, "data", "inner"), { recursive: true });
+      symlinkSync(join(base, "data", "inner"), join(base, "maps"));
+      expect(
+        failure(() =>
+          loadConfig({
+            env: {
+              ...RECORD,
+              OCN_NODE_DATA_DIR: join(base, "data"),
+              OCN_NODE_TILES_DIR: join(base, "maps"),
+            },
+          }),
+        ).message,
+      ).toContain("outside the data folder");
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
   });
 });

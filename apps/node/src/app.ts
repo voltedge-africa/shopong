@@ -11,6 +11,7 @@ import { keepRawJsonBody } from "./signed.ts";
 import { registerCors, type CorsOptions } from "./cors.ts";
 import { registerCommunityRoutes, type CommunityHub } from "./community-routes.ts";
 import { registerPoolRoute, type PoolRouteOptions } from "./pool-routes.ts";
+import { registerTileRoutes, type TileRouteOptions } from "./tiles-routes.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { registerPaymentRoutes } from "./payments-routes.ts";
 import {
@@ -63,6 +64,8 @@ export interface AppOptions {
   checking?: CheckingRouteOptions;
   /** Sets up a new community's books chart when it is made (story 4.5). */
   books?: { readonly configureCommunity: (communityKey: string) => Promise<void> };
+  /** The map tile releases (story 7.2). Without a releases folder the `/map` routes are not served. */
+  tiles?: TileRouteOptions;
 }
 
 async function report(options: AppOptions): Promise<HealthReport> {
@@ -99,9 +102,11 @@ export function buildApp(options: AppOptions): FastifyInstance {
 
   app.get("/ready", async (_request, reply) => {
     const health = await report(options);
-    return reply
-      .code(health.status === "ok" ? 200 : 503)
-      .send({ ready: health.status === "ok", ...health });
+    return reply.code(health.status === "ok" ? 200 : 503).send({
+      ready: health.status === "ok",
+      ...health,
+      mapRelease: options.tiles?.activeRelease ?? null,
+    });
   });
 
   registerCors(app, options.cors ?? { origins: [], environment: "production" });
@@ -114,6 +119,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
   });
   registerSyncRoutes(app, auth, options.sync ?? {});
   registerPoolRoute(app, auth, options.pool ?? {});
+  if (options.tiles !== undefined) registerTileRoutes(app, options.tiles);
   if (options.payments !== undefined) {
     registerPaymentRoutes(app, options.payments, options.paymentConfirmation);
   }
