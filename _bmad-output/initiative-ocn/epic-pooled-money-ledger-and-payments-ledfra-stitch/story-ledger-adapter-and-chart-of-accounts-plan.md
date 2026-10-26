@@ -71,6 +71,19 @@ context: []
 
 ## Review Triage Log
 
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 8 findings: 5 medium, 3 low.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | Unbalanced post accepted near 2^53 (double arithmetic) | medium, real | patch | BigInt arithmetic; test failed first, passes now |
+| 2 | Guard check fooled by rounding; sums over 2^53 make reads throw | medium, real | patch | BigInt plus a cap on account and currency totals; account cap tested, currency cap covered by code only |
+| 3 | Idempotency bypass by key variants | medium, real | patch | Key must be an event id (128 lowercase hex); tested; mutation-checked |
+| 4 | A guard could be switched off after postings | medium, real | patch | Cannot be turned off once the account has entries; tested including the chart |
+| 5 | Member account accepts a phone or ID number | medium, real | patch | Opaque ids only (lowercase hex, 32 or more); tested; mutation-checked |
+| 6 | Malformed input throws instead of `invalid_request` | low, real | patch | `post` never throws on input; `balance` rejects bad arguments like `money()` |
+| 7 | Constructor leaks the handle on a bad file | low, real | patch | Closed on failure; the test cannot observe it (S-4.2-12) |
+| 8 | Storage errors reject, matrix says "error is returned" | low, known | defer | S-4.2-3, stated in the PR |
+
 ## Design Notes
 
 SQLite from Node 24 keeps the Node dependency-free and gives atomic writes for free. Balances are derived by summing entries, not stored, so they cannot drift from the entries.

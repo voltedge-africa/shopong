@@ -137,6 +137,23 @@ Columns: **ID** (`S-<epic>.<story>-<n>`), **Shortcut**, **Instead of**, **Cost i
 | S-3.2-19 | `spaces.json` is written before the genesis node is appended; a crash between the two leaves an index entry for a space with no genesis, which is harmless | writing the index after the genesis | An orphan entry in the index file | Story 3.6 (restore) |
 | S-3.2-20 | `spaces.json` is written without fsync and read whole at open; a file truncated by a crash makes the record fail to open until the file is repaired | fsync and a write-ahead journal for the index | The Node will not start until `spaces.json` is fixed by hand | Story 3.6 (restore), or before a pilot |
 
+## Story 4.2 (own ledger on SQLite)
+
+| ID | Shortcut | Instead of | Cost if it bites | Revisit when |
+|---|---|---|---|---|
+| S-4.2-1 | The overdraw race and the write lock are tested inside one Node process only (two posts in `Promise.all`); two processes on one ledger file are not tested | a two-process test with a real file lock contest | If two Node processes ever open one ledger file, overdraw protection and `busy_timeout` (5 s, then `SQLITE_BUSY`) are unproven | Multi-process Node (not planned), or before a pilot |
+| S-4.2-2 | Atomicity is tested by injecting a failing trigger on the second entry, not by a crash or power cut; durability relies on SQLite's default `synchronous` setting, untested | a kill -9 and power-loss test | A torn post after a power cut is not ruled out by a test | Before real money moves (epic 12) |
+| S-4.2-3 | A storage failure rejects the `post` promise instead of returning a `PostError`, following the port's rule for infrastructure errors; the matrix row says "the error is returned" | a new `PostError` code for storage failure | Callers must catch rejections on `post` or a failed write surfaces as a crash | Story 4.3 (first caller of `post`) |
+| S-4.2-4 | Transaction ids are `txn_<sequence>` read from the file, not from an injected id generator | UUIDs or an id generator per Node | Ids are unique only while one Node writes the file | More than one Node writes a ledger (not planned) |
+| S-4.2-5 | Immutability is enforced by triggers in the same SQLite file; anyone who can write the file can drop the triggers and change history | a hash chain over the transactions, checked at open | A tampered file is not detected | Epic 12 security review, and the backup story |
+| S-4.2-6 | No backup or restore for the ledger file; it is backed up by copying the Node's data folder by hand, as for the record | a ledger backup job and a restore test | Money history is lost if the disk fails before a copy is made | Story 3.6 (restore) or epic 12 |
+| S-4.2-7 | Balances and amounts are read as JavaScript numbers, so a balance outside the safe-integer range makes `balance` throw rather than refusing the post | big-integer arithmetic | Not reachable at Demonstration 1 volumes | Before any community ledger grows near 2^53 minor units |
+| S-4.2-8 | Member liability accounts are guarded only once `configureMemberAccount` is called; an unconfigured member account is unguarded | guarding every `liabilities:` account by default | A member account used before it is configured can go below zero | Story 4.3 (member onboarding), or when the chart moves to the record (decision 2B) |
+| S-4.2-9 | Balances and the trial balance are full-table sums over entries (index on account and currency only); no stored running totals and no timing | stored running totals, and a volume test | Reads slow down as the books grow | Before a pilot, when a volume target is set |
+| S-4.2-10 | The opaque member id check is a shape check only (lowercase hex, 32 or more characters); a digest of a phone number computed without the community secret would pass | a check that the id is an HMAC under the community secret | Personal data could enter the books as a plain digest | Story 4.3 (member onboarding), when ids are minted by the record |
+| S-4.2-11 | `description` and `metadata` have no length limit; only their types are checked | a byte limit per field | A very large description could bloat the file and the replay body | Before a pilot, with the event envelope limits (epic 1) |
+| S-4.2-12 | The test that a non-database file is refused cannot see whether the handle was closed; the close-on-failure path is checked by reading the code only | a probe of open handles, or a test-only hook | A leaked file handle after a failed open would go unnoticed | Epic 12, or when the Node's start-up is written |
+
 ## Story 6.8 (typed supplier quotes)
 
 | ID | Shortcut | Instead of | Cost if it bites | Revisit when |
