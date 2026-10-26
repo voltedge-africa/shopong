@@ -74,17 +74,17 @@ describe("forward compatibility", () => {
 
   it("an older reader folds a mixed stream, skipping opaque events without error", () => {
     const stream = vectors.events.accept.map((v) => decodeEvent(encodeUtf8(v.canonical)));
-    const view = { orders: 0, ignored: 0 };
+    const view = { actions: 0, ignored: 0 };
     const apply = (r: ParseResult) => {
       if (!r.ok) throw new Error("invalid event");
       if (!r.known) {
         view.ignored++;
         return;
       }
-      if (r.event.type === "order.proposed") view.orders++;
+      if (r.event.type === "agent.action") view.actions++;
     };
     expect(() => stream.forEach(apply)).not.toThrow();
-    expect(view).toEqual({ orders: 1, ignored: opaque.length });
+    expect(view).toEqual({ actions: 1, ignored: opaque.length });
   });
 
   it("keeps extra top-level fields of a future version", () => {

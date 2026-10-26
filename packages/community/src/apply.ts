@@ -19,7 +19,7 @@
 // `settings/approvals` (story 4.7), `community/name` and `community/rules` (story 8.1), `payouts/<payment id>` and
 // `approvals/<payment id>/<approver>` (story 4.7),
 // `quotes/<order>/<supplier>` (see quotes.ts), `files-of/<order>/<hash>` (see files.ts), `pledges/<order>/<member>` and `pledge-events/<event id>` (see
-// pledges.ts), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
+// pledges.ts), `orders/<order>` (the proposal and its status) and `order-ids/<event id>` { name } (see orders.ts, story 8.2), `payments/<pledge event id>` (the Node's request for a pledge), `log/time` (see log-time.ts), `indexers/<did>` (true; the
 // creator's is seeded by the founding join, story 3.3), `removed/<did>` { by, at } (set by a removal, cleared by a
 // fresh invitation to that person; story 3.3), `rejected/<event id>` { type, reason }.
 
@@ -72,6 +72,17 @@ import {
 } from "./log-time.js";
 import { decodeProof } from "./proof.js";
 import { NAMING_MESSAGES, NAMING_TYPE } from "./naming.js";
+import {
+  ORDER_MESSAGES,
+  checkOrder,
+  orderGateProblem,
+  orderIdKey,
+  orderJson,
+  orderKey,
+  ordersOf,
+  proposalProblem,
+  storedOrderOf,
+} from "./orders.js";
 import { QUOTE_MESSAGES, checkQuote, isTreasurer, quoteJson, quoteKey } from "./quotes.js";
 import {
   PAYMENT_REQUEST_KEYS,
@@ -167,6 +178,8 @@ const CHECKED: ReadonlySet<string> = new Set([
   PAYOUT_TYPE,
   APPROVAL_TYPE,
   NAMING_TYPE,
+  "order.proposed",
+  "order.approved",
 ]);
 
 export function createCommunityApply(env: CommunityApplyEnvironment): Apply<EventEnvelope> {
@@ -291,11 +304,19 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
   async function pledgeCreated(
     entry: RecordEntry<EventEnvelope>,
     view: ViewWriter,
+    at: EpochMs,
   ): Promise<string | undefined> {
     const event = entry.event;
     if ((await view.get(`members/${event.actor}`)) === undefined) return PLEDGE_MESSAGES.not_member;
     const checked = checkPledge(event.payload, event.actor as Did);
     if (!checked.ok) return checked.problem;
+    // A pledge waits for the treasurer's approval and stops at the deadline, judged at log time (story 8.2).
+    const gate = orderGateProblem(
+      storedOrderOf(await view.get(orderKey(checked.value.order))),
+      "pledge",
+      at,
+    );
+    if (gate !== undefined) return gate;
     if ((await view.get(pledgeEventKey(entry.id))) !== undefined) return PLEDGE_MESSAGES.duplicate;
     const stored = pledgeJson(entry.id, checked.value, event.claimedAt);
     await view.put(pledgeEventKey(entry.id), stored);
@@ -641,7 +662,67 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
     if (!checked.ok) return checked.problems.join(" ");
     // The second line for a quote: `checkQuote` gives the quote's own sentences, this catches anything else.
     if (checkPersonalFields(event.payload).length > 0) return PERSONAL_DATA_MESSAGE;
+    // A quote waits for the treasurer's approval and stops at the deadline, judged at log time (story 8.2).
+    const gate = orderGateProblem(
+      storedOrderOf(await view.get(orderKey(checked.value.order))),
+      "quote",
+      at,
+    );
+    if (gate !== undefined) return gate;
     await view.put(quoteKey(checked.value.order, checked.value.supplier), quoteJson(checked.value));
+    return undefined;
+  }
+
+  /**
+   * A proposed order (story 8.2): from a member, in the strict form, with the rules judged at log time. One open order at
+   * a time. The proposal's event id is its identity, and the order is kept under its tidied name (the key every view uses).
+   */
+  async function orderProposed(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if ((await view.get(orderIdKey(entry.id))) !== undefined) return ORDER_MESSAGES.duplicate;
+    if ((await view.get(`members/${event.actor}`)) === undefined) return ORDER_MESSAGES.not_member;
+    const checked = checkOrder(event.payload, at);
+    if (!checked.ok) return checked.problems.join(" ");
+    // The second line for an order: `checkOrder` gives the order's own sentences, this catches anything else.
+    if (checkPersonalFields(event.payload).length > 0) return PERSONAL_DATA_MESSAGE;
+    const problem = proposalProblem(await ordersOf(view));
+    if (problem !== undefined) return problem;
+    const order = checked.value;
+    await view.put(
+      orderKey(order.name),
+      orderJson({ ...order, id: entry.id, proposedBy: event.actor, status: "proposed" }),
+    );
+    await view.put(orderIdKey(entry.id), { name: order.name });
+    return undefined;
+  }
+
+  /**
+   * The treasurer's approval of a proposed order (story 8.2): the creator, or a co-treasurer whose role stands at log time.
+   * It names the proposal by its event id. Approving an open order again is refused.
+   */
+  async function orderApproved(
+    entry: RecordEntry<EventEnvelope>,
+    view: ViewWriter,
+    at: EpochMs,
+  ): Promise<string | undefined> {
+    const event = entry.event;
+    if (!(await isTreasurer(standing, view, event.actor, at))) {
+      return (
+        (await coTreasurerProblem(standing, view, event.actor, at)) ??
+        ORDER_MESSAGES.approve_not_permitted
+      );
+    }
+    const id = str(event.payload, "order") ?? "";
+    const named = (await view.get(orderIdKey(id))) as { name?: unknown } | undefined;
+    if (typeof named?.name !== "string") return ORDER_MESSAGES.unknown_order;
+    const stored = storedOrderOf(await view.get(orderKey(named.name)));
+    if (stored === undefined || stored.id !== id) return ORDER_MESSAGES.unknown_order;
+    if (stored.status === "open") return ORDER_MESSAGES.already_approved;
+    await view.put(orderKey(stored.name), orderJson({ ...stored, status: "open" }));
     return undefined;
   }
 
@@ -683,7 +764,11 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
       // Personal values first, before any effect (AGENTS rule 6, shortcut S-2.7-3). A quote is the exception:
       // `quoteAdded` gives the quote's own sentences first and then this same guard (review H2), and it still
       // writes nothing before that.
-      if (event.type !== "quote.added" && checkPersonalFields(event.payload).length > 0) {
+      if (
+        event.type !== "quote.added" &&
+        event.type !== "order.proposed" &&
+        checkPersonalFields(event.payload).length > 0
+      ) {
         await view.put(`rejected/${entry.id}`, { type: event.type, reason: PERSONAL_DATA_MESSAGE });
         continue;
       }
@@ -727,7 +812,11 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
       case "role.revoked":
         return recordRoleRevocation(env, view, event);
       case "pledge.created":
-        return pledgeCreated(entry, view);
+        return pledgeCreated(entry, view, at);
+      case "order.proposed":
+        return orderProposed(entry, view, at);
+      case "order.approved":
+        return orderApproved(entry, view, at);
       case "payment.requested":
         return paymentRequested(entry, view);
       case "file.attached":

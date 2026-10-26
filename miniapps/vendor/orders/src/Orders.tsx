@@ -2,14 +2,23 @@
 // terms and what the order needs; everyone can read them. The lowest total is shown by a simple rule, with
 // the margin and the rule in plain words (story 6.9). Nothing is chosen here: a person chooses the supplier.
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
 import { Alert, Button, Input, Text } from "panelui-native";
-import { amountProblem, rankQuotes, tidy, type Quote } from "@shopong/community";
+import { amountProblem, rankQuotes, tidy, type Quote, type StoredOrder } from "@shopong/community";
 
-import { OrdersHostContext, type OrdersHost, type PaymentHost } from "./host";
+import { OrdersHostContext, type OrderList, type OrdersHost, type PaymentHost } from "./host";
 import { FilesPanel } from "./FilesPanel";
 import { ProofPanel } from "./ProofPanel";
-import { deliveryText, emptyLine, parseRand, quoteInput, randText, type LineDraft } from "./form";
+import {
+  deadlineText,
+  deliveryText,
+  emptyLine,
+  parseRand,
+  proposalInput,
+  quoteInput,
+  randText,
+  type LineDraft,
+} from "./form";
 import {
   actionLabel,
   createSingleFlight,
@@ -18,7 +27,7 @@ import {
   type PayAction,
   type PaymentView,
 } from "./pay";
-import { orderRanking, wantedFromDrafts, type WantDraft } from "./ranking";
+import { draftsFromWanted, orderRanking, wantedFromDrafts, type WantDraft } from "./ranking";
 import { PayoutsSection } from "./PayoutsSection";
 
 const emptyWant = (): WantDraft => ({ item: "", quantity: "" });
@@ -36,15 +45,48 @@ export default function Orders() {
 }
 
 function OrdersView({ host }: { host: OrdersHost }) {
-  const [order, setOrder] = useState("");
+  /** The orders on the record and the members, as this phone's copy holds them. Undefined until the first read. */
+  const [list, setList] = useState<OrderList | undefined>();
+  const [listFailed, setListFailed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  /** Bumped when the list must be read again: on open, on pull-to-refresh, after a proposal or an approval (story 8.2). */
+  const [listVersion, setListVersion] = useState(0);
+  /** The order on screen, by its name. Empty until one is opened from the list. */
+  const [selected, setSelected] = useState("");
+  const [proposing, setProposing] = useState(false);
   const [quotes, setQuotes] = useState<readonly Quote[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
   /** Bumped after this phone saves a quote, or on Try again, so the list is read again. */
   const [saves, setSaves] = useState(0);
-  /** What the order needs, as typed. Kept on this phone only (S-6.9-2). */
-  const [wants, setWants] = useState<WantDraft[]>([emptyWant()]);
-  const name = order.trim();
   const reload = useCallback(() => setSaves((count) => count + 1), []);
+  const refreshList = useCallback(() => setListVersion((count) => count + 1), []);
+
+  useEffect(() => {
+    // The record is read when the screen opens, and again on pull-to-refresh or after a change (Q6, story 8.2).
+    let current = true;
+    setListFailed(false);
+    host.orders().then(
+      (found) => {
+        if (!current) return;
+        setList(found);
+        setRefreshing(false);
+      },
+      () => {
+        if (!current) return;
+        setListFailed(true);
+        setRefreshing(false);
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [host, listVersion]);
+
+  const orders = list?.orders ?? [];
+  const order = orders.find((candidate) => candidate.name === selected);
+  const name = order?.name ?? "";
+  /** What the order needs, as the proposal recorded it: every phone ranks against the same list (S-6.9-2). */
+  const wants = useMemo(() => (order === undefined ? [] : draftsFromWanted(order.items)), [order]);
   const ranking = useMemo(
     () => (name === "" ? undefined : orderRanking(quotes, wants, name)),
     [quotes, wants, name],
@@ -59,7 +101,7 @@ function OrdersView({ host }: { host: OrdersHost }) {
     return checked.ok ? checked.value : undefined;
   }, [quotes, wants, name, ranking]);
 
-  // Changing the order name clears the quotes at once, so another order's quotes never show under this name.
+  // Changing the order clears the quotes at once, so another order's quotes never show under this name.
   useEffect(() => {
     setQuotes([]);
   }, [name]);
@@ -84,62 +126,244 @@ function OrdersView({ host }: { host: OrdersHost }) {
   }, [host, name, saves]);
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView
+      className="flex-1 bg-background"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            refreshList();
+          }}
+        />
+      }
+    >
       <View className="gap-4 p-4">
-        <Text weight="bold">Quotes for an order</Text>
+        <Text weight="bold">Orders</Text>
         <Text muted>
-          Each supplier's prices and delivery terms for the order. Everyone can read them here.
+          Every order in your community. Tap one to see its quotes, pledges and payments.
         </Text>
-        <Input label="Which order?" value={order} onChangeText={setOrder} autoCorrect={false} />
 
-        <WantsSection wants={wants} onChange={setWants} />
-
-        {name === "" ? (
-          <Text muted>Type the order's name to see its quotes.</Text>
-        ) : loadFailed ? (
+        {listFailed ? (
           <View className="gap-2">
-            <Text>Could not load the quotes. Try again.</Text>
-            <Button variant="outline" onPress={reload}>
+            <Text>Could not load the orders. Try again.</Text>
+            <Button variant="outline" onPress={refreshList}>
               Try again
             </Button>
           </View>
-        ) : quotes.length === 0 ? (
-          <Text muted>No quotes for this order yet.</Text>
+        ) : list === undefined ? (
+          <Text muted>Loading the orders...</Text>
+        ) : orders.length === 0 ? (
+          <Text muted>No orders yet. Propose one below.</Text>
         ) : (
-          quotes.map((quote) => <QuoteCard key={quote.supplier} quote={quote} />)
+          orders.map((listed) => (
+            <OrderRow
+              key={listed.id}
+              order={listed}
+              memberCount={list.memberCount}
+              selected={listed.name === name}
+              onOpen={() => setSelected(listed.name)}
+            />
+          ))
         )}
 
-        {ranking !== undefined && !loadFailed ? <RankingCard ranking={ranking} /> : null}
-
-        {host.payments !== undefined && name !== "" ? (
-          <PayPanel key={`pay-${name}`} payments={host.payments} order={name} />
-        ) : null}
-
-        {host.attachments !== undefined && name !== "" ? (
-          <FilesPanel key={`files-${name}`} host={host.attachments} order={name} />
-        ) : null}
-
-        {host.proof !== undefined && name !== "" ? (
-          <ProofPanel key={`proof-${name}`} host={host.proof} order={name} />
-        ) : null}
-
-        {host.payouts !== undefined && name !== "" ? (
-          <PayoutsSection
-            key={`payouts-${name}`}
-            host={host.payouts}
-            order={name}
-            ranking={rawRanking}
-            treasurer={host.canAdd}
+        {proposing ? (
+          <ProposeOrder
+            host={host}
+            onProposed={() => {
+              setProposing(false);
+              refreshList();
+            }}
+            onCancel={() => setProposing(false)}
           />
-        ) : null}
-
-        {host.canAdd ? (
-          <AddQuote host={host} order={name} onSaved={reload} />
         ) : (
-          <Text muted>Only the treasurer can add a quote.</Text>
+          <Button variant="outline" onPress={() => setProposing(true)}>
+            Propose an order
+          </Button>
         )}
+
+        {order !== undefined ? (
+          <>
+            <Text weight="bold">{`Order: ${order.name}`}</Text>
+            <ApproveOrder host={host} order={order} onApproved={refreshList} />
+            <View className="gap-1 rounded-xl border border-border p-3">
+              <Text weight="bold">What the order needs</Text>
+              {order.items.map((want) => (
+                <Text key={want.item}>{`${want.item}: ${want.quantity} units`}</Text>
+              ))}
+            </View>
+
+            <Text weight="bold">Quotes for this order</Text>
+            <Text muted>
+              Each supplier's prices and delivery terms for the order. Everyone can read them here.
+            </Text>
+
+            {loadFailed ? (
+              <View className="gap-2">
+                <Text>Could not load the quotes. Try again.</Text>
+                <Button variant="outline" onPress={reload}>
+                  Try again
+                </Button>
+              </View>
+            ) : quotes.length === 0 ? (
+              <Text muted>No quotes for this order yet.</Text>
+            ) : (
+              quotes.map((quote) => <QuoteCard key={quote.supplier} quote={quote} />)
+            )}
+
+            {ranking !== undefined && !loadFailed ? <RankingCard ranking={ranking} /> : null}
+
+            {host.payments !== undefined ? (
+              <PayPanel key={`pay-${name}`} payments={host.payments} order={name} />
+            ) : null}
+
+            {host.attachments !== undefined ? (
+              <FilesPanel key={`files-${name}`} host={host.attachments} order={name} />
+            ) : null}
+
+            {host.proof !== undefined ? (
+              <ProofPanel key={`proof-${name}`} host={host.proof} order={name} />
+            ) : null}
+
+            {host.payouts !== undefined ? (
+              <PayoutsSection
+                key={`payouts-${name}`}
+                host={host.payouts}
+                order={name}
+                ranking={rawRanking}
+                treasurer={host.canAdd}
+              />
+            ) : null}
+
+            {host.canAdd ? (
+              <AddQuote host={host} order={name} onSaved={reload} />
+            ) : (
+              <Text muted>Only the treasurer can add a quote.</Text>
+            )}
+          </>
+        ) : null}
       </View>
     </ScrollView>
+  );
+}
+
+/** One order on the list: its name, whether it is open, the budget per member with the total, and the deadline. */
+function OrderRow({
+  order,
+  memberCount,
+  selected,
+  onOpen,
+}: {
+  order: StoredOrder;
+  memberCount: number;
+  selected: boolean;
+  onOpen: () => void;
+}) {
+  const total = order.budgetPerMemberMinor * memberCount;
+  return (
+    <View className="gap-1 rounded-xl border border-border p-3">
+      <Text weight="bold">{order.name}</Text>
+      <Text muted>
+        {order.status === "open"
+          ? "Open: quotes and pledges are allowed."
+          : "Waiting for the treasurer to approve it."}
+      </Text>
+      <Text
+        muted
+      >{`Budget: ${randText(order.budgetPerMemberMinor)} each, ${randText(total)} in total for ${memberCount} ${memberCount === 1 ? "member" : "members"}`}</Text>
+      <Text muted>{`Quotes and pledges until ${deadlineText(order.deadline)}`}</Text>
+      <Button variant="outline" disabled={selected} onPress={onOpen}>
+        {selected ? "Showing this order" : "Open this order"}
+      </Button>
+    </View>
+  );
+}
+
+/** The treasurer's approval of a proposed order: it opens quotes and pledges. Nobody else sees the button. */
+function ApproveOrder({
+  host,
+  order,
+  onApproved,
+}: {
+  host: OrdersHost;
+  order: StoredOrder;
+  onApproved: () => void;
+}) {
+  const [problem, setProblem] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+  if (!host.canAdd || order.status !== "proposed") return null;
+  const approve = async () => {
+    setBusy(true);
+    const reason = await host.approve(order.id);
+    setBusy(false);
+    setProblem(reason);
+    if (reason === undefined) onApproved();
+  };
+  return (
+    <View className="gap-2 rounded-xl border border-border p-3">
+      <Text weight="bold">Approve this order</Text>
+      <Text muted>Approving opens quotes and pledges for it.</Text>
+      {problem !== undefined ? <ErrorNote message={problem} /> : null}
+      <Button fullWidth disabled={busy} onPress={approve}>
+        Approve this order
+      </Button>
+    </View>
+  );
+}
+
+/** A new bulk order: its name, the items it needs, a budget per member and a deadline. The record checks it. */
+function ProposeOrder({
+  host,
+  onProposed,
+  onCancel,
+}: {
+  host: OrdersHost;
+  onProposed: () => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [wants, setWants] = useState<WantDraft[]>([emptyWant()]);
+  const [budgetText, setBudgetText] = useState("");
+  const [deadlineText, setDeadlineText] = useState("");
+  const [problem, setProblem] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+
+  const propose = async () => {
+    setBusy(true);
+    const reason = await host.propose(proposalInput({ name, wants, budgetText, deadlineText }));
+    setBusy(false);
+    setProblem(reason);
+    if (reason === undefined) onProposed();
+  };
+
+  return (
+    <View className="gap-3 rounded-xl border border-border p-3">
+      <Text weight="bold">Propose an order</Text>
+      <Text muted>
+        Everyone in the community sees it once it is recorded. The treasurer then approves it.
+      </Text>
+      <Input label="Order name" value={name} onChangeText={setName} autoCorrect={false} />
+      <WantsSection wants={wants} onChange={setWants} />
+      <Input
+        label="Budget per member (R)"
+        value={budgetText}
+        onChangeText={setBudgetText}
+        keyboardType="decimal-pad"
+      />
+      <Input
+        label="Deadline (a date, like 2026-11-30)"
+        value={deadlineText}
+        onChangeText={setDeadlineText}
+        autoCorrect={false}
+      />
+      {problem !== undefined ? <ErrorNote message={problem} /> : null}
+      <Button fullWidth disabled={busy} onPress={propose}>
+        Propose this order
+      </Button>
+      <Button variant="outline" onPress={onCancel}>
+        Cancel
+      </Button>
+    </View>
   );
 }
 

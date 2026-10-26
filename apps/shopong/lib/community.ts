@@ -26,6 +26,9 @@ import {
   type RoleDraft,
   type RoleError,
   type RoleRecord,
+  OrderError,
+  OrderReceipt,
+  StoredOrder,
 } from "@shopong/community";
 import { createMemoryRecordNetwork, type MemoryRecordNetwork } from "@shopong/adapters-memory";
 import { addRefusal, type DeliveryPlan, type PlanError, type Refusal } from "@shopong/community";
@@ -80,6 +83,12 @@ export type CommunityService = {
   planDelivery: (plan: DeliveryPlan) => Promise<Result<unknown, PlanError>>;
   /** The quotes recorded for one order. */
   quotesFor: (order: string) => Promise<readonly Quote[]>;
+  /** Propose a bulk order (story 8.2). Any member can; the record judges it at its log time. */
+  proposeOrder: (input: unknown) => Promise<Result<OrderReceipt, OrderError>>;
+  /** Approve a proposed order by its event id (story 8.2). Only the treasurer can. */
+  approveOrder: (id: string) => Promise<Result<OrderReceipt, OrderError>>;
+  /** The orders on the record, as this phone's copy holds them. */
+  orders: () => Promise<readonly StoredOrder[]>;
   /** The last refusals on this phone, newest first (story 2.5). Kept on the device only. */
   refusals: () => readonly Refusal[];
 };
@@ -190,6 +199,19 @@ export function createCommunityService(
     },
     async quotesFor(order) {
       return current === null ? [] : current.quotesFor(order);
+    },
+    async proposeOrder(input) {
+      if (current === null)
+        return logged("Propose an order", err("refused", "Make a community first."));
+      return logged("Propose an order", await current.proposeOrder(input, now()));
+    },
+    async approveOrder(id) {
+      if (current === null)
+        return logged("Approve an order", err("refused", "Make a community first."));
+      return logged("Approve an order", await current.approveOrder(id, now()));
+    },
+    async orders() {
+      return current === null ? [] : current.orders();
     },
     refusals: () => log,
   };

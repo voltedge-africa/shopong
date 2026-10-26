@@ -147,3 +147,11 @@ export function orderRanking(
   if (!result.ok) return result;
   return { ok: true, view: describeRanking(result.value, rankedForText(wanted)) };
 }
+
+/**
+ * The items an order records, as the rows the ranking reads (story 8.2): the proposal holds the list, so every phone ranks
+ * the quotes against the same items, in the same order.
+ */
+export function draftsFromWanted(items: readonly Wanted[]): WantDraft[] {
+  return items.map((want) => ({ item: want.item, quantity: String(want.quantity) }));
+}

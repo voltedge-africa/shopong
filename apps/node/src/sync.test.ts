@@ -294,7 +294,7 @@ describe("the Node's signed sync routes (AC 3.5)", () => {
   it("refuses a raw phone number in the payload before the append, and appends nothing (story 2.7)", async () => {
     const { w, held, app } = await setup();
     const event = createEvent({
-      type: "order.proposed",
+      type: "agent.action",
       space: w.driverCommunity.key,
       actor: w.driver.did,
       proof: [],
@@ -312,7 +312,7 @@ describe("the Node's signed sync routes (AC 3.5)", () => {
     const { w, held, app } = await setup();
     const commitment = golden.commitments[0]?.commitment ?? "";
     const event = createEvent({
-      type: "order.proposed",
+      type: "agent.action",
       space: w.driverCommunity.key,
       actor: w.driver.did,
       proof: [],

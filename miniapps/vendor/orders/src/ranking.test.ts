@@ -1,7 +1,13 @@
 import { RANKING_RULE, rankQuotes, type Quote, type Ranking } from "@shopong/community";
 import { describe, expect, it } from "vite-plus/test";
 
-import { describeRanking, orderRanking, wantedFromDrafts, type WantDraft } from "./ranking";
+import {
+  describeRanking,
+  orderRanking,
+  wantedFromDrafts,
+  type WantDraft,
+  draftsFromWanted,
+} from "./ranking";
 
 const sugar = { item: "Sugar", unit: "kg", packSize: 10, pricePerPackCents: 12500 };
 const MARCH = "March groceries";
@@ -263,5 +269,20 @@ describe("describeRanking", () => {
     expect(view.rows[0]?.next).toBe(
       "R0.01 cheaper than the next supplier (the next one costs less than 0.1% more)",
     );
+  });
+});
+
+describe("draftsFromWanted", () => {
+  it("turns the items an order records back into the rows the ranking reads, in the same order", () => {
+    const recorded = [
+      { item: "Cooking oil", quantity: 12 },
+      { item: "Maize meal", quantity: 4 },
+    ];
+    const drafts = draftsFromWanted(recorded);
+    expect(drafts).toEqual([
+      { item: "Cooking oil", quantity: "12" },
+      { item: "Maize meal", quantity: "4" },
+    ]);
+    expect(wantedFromDrafts(drafts)).toEqual(recorded);
   });
 });

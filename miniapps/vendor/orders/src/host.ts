@@ -3,7 +3,7 @@
 // package never reaches into the app.
 
 import { createContext } from "react";
-import type { Quote } from "@shopong/community";
+import type { Quote, StoredOrder } from "@shopong/community";
 import type { PaymentView } from "./pay";
 import type { PaymentRecord } from "./payouts";
 import type { FileCheck, FilePurpose, FileRowView } from "./files";
@@ -81,9 +81,24 @@ export interface ProofHost {
   dispute(order: string, note: string): Promise<string | undefined>;
 }
 
+/** The orders on the record, and how many members there are (story 8.2). The screen works out the totals. */
+export interface OrderList {
+  readonly orders: readonly StoredOrder[];
+  readonly memberCount: number;
+}
+
 export interface OrdersHost {
-  /** Whether this person is the treasurer, so may add a quote. */
+  /** Whether this person is the treasurer, so may add a quote and approve an order. */
   readonly canAdd: boolean;
+  /** Every order on the record, as this phone's copy holds it now (story 8.2). */
+  orders(): Promise<OrderList>;
+  /**
+   * Propose a bulk order: its name, the items it needs, a budget per member in whole cents and a deadline. Resolves with
+   * the plain reasons it was refused, or `undefined` when it was sent or recorded.
+   */
+  propose(input: unknown): Promise<string | undefined>;
+  /** Approve a proposed order by its id (the treasurer). Resolves with the plain reason refused, or `undefined`. */
+  approve(id: string): Promise<string | undefined>;
   /** The quotes recorded for one order, as this phone's record holds them now. */
   quotesFor(order: string): Promise<readonly Quote[]>;
   /** Record a quote. Resolves with the plain reasons it was refused, or `undefined` when it was recorded. */

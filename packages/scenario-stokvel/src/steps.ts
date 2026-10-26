@@ -287,10 +287,9 @@ export const STEPS: readonly StepDefinition[] = [
         proposer,
         "order.proposed",
         {
-          order: "o1",
-          items: ORDER_ITEMS.map((i) => ({ name: i.name, quantity: i.quantity })),
-          budgetMinorPerMember: budget,
-          memberCount: MEMBERS.length,
+          name: "o1",
+          items: ORDER_ITEMS.map((i) => ({ item: i.name, quantity: i.quantity })),
+          budgetPerMemberMinor: budget,
           deadline,
         },
         {
@@ -309,10 +308,13 @@ export const STEPS: readonly StepDefinition[] = [
     title: "Nomsa approves the order, so quotes and pledges can open",
     async run(w, t) {
       const treasurer = w.person("m1");
+      // The approval names the proposal by its event id (the order's identity, story 8.2).
+      const proposal = [...w.events].find(([, event]) => event.type === "order.proposed");
+      if (proposal === undefined) throw new Error("no order has been proposed");
       await w.emit(
         treasurer,
         "order.approved",
-        { order: "o1" },
+        { order: proposal[0] },
         {
           at: at(t, 0),
           label: "order:approved",

@@ -21,9 +21,29 @@ export {
   type DeliveryPlan,
   type PlaceRecord,
   type PlanError,
+  type OrderError,
+  type OrderReceipt,
   type QuoteError,
   type QuoteReceipt,
 } from "./community.js";
+export {
+  ORDER_BUDGET_MAX_CENTS,
+  ORDER_MESSAGES,
+  checkOrder,
+  orderGateProblem,
+  orderIdKey,
+  orderJson,
+  orderKey,
+  orderPayloadOf,
+  ordersOf,
+  proposalProblem,
+  storedOrderOf,
+  type GatedAction,
+  type OrderCheck,
+  type OrderFields,
+  type OrderStatus,
+  type StoredOrder,
+} from "./orders.js";
 export { DELIVERY_MESSAGES, plannerProblem } from "./delivery.js";
 export { holdersOf, isRoleStanding, type HeldRole } from "./roles.js";
 export { NAMING_MESSAGES, namingProblem } from "./naming.js";
