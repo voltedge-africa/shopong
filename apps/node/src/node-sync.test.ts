@@ -113,7 +113,7 @@ async function seed(node: RunningNode) {
   await hub.register(made.value);
   await admit(node, made.value, joiner, T0);
   await admit(node, made.value, second, T0);
-  return { creator, joiner, second, key: made.value.key };
+  return { creator, joiner, second, key: made.value.key, community: made.value };
 }
 
 /** An event by `who`, for the community. Its id is the SHA-512 of the canonical JSON. */
@@ -313,5 +313,168 @@ describe("the Node's sync over the real record (AC 3.5)", () => {
     }
     await reader.cancel();
     expect(text).toContain("event: changed");
+  });
+});
+
+describe("removal on the Node (story 3.3)", () => {
+  /** A `member.removed` by `who`, naming `member`. Its id is the SHA-512 of the canonical JSON. */
+  function removalBy(key: string, who: Phone, member: Phone, tag: string) {
+    return createEvent({
+      type: "member.removed",
+      space: key,
+      actor: who.did,
+      proof: [],
+      claimedAt: T0 + 2 * 24 * 60 * 60 * 1000,
+      nonce: randomHex(16),
+      payload: { member: member.did, reason: tag },
+    });
+  }
+
+  it("closes the removed member's replica when the record shows the removal, and refuses them after", async () => {
+    const node = await start(freshFolder());
+    const { creator, joiner, key } = await seed(node);
+    const hub = node.hub!;
+    const before = await call(
+      node,
+      joiner,
+      "POST",
+      `/spaces/${key}/events`,
+      eventBy(key, joiner, "before"),
+    );
+    expect(before.status).toBe(200);
+    expect(await hub.holdsReplica(joiner.did, key)).toBe(true);
+
+    const removed = await call(
+      node,
+      creator,
+      "POST",
+      `/spaces/${key}/events`,
+      removalBy(key, creator, joiner, "left"),
+    );
+    expect(removed.status).toBe(200);
+    await hub.catchUp(key);
+
+    expect(await hub.holdsReplica(joiner.did, key)).toBe(false);
+    const pull = await pullAll(node, joiner, key);
+    expect(pull.status).toBe(403);
+    expect(pull.json).toMatchObject({ problem: "not_member" });
+    const append = await call(
+      node,
+      joiner,
+      "POST",
+      `/spaces/${key}/events`,
+      eventBy(key, joiner, "after"),
+    );
+    expect(append.status).toBe(403);
+    expect(append.json).toMatchObject({ problem: "not_member" });
+
+    // The earlier event stays in the record the creator reads.
+    const seen = await pullAll(node, creator, key);
+    const ids = (seen.json.events as { id: string }[]).map((e) => e.id);
+    expect(ids).toContain(before.json.id);
+  });
+
+  it("the Node accepts an append from an invited person who has not joined, and the record gives it no effect", async () => {
+    // Shortcut S-3.3-19 (story 3.11): an invitation admits the writer today, so the Node's door is open to the invitee's
+    // events. This test records that the door is open; the record's refusal of the effect is checked in removal.test.ts.
+    const node = await start(freshFolder());
+    const { joiner, key, community } = await seed(node);
+    const hub = node.hub!;
+    const outsider = await phone();
+    const invited = await community.invite(outsider.did, T0);
+    if (!invited.ok) throw new Error(invited.error.message);
+    await hub.admitMember(key, outsider.did);
+    await hub.catchUp(key);
+
+    const attempt = removalBy(key, outsider, joiner, "not mine to remove");
+    const res = await call(node, outsider, "POST", `/spaces/${key}/events`, attempt);
+    expect(res.status).toBe(200);
+    await hub.catchUp(key);
+    expect(await hub.isMember(joiner.did, key)).toBe(true);
+  });
+
+  it("closes the removed member's space in that community, and keeps their other community open", async () => {
+    const node = await start(freshFolder());
+    const { creator, joiner, key } = await seed(node);
+    const hub = node.hub!;
+    const made2 = await createCommunity(
+      creator.deps,
+      await hub.recordOf(creator.did),
+      "Second",
+      T0,
+    );
+    if (!made2.ok) throw new Error(made2.error.message);
+    await hub.register(made2.value);
+    await admit(node, made2.value, joiner, T0);
+    const space1 = await hub.replicaOf(joiner.did, key);
+    if (space1 === undefined) throw new Error("the Node holds no replica for the member");
+
+    expect(
+      (
+        await call(
+          node,
+          creator,
+          "POST",
+          `/spaces/${key}/events`,
+          removalBy(key, creator, joiner, "left"),
+        )
+      ).status,
+    ).toBe(200);
+    await hub.catchUp(key);
+
+    expect(await hub.holdsReplica(joiner.did, key)).toBe(false);
+    expect(await hub.holdsReplica(joiner.did, made2.value.key)).toBe(true);
+    // The replica of the removed community is closed itself, not only disconnected.
+    const late = await space1.append(eventBy(key, joiner, "late"));
+    expect(late).toMatchObject({ ok: false, error: { code: "closed" } });
+  });
+
+  it("opens the member's replica again after a fresh invitation and admission", async () => {
+    const node = await start(freshFolder());
+    const { creator, joiner, key, community } = await seed(node);
+    const hub = node.hub!;
+    expect(
+      (
+        await call(
+          node,
+          creator,
+          "POST",
+          `/spaces/${key}/events`,
+          removalBy(key, creator, joiner, "left"),
+        )
+      ).status,
+    ).toBe(200);
+    await hub.catchUp(key);
+    expect(await hub.holdsReplica(joiner.did, key)).toBe(false);
+
+    // A fresh invitation, replicated to the indexer before the member's replica is opened (the phone joins after it).
+    const now = T0 + 3 * 24 * 60 * 60 * 1000;
+    const invited = await community.invite(joiner.did, now);
+    if (!invited.ok) throw new Error(invited.error.message);
+    await hub.admitMember(key, joiner.did);
+    await hub.catchUp(key);
+    expect(await hub.isMember(joiner.did, key)).toBe(true);
+    const space = await hub.replicaOf(joiner.did, key);
+    if (space === undefined) throw new Error("the Node holds no replica for the member");
+    await hub.catchUp(key);
+    const checked = await checkInvitation({
+      auth: joiner.auth,
+      text: invited.value.code,
+      me: joiner.did,
+      now,
+    });
+    if (!checked.ok) throw new Error(checked.error.message);
+    const joined = await joinCommunity(joiner.deps, space, checked.value, now);
+    if (!joined.ok) throw new Error(joined.error.message);
+    await hub.catchUp(key);
+    expect(await hub.holdsReplica(joiner.did, key)).toBe(true);
+    const again = await call(
+      node,
+      joiner,
+      "POST",
+      `/spaces/${key}/events`,
+      eventBy(key, joiner, "again"),
+    );
+    expect(again.status).toBe(200);
   });
 });

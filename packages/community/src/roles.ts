@@ -9,6 +9,8 @@
 // Story 3.6: every check here is judged at log time (log-time.ts), never at the time an event claims, so a
 // backdated event cannot use a role that ended. A role is taken back with `role.revoked` (a record event):
 // each grant of it is marked in the view as revoked, and a later use of any of those grants is refused.
+// Shortcuts S-2.4-2 (the end of a role is checked against the time the event claims, so it can be backdated)
+// and S-2.5-8 (the Node checks role expiry with its own clock; `apply` and the phone do not).
 //
 // View keys: `roles/<did>/<role>` { role, grantor, expiresAt, grants: [{ ability, token, id, limit }] },
 // `revoked/<grant id>` { role, grantee }. The `id` of each grant is what an invitation passed on by a

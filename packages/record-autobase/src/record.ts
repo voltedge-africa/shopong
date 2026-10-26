@@ -435,7 +435,9 @@ class AutobaseSpace<E> implements Space<E> {
         const hex = await read(hb, keyOf(did));
         if (typeof hex === "string") {
           const key = b4a.from(hex, "hex");
-          if (host.removeable(key)) await host.removeWriter(key);
+          // Autobase refuses to remove its last indexer. Then the writer stays admitted, and nothing is deleted.
+          if (!host.removeable(key)) return;
+          await host.removeWriter(key);
         }
         await hb.del(writerOf(did));
       },

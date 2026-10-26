@@ -201,9 +201,16 @@ export function registerSyncRoutes(
         throw error;
       }
 
-      // Acknowledged only once the append has returned, which is after it is durable in the signer's replica.
-      const receipt = await space.append(event);
-      if (!receipt.ok) return refuse("not_writable", actor);
+      // Acknowledged only once the append has returned, which is after it is durable in the signer's replica. A replica
+      // the Node closes during a request is a removed member (story 3.3), so that is refused as not_member, not a 500.
+      const receipt = await space.append(event).catch(async (error: unknown) => {
+        if (await hub.isMember(actor, key)) throw error;
+        return undefined;
+      });
+      if (receipt === undefined) return refuse("not_member", actor);
+      if (!receipt.ok) {
+        return refuse(receipt.error.code === "closed" ? "not_member" : "not_writable", actor);
+      }
       hub.acknowledge(actor, key, receipt.value.id);
 
       request.log.info(

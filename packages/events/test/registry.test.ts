@@ -34,3 +34,32 @@ describe("role.granted payload", () => {
     expect(parseEvent({ v: 1, ...base, type: "role.granted", payload }).ok).toBe(false);
   });
 });
+
+describe("member.removed payload", () => {
+  const base = {
+    space: "ab".repeat(32),
+    actor: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+    proof: [],
+    claimedAt: 1793001600000,
+    nonce: "00".repeat(16),
+  };
+  const member = "did:key:z6MkmtmqQWNzwamfa7QWkNU3Sk2qHpuXK4VrfMXXqVouVZtL";
+
+  it("accepts the member, with or without a reason", () => {
+    expect(createEvent({ ...base, type: "member.removed", payload: { member } }).type).toBe(
+      "member.removed",
+    );
+    expect(
+      createEvent({ ...base, type: "member.removed", payload: { member, reason: "left" } }).type,
+    ).toBe("member.removed");
+  });
+
+  it.each([
+    ["without a member", {}],
+    ["with a member that is not a did:key", { member: "bob" }],
+    ["with a number as member", { member: 7 }],
+    ["with a reason that is not text", { member, reason: 3 }],
+  ] as const)("rejects a member.removed %s", (_name, payload) => {
+    expect(parseEvent({ v: 1, ...base, type: "member.removed", payload }).ok).toBe(false);
+  });
+});
