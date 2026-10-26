@@ -54,9 +54,10 @@ The stokvel bulk-order flow end to end, as the first demonstration of OCN capabi
 - Waits on epic 2 because: creating, inviting members and approving proposals need identity, invitation and approval authority (2.3, 2.4).
 - Waits on epic 3 because: every order step is written to the community record (3.2, pinned by 8.1).
 - Waits on epic 4 because: Stitch pay-ins (4.3) and the pool's supplier payment (4.7) move the money.
-- Waits on epic 6 because: structured quotes and their ranking (6.3, 6.5) are what members compare.
+- Waits on epic 6 because: typed supplier quotes and their simple ranking (6.8, 6.9) are what members compare (decision 2026-10-26; OCR and Laya, 6.3 and 6.5, come later).
 - Waits on epic 7 because: the route (7.4) and collection proof (7.6) complete the delivery and close.
 - Assumption: entry 6 claims no requirement id; it is the delivery integration of FR15, which epic 7 owns.
 - Assumption: UX-DR1 is provisional, since no UX design exists yet; confirm with bmad-ux.
 - Open question: entry 8.7 creates open obligations for follow-up, which FR20 places in epic 10, and this epic does not wait on epic 10; the user decides whether to add that wait or drop obligations from this demo's close.
 - Assumption: entry 8, a closing Refactor sweep, was added by default because the epic has more than three entries; declining it is a `Decision:` line.
+- Decision: 2026-10-26, story 8.3 now waits on 6.8 and 6.9 (typed quotes and a simple ranking) instead of 6.3 and 6.5. Done-when 2 is met with the treasurer's typing as the review and a rule-based margin as the confidence.

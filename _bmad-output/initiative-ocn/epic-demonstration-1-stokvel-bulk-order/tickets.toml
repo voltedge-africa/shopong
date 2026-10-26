@@ -7,7 +7,7 @@ title = "Start a stokvel and invite members"
 description = "A stokvel treasurer creates the stokvel with a name, rules and roles and brings members in by invitation, with the creator able to work offline."
 verify = "Creating a stokvel and inviting members shows the joined members with their roles, and the creator's offline changes sync once online."
 covers = ["FR2", "NFR1"]
-after = ["2.3", "3.2"]
+after = ["2.3", "3.2", "3.4"]
 hitl = false
 risk = "medium"
 
@@ -29,7 +29,7 @@ title = "Compare supplier options"
 description = "Members compare reviewed supplier quotes side by side on price per item, totals, delivery terms and the ranked suggestion with its confidence, and the treasurer selects a supplier."
 verify = "The comparison shows price per item, totals, delivery terms and the ranked suggestion for at least two suppliers, and the selection is recorded as quote.selected."
 covers = ["FR8"]
-after = [2, "6.3", "6.5"]
+after = [2, "6.8", "6.9"]
 hitl = false
 risk = "medium"
 
@@ -40,7 +40,7 @@ title = "Pledge and pay, with funding progress"
 description = "Members commit and pay their share through Stitch, moving from requested to paid, while the funding bar updates for everyone and unpaid members show as unpaid without bank details."
 verify = "A pledge moves from requested to paid through Stitch, the funding bar updates for all members, and an unpaid member is shown as unpaid without bank details."
 covers = ["FR9", "UX-DR1"]
-after = [3, "4.3"]
+after = [3, "4.3", "4.5", "4.6"]
 hitl = false
 risk = "high"
 references = ["architecture-ocn/architecture-ocn.md#ad-13"]

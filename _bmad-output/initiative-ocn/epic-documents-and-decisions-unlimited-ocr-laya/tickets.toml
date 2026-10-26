@@ -31,7 +31,7 @@ title = "Structured quotes with human review"
 description = "Shows each extracted price-list row beside its source region so a treasurer can accept, edit or reject it before it counts, and accepted rows become quote.added events carrying the source hash."
 verify = "Each extracted row (item, unit, pack size, price) can be accepted, edited or rejected beside its source, and accepted rows become quote.added events with the source hash."
 covers = ["FR5", "FR7"]
-after = [2, "3.7"]
+after = [2, "3.7", 8]
 hitl = false
 risk = "medium"
 references = ["architecture-ocn/architecture-ocn.md#ocr-via-unlimited-ocr"]
@@ -55,7 +55,7 @@ title = "Rank supplier quotes with confidence"
 description = "Ranks three to eight supplier quotes through laya-serve with a stated confidence and criteria, saying no clear recommendation below the threshold, and logs a treasurer's override as a labelled example."
 verify = "A ranking shows rank, confidence and criteria, falls back to 'no clear recommendation' below the threshold, and a logged override is stored as a labelled example."
 covers = ["FR8"]
-after = [3, 4]
+after = [3, 4, 9]
 hitl = false
 risk = "medium"
 references = ["architecture-ocn/architecture-ocn.md#system-1-decision-model-via-laya"]
@@ -73,12 +73,34 @@ risk = "medium"
 references = ["architecture-ocn/architecture-ocn.md#system-1-decision-model-via-laya"]
 
 [[entry]]
+id = 8
+type = "story"
+title = "Typed supplier quotes"
+description = "The treasurer types each supplier's quote lines (item, unit, pack size, price) and delivery terms, a line with a missing price is refused with a reason, and complete quotes are recorded as quote.added events in the community record so members can compare them; reading price lists with OCR is added later behind the same Ocr port."
+verify = "A quote typed by the treasurer appears on another member's replica as quote.added with its price per item and delivery terms."
+covers = ["FR8"]
+after = ["3.2"]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 9
+type = "story"
+title = "Rank quotes by a simple rule"
+description = "Quotes are ranked by a plain published rule (lowest complete total, delivery terms shown), with the margin to the next supplier stated as the confidence and no clear recommendation when the margin is under a set threshold, so the suggestion is explainable; Laya replaces the rule later behind the Decide port."
+verify = "Given the same two or more complete quotes, the ranking is always the same and shows each supplier's rank, total and margin to the next."
+covers = ["FR8"]
+after = [8, "3.2"]
+hitl = false
+risk = "medium"
+
+[[entry]]
 id = 7
 type = "story"
 title = "Refactor sweep"
 description = "Cleans up only what this epic's plans and review findings deferred, adding no scope."
 verify = "The epic's tests still pass and every deferred cleanup item is closed or moved to a new story."
 covers = []
-after = [1, 2, 3, 4, 5, 6]
+after = [1, 2, 3, 4, 5, 6, 8, 9]
 hitl = false
 risk = "low"

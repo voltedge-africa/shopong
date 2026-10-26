@@ -394,13 +394,16 @@ Self-host kit (story 12.1): `docker compose` for the OCN Node, tile host, `laya-
 | AD-18 | A member's Corestore `primaryKey` is derived from their identity seed with a KDF, so one recovery phrase restores identity and writer keys | Corestore derives writable cores deterministically from `primaryKey` |
 | AD-19 | The OCN Node also runs a HyperDHT bootstrap node and a relay | Discovery and NAT traversal not solely on third-party infrastructure |
 | AD-20 | Supersedes the Kepler.gl part of AD-5 and AGENTS.md rule 7: Kepler.gl ships inside the mobile app as one self-contained built page (`miniapps/vendor/delivery`), shown in a sandboxed WebView by the Delivery mini app. DuckDB-WASM and Valhalla-WASM stay in the web console | Product owner decision, 2026-10-25. The page has no network and no access to the app, and is sent its data by message. Costs: about 22 MB (5.9 MB gzipped) added to the app. The base map is not tiles: it is a bundled OpenStreetMap extract of Clermont, Durban (ODbL, attribution shown on the map) drawn as vector layers, refreshed by script; another area needs its own extract or a tile source |
+| AD-21 | For Demonstration 1 the OCN Node holds each community's Autobase and the members' writer keys; phones connect to it over an authenticated connection, save writes offline and sync when online. The on-phone Bare worklet design stays a later spike behind the same `SharedRecord` port. Supersedes the worklet default in AD-14 | Product owner decision, 2026-10-26 (`docs/decisions/3-1-record-on-the-node.md`). The phone test is a multi-day native build and the emulator is not the low-end device the budget needs |
+| AD-22 | The ledger is our own, self-hosted on the OCN Node behind the `Ledger` port; Ledfra is no longer the default adapter. Closes D-2. Supersedes the Ledfra default in AD-3 and section 4.2 | Product owner decision, 2026-10-26 (`docs/decisions/d-2-own-ledger.md`). Removes the vendor and the 2026-12-31 deadline; we own accounting correctness |
+| AD-23 | For Demonstration 1 supplier quotes are typed by the treasurer and ranked by a plain published rule; the shown confidence is the rule's margin, not a model's. OCR and Laya stay behind the `Ocr` and `Decide` ports for later. Adjusts AD-7 for the first demonstration | Product owner decision, 2026-10-26. OCR needs real documents and a GPU decision, and Laya needs labelled decisions; neither is ready |
 
 ### Open: needs the product owner
 
 | ID | Question |
 |---|---|
 | D-1 | Stablecoin: ZARP, ZARsc, both, or defer? Needs legal input on CASP/FSCA position and custody. |
-| D-2 | Accept a hosted ledger (Ledfra) given the sovereignty principle, or require a self-hostable ledger? Early Access price lock ends 2026-12-31. |
+| D-2 | **Closed 2026-10-26: the ledger is our own, self-hosted (AD-22).** Was: accept a hosted ledger (Ledfra) given the sovereignty principle, or require a self-hostable ledger? |
 | D-3 | UCAN library: stay on ts-ucan (spike-gated) or adopt `iso-ucan`? |
 | D-4 | Where does GPU compute run (own hardware, rented, community-hosted) for OCR? |
 | D-5 | Allow the hosted OpenUI Gateway/Autofix, or local-only generation? |

@@ -80,3 +80,14 @@ Columns: **ID** (`S-<epic>.<story>-<n>`), **Shortcut**, **Instead of**, **Cost i
 | S-2.4-17 | A co-treasurer whose role came through another co-treasurer cannot send valid invitations (an invitation chain is at most two links), and "What can I do?" now says so | longer invitation chains | The second co-treasurer's role cannot invite | If deeper delegation of inviting is wanted |
 | S-2.4-18 | On the community card a message from "Give a role" stays on screen while a "What can I do?" result shows | clearing it when another action runs | Two messages can show together, one stale | Later polish |
 
+## Demonstration 1 path decisions (2026-10-26)
+
+| ID | Shortcut | Instead of | Cost if it bites | Revisit when |
+|---|---|---|---|---|
+| S-3.1-1 | The OCN Node holds the community writers; phones sync to it. No Hyper stack on phones, so no direct phone-to-phone sync (AD-21) | the Bare worklet on each phone | Phones need the Node to sync; the Node is the one place writer keys live; weaker on sovereignty. The on-phone design is untested on any device | A device test of the worklet on a low-end phone and an iPhone |
+| S-3.1-2 | Spike 3.1 closed with Linux evidence only, no phone, no iOS, no throughput number (the 10,000-event test timed out) | the device measurements the ticket asked for | Unknown real-world start-up, memory and battery cost of the on-phone design | The on-phone spike is run |
+| S-4-1 | The ledger is our own code on the OCN Node (AD-22), with no vendor reports and only what we build | Ledfra | Accounting-correctness bugs are ours; persistence, backup and restore are ours | Before real money moves, and in epic 12 |
+| S-4-2 | Spike 4.1 (Ledfra fit) dropped without testing Ledfra | the vendor's written answers on tenancy, reversal, export and self-hosting | If we ever want Ledfra, it is unassessed | Never needed unless D-2 is reopened |
+| S-6-1 | Quotes are typed by the treasurer and ranked by a simple rule; the "confidence" is the rule's margin, not model-derived (AD-23) | OCR and Laya | Typing is slower and error-prone; no source-document link or calibrated confidence | When the OCR and Laya spikes (6.1, 6.4) are run |
+| S-1.6-1 | The sandbox step is narrowed to Stitch, the OSM extract and sample documents; the Solana and EVM wallets are not created | the full set of accounts | Stablecoin work (epic 5) has no wallets until someone makes them | Epic 5 starts |
+
