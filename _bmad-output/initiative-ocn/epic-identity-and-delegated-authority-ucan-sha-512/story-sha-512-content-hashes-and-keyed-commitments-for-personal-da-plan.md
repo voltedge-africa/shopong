@@ -4,7 +4,7 @@ type: 'feature'
 ticket: 7
 created: '2026-10-26'
 status: 'draft'
-baseline_revision: '859dc6c8b42f4a81411445c79de6d7e84daf56c3'
+baseline_revision: '26c417cdcc44d355a2be80aa0cc66a977dc31da8'
 route: 'full'
 route_source: 'auto'
 risk: 'high'
@@ -15,95 +15,100 @@ review_loop_iteration: 0
 context: []
 ---
 
-<frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
-
 ## Intent
 
-**Problem:** The shared record is append-only, so a phone number or ID number written to it can never be taken back (POPIA). The commitment logic exists (`keyedCommitment`, `commitPhoneNumber`, phone normalisation) but nothing real is plugged in: there is no production HMAC, no community secret, no way to check an attached file against its hash, and nothing stops a raw personal value reaching the record.
+**Problem:** The shared record is append-only, so a phone or ID number written to it can never be taken back (POPIA). `packages/events/src/commitment.ts` has the commitment shape and phone normalisation but no production HMAC, no ID-number rule, no community secret, and no way to check an attached file against its hash. Nothing stops a raw personal field reaching an event; only quote names are checked, by shape.
 
-**Approach:** Plug in one HMAC-SHA512 built on `@noble/hashes`, give each community a secret, add a function that re-hashes an attached file and says "verified" or "does not match", and add a guard that refuses a record event carrying a raw phone number, ID number or address field.
+**Approach:** Inject one HMAC-SHA512 (from `@noble/hashes`, already pinned in `apps/shopong`), define a South African ID-number commitment, add a pure `verifyAttachment` that says "verified" or "does not match", and add a pure guard that `apply` uses to refuse an event carrying a raw personal value. The secret is held by the OCN Node (see Q1).
 
 ## Boundaries & Constraints
 
-**Always:** Personal data reaches the record only as `HMAC-SHA512(communitySecret, normalised value)`; plain unsalted SHA-512 of a phone or ID number is never used. The community secret is never written to the record, a log, or an event. Hashing and HMAC run the same on Hermes, web and Node. Plain-language wording for "verified" and "does not match". No new third-party dependency beyond `@noble/hashes`, already in the app.
+**Always:** Personal values reach the record only as `HMAC-SHA512(communitySecret, normalised value)`, lowercase hex. Plain unsalted SHA-512 of a phone or ID number is never used. Hashing runs the same on Hermes, web and Node (injected `Sha512` and `HmacSha512`). Checks are pure, so `apply` stays deterministic. Plain-language refusal reasons.
 
-**Never:** Collecting phone or ID numbers in a screen (no feature asks for one yet). Exact addresses anywhere in the record (they stay on the device). The OCN Node holding the secret (epic 3). Storing or sending files (Hyperdrive is story 3.7). Changing the event hash.
+**Never:** Writing the community secret to the record, a log, an event or a device. Exact addresses in any event. Any phone or ID input screen (none exists). Storing or sending files (Hyperdrive is story 3.7). Changing the event hash or envelope. A new dependency in `packages/events`.
 
 ## I/O & Edge-Case Matrix
 
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
-| Commit a phone | A phone number in any common South African spelling | The same commitment every time | None |
-| Commit an ID | A 13-digit South African ID number | A commitment of the normalised digits | "That doesn't look like an ID number." (returned by the helper; no screen asks for one yet) |
-| Different community | The same value, another community's secret | A different commitment | None |
-| Short secret | A secret under 32 bytes | Refused | "This community's secret is too short." |
-| Raw value in an event | A record event with a `phone`, `idNumber` or `address` field holding a raw value | The event is refused | "Personal details can't be written to the shared record." |
-| Commitment in such a field | The same field holding a commitment (128 hex characters) | Accepted (the existing golden vector does this) | None |
-| File matches | A file and the hash recorded for it | "Verified" | None |
-| File differs | A changed file and the recorded hash | "Does not match" | None |
-| No hash recorded | A file with no recorded hash | "Can't be checked" | None |
-
-</frozen-after-approval>
-
-## Open Questions
-
-1. **Where does the community secret come from, and how does a member get it?**
-   - A) The creator's phone makes 32 random bytes when the community is made, keeps them in the keystore, and puts them in the invitation text a new member receives (never in an event or the record). Simple, but anyone who sees an invitation link can then guess phone numbers against every commitment (there are only about a billion), so a leaked invitation also leaks privacy. Another member's phone holds the same secret, so losing the creator's phone does not lose it.
-   - B) Hand the secret over only after the person has joined, sealed to their own identity. Safer, but needs encryption to a member's key and a real second phone, so it waits for epic 3.
-   - C) Wait until the OCN Node holds secrets (epic 3). Nothing usable meanwhile.
-2. **What counts as personal data now?**
-   - A) Phone numbers and South African ID numbers (13 digits, check digit validated), and a rule that exact addresses are refused outright.
-   - B) Phone numbers only for now.
-3. **Should the record refuse raw personal fields?**
-   - A) Yes: a name-based guard in the event checks refuses a field named phone, idNumber, address or similar unless its value is commitment-shaped (128 hex characters), and requires commitment-shaped values in any field named `...Commitment`. Heuristic, so it catches mistakes, not attackers, and it only guards new events: the record is append-only, so anything written earlier stays.
-   - B) No guard; only the helpers and tests.
-4. **When a file does not match its hash:**
-   - A) Show "does not match", keep the file, and flag it.
-   - B) Block it.
-5. **Erasure (POPIA).** A commitment in an append-only log cannot be deleted.
-   - A) Accept and document it: a commitment cannot be deleted, and the only way to make them unlinkable is for every member to delete the secret from their phone, which cannot be forced. Say so plainly in the register.
-   - B) Per-member secrets that can be destroyed individually. More work, and it breaks matching across members.
+| Commit a phone | Any common SA spelling of one number | Same commitment every time | None |
+| Commit an ID | 13-digit SA ID, valid check digit | Commitment of the 13 digits | `That doesn't look like an ID number.` |
+| Other community | Same value, different secret | Different commitment | None |
+| Short secret | Under 32 bytes | Refused | `This community's secret is too short.` |
+| Raw phone in a field | Event payload field named `phone`, value `082 123 4567` | Event refused, `rejected/<id>` recorded | `Personal details can't be written to the shared record.` |
+| Phone-shaped free text | Quote item named `Sugar 0821234567` | Refused by the shared shape check | Existing quote message |
+| Commitment in a field | 128 lowercase hex in a `...Commitment` field | Accepted | None |
+| File matches | Bytes whose SHA-512 equals the event's `sha512` | `verified` | None |
+| File differs | Changed bytes | `does not match` | Kept, flagged (Q4) |
+| No hash recorded | Missing `sha512` | `can't be checked` | None |
 
 ## Code Map
 
-- `packages/events/src/commitment.ts` -- `HmacSha512` (injected), `keyedCommitment`, `commitPhoneNumber`, `normalisePhoneNumber`, `isCommitment`, `MIN_COMMUNITY_SECRET_BYTES` (32). The test HMAC is WebCrypto; production injects `@noble/hashes`. Reuse; add ID-number normalisation here.
-- `packages/events/src/hash.ts` -- `sha512Hex`, `webCryptoSha512`, `eventIdOf`. The attachment check uses the same `Sha512` type.
-- `packages/events/test/commitment.test.ts`, `vectors/golden.json`, `scripts/gen_vectors.py` -- vectors for commitments; extend, regenerating vectors from the script as in story 2.3.
-- `packages/events/src/registry.ts` and `envelope.ts` -- where the personal-field guard goes.
-- `apps/shopong/lib/sha512.ts` -- dependency-free SHA-512 used on Hermes (no `crypto.subtle`); `lib/cryptoPolyfills.ts` fills `subtle.digest` from `@noble/hashes`. `@noble/hashes` 2.4.0 is already an app dependency, but not of `packages/events`.
-- `packages/community/src/community.ts`, `invitation.ts` -- where the secret is made and handed over (Q1).
-- `packages/ports/src/geo.ts` and its contract -- already coarsen locations; follow that style for the address rule.
+- `packages/events/src/commitment.ts` -- `HmacSha512` (injected), `keyedCommitment`, `commitPhoneNumber`, `normalisePhoneNumber`, `isCommitment`, `MIN_COMMUNITY_SECRET_BYTES` (32). Add ID-number normalisation here.
+- `packages/events/src/hash.ts` -- `Sha512`, `sha512Hex`, `webCryptoSha512`, `eventIdOf`. `verifyAttachment` goes beside them.
+- `packages/events/src/registry.ts` (`PAYLOAD_VALIDATORS`), `envelope.ts` -- the guard's home (envelope internals not yet read).
+- `packages/events/test/commitment.test.ts`, `test/vectors.ts`, `vectors/golden.json`, `scripts/gen_vectors.py` -- vectors (`pnpm --filter @shopong/events vectors`).
+- `packages/community/src/apply.ts` -- refuses with `rejected/<event id>`; `community.ts` already takes `sha512` in its deps.
+- `packages/community/src/quotes.ts` -- `hasPhoneNumber` (lines 89-90), used at lines 121 and 143; the shape rule to share.
+- `packages/community/src/invitation.ts` -- `issueInvitation`, `invitationLink`; no secret carried today.
+- `packages/ports/src/common.ts` (`Sha512Hex`), `packages/ports/src/ocr.ts` (`DocumentRef.sha512`, `hash_mismatch`).
+- `apps/shopong/lib/sha512.ts`, `cryptoPolyfills.ts` (uses `@noble/hashes/sha2.js`), `apps/shopong/lib/community.ts` (`webCryptoSha512`, line 90), `apps/shopong/package.json` (`@noble/hashes` 2.4.0).
+- Architecture: sections 4.1 (SHA-512), 6 (identifiers), 7 (POPIA), AD-9.
 
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Check what already exists first: search the event types, the scenario and the golden vectors for raw personal fields, and list any
-- [ ] `packages/events/` -- production `hmacSha512` on `@noble/hashes`, ID-number normalisation, `verifyAttachment`, and the personal-field guard, with tests and regenerated vectors
-- [ ] `packages/community/` -- make and keep the community secret, hand it over with the invitation (Q1), and a test that no event the community writes carries a raw personal value
-- [ ] `apps/shopong/` -- wire the production HMAC into the app, keep the secret in the keystore, and show "verified" / "does not match" wording where a file is checked
-- [ ] `_bmad-output/initiative-ocn/shortcuts.md` -- rows for each choice, including the erasure limit
+- [ ] `packages/events/` -- ID-number normalisation and check digit; `verifyAttachment`; the personal-field guard; tests; regenerate `golden.json` with the script, never by hand
+- [ ] `packages/ports/`, `packages/ports-contract/`, `packages/adapters-memory/` -- a `Commitments` port with a contract suite and an in-memory adapter (rule 1), if Q1 A
+- [ ] `packages/community/` -- `apply` runs the guard and records the refusal; a test that every event the community writes is free of raw personal values
+- [ ] `apps/shopong/` -- inject the production HMAC; keep the secret out of the device (Q1); "verified" / "does not match" wording where a file is checked
+- [ ] `_bmad-output/initiative-ocn/shortcuts.md` -- a row per choice, including the erasure limit
 
 **Acceptance Criteria:**
-- Given a phone or ID number, when it is committed, then the same value gives the same commitment and another community's secret gives a different one.
-- Given a record event with a raw personal field, then it is refused with the plain reason.
-- Given a file and its recorded hash, when it is re-hashed, then it reads verified or does not match.
+- Given a phone or ID number, when committed, then the same value gives the same commitment and another community's secret gives a different one.
+- Given a record event with a raw personal field, then it is refused with the plain reason and the refusal is recorded.
+- Given a file and its recorded hash, when re-hashed, then it reads verified or does not match.
 - Given `pnpm run ci`, then it passes.
-
-## Implementation Notes
-
-## Plan Change Log
-
-## Review Triage Log
-
-## Design Notes
-
-The commitments are only as private as the secret: anyone holding it can test guesses against a commitment, so it must reach only members; an invitation that carries it makes a leaked invitation a privacy leak (question 1). If every phone that holds the secret is lost, commitments can no longer be matched, but nothing else breaks (attachment hashes are not keyed). Commitments made on different platforms must be byte-identical; the golden vectors prove it. No screen collects a phone or ID number yet, so this story builds and proves the safe path before any feature needs it.
 
 ## Verification
 
 **Commands:**
 - `pnpm run ci` -- expected: exit 0, new tests included
 - `pnpm --filter @shopong/events test` -- expected: commitment, guard and attachment tests pass
+- `pnpm --filter @shopong/events vectors` -- expected: only the intended vectors change in `golden.json`
 
-**Manual checks (if no CLI):**
-- Web: confirm a community's events never carry a raw personal value, and a changed file reads "does not match". Android only if asked.
+**Manual checks:** Web only: a changed file reads "does not match". Android only if asked.
+
+## Open Questions
+
+**Answered 2026-10-26 by the product owner: all recommended answers accepted.**
+
+1. **Where does the community secret live, and how does a phone get a commitment without holding it?** AGENTS rule 4 says secrets live only on the OCN Node, so a phone holding the secret would break it.
+   - A) (recommended) The Node generates the 32-byte secret when a community is made, stores it in its secret store, and computes commitments. A phone sends the normalised value over its authenticated link and gets back the commitment; it never sees the secret. 2.7 builds and tests the function and port; phone calls wait for the phone-to-Node link (3.4/3.5).
+   - B) The phone holds the secret and hands it to joiners in the invitation, as the earlier stub proposed. This contradicts rule 4 as written, and a leaked invitation then leaks the secret. Needs a product-owner amendment to rule 4.
+   - C) The phone holds a secret sealed to each member's identity at join. Safer than B, but needs encryption to a member key and a second real phone, so it waits for epic 3.
+2. **Which fields count as personal data in Demonstration 1?**
+   - A) (recommended) Phone numbers and SA ID numbers are committed. Exact addresses never enter an event. Names stay as typed, checked only for phone-shaped digits (as quotes already do).
+   - B) As A, and also commit names so members can match them without seeing them.
+   - C) Phone numbers only.
+3. **How is personal data detected in free-text fields?** `apply` must stay pure, so the check is a pure function.
+   - A) (recommended) Field-name guard (`phone`, `idNumber`, `address` and similar must hold a commitment) plus a shape check on free text: 7 or more digits once separators are removed (as quotes do), and any 13-digit run passing the SA ID check digit. Heuristic: it catches mistakes, not deliberate hiding.
+   - B) Field-name guard only.
+   - C) An on-device or hosted classifier. Not deterministic, and a hosted one sends the text out. Use only in the UI, never in `apply`.
+4. **When a file does not match its recorded hash?**
+   - A) (recommended) Say "does not match", keep the file and flag it for a person to look at.
+   - B) Block the file.
+5. **What is a commitment, and how are two members' commitments compared?**
+   - A) (recommended) Lowercase hex HMAC-SHA512 (128 characters) of the normalised value, with the community's secret. Members match by exact string equality. Phone numbers normalise to E.164 first; ID numbers to their 13 digits. No truncation, no per-member salt.
+   - B) Truncate to 32 hex characters to save space. Fewer bits, and it gains nothing a record needs.
+   - C) A per-member salt stored with each commitment. Prevents linking, but then two members' commitments for one number never match.
+6. **File hashing for attachments (Hyperdrive itself is story 3.7).**
+   - A) (recommended) Plain SHA-512 of the file bytes through the injected `Sha512`; `verifyAttachment(bytes, sha512)` is pure and returns verified or does not match. The event carries the hash only, not the bytes. Hyperdrive later stores the file and the same hash.
+   - B) As A, but hashed in chunks so a large file is never held whole. Needs an incremental SHA-512 in the app; defer until 3.7 brings large files.
+   - C) Use the Hyperdrive Merkle root instead. Rejected: the architecture needs the hash to stand apart from Hyperdrive.
+
+## Notes on this draft
+
+- Replaces the earlier stub. Its frozen Intent and matrix were dropped and rewritten to match the current code and rules; its Q1 option B conflicts with rule 4.
+- Baseline is the current HEAD (`26c417c`), not the stub's `859dc6c`.
+- Not verified: the envelope internals in `envelope.ts`; the HMAC export path of `@noble/hashes` 2.4.0 (check before coding); the Node secret-store loader (`apps/node`, not read); whether `gen_vectors.py` runs here (not run); the existing `shortcuts.md` rows for this story.
