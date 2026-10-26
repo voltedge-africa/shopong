@@ -229,7 +229,7 @@ describe("place names and bounded numbers (patch)", () => {
   });
 });
 
-describe("delivery.confirmed shape (patch: no coordinate in a confirmation)", () => {
+describe("delivery.confirmed shape (patch: no fine coordinate in a confirmation)", () => {
   const confirmed = PAYLOAD_VALIDATORS["delivery.confirmed"];
   const photo = "f".repeat(128);
   it("accepts the order and the photo's SHA-512, with the place optional", () => {
@@ -239,8 +239,8 @@ describe("delivery.confirmed shape (patch: no coordinate in a confirmation)", ()
   it.each([
     ["latMicro", -25_707_900],
     ["lngMicro", 28_400_400],
-    ["lat", -25.7],
-  ])("refuses a %s coordinate", (name, value) => {
+    ["accuracy", 12],
+  ])("refuses a %s field", (name, value) => {
     expect(confirmed({ order: "o1", photoSha512: photo, [name]: value })).not.toEqual([]);
   });
   it("refuses a place that is not an opaque id", () => {

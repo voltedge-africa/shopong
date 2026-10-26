@@ -34,6 +34,7 @@ import {
 } from "@shopong/ports";
 import { createCommunityApply, FOUNDER_INVITATION } from "./apply.js";
 import { driverStands, placeAdderProblem, placeJson, plannerProblem } from "./delivery.js";
+import { PROOF_MESSAGES, progressOf, type OrderProgress } from "./delivery-proof.js";
 import { logTimeOf } from "./log-time.js";
 import {
   QUOTE_MESSAGES,
@@ -134,6 +135,33 @@ export type DeliveryPlan = DeliveryPlannedPayload;
 
 export type PlanError = PortError<"not_permitted" | "refused">;
 
+/**
+ * The arrival a driver confirms (story 7.6): the order, the SHA-512 of the photo the Node holds, and optionally a coarse
+ * place (`lat` and `lng`: decimal strings of two decimal places at most, rounded on the phone) or an opaque place id.
+ */
+export interface DeliveryConfirmation {
+  readonly order: string;
+  readonly photoSha512: string;
+  readonly lat?: string;
+  readonly lng?: string;
+  readonly place?: string;
+}
+
+/** A member's own share (story 7.6): the order and the event id of the delivery confirmation it collects from. */
+export interface CollectionConfirmation {
+  readonly order: string;
+  readonly delivery: string;
+}
+
+/** A dispute (story 7.6): the order, the event id of the confirmation disputed, and the person's short note. */
+export interface DeliveryDispute {
+  readonly order: string;
+  readonly delivery: string;
+  readonly note?: string;
+}
+
+export type ProofError = PortError<"refused">;
+
 export interface QuoteReceipt {
   /** The event id of the `quote.added` entry. */
   readonly id: string;
@@ -200,6 +228,27 @@ async function append(
   return ok(event);
 }
 
+/**
+ * Appends a proof event (story 7.6). A payload the envelope cannot take is refused with the plain sentence, not thrown, so
+ * the screen always has something to show. `apply` judges the rest.
+ */
+async function appendProof(
+  deps: CommunityDeps,
+  space: Space<EventEnvelope>,
+  spaceKey: string,
+  type: EventType,
+  payload: object,
+  at: EpochMs,
+): Promise<Result<EventEnvelope, ProofError>> {
+  try {
+    // Undefined fields (an optional place, say) are left out, so the payload is plain JSON.
+    const plain = JSON.parse(JSON.stringify(payload)) as JsonObject;
+    return await append(deps, space, spaceKey, type, plain, [], at);
+  } catch {
+    return err("refused", PROOF_MESSAGES.unreadable);
+  }
+}
+
 export interface Community {
   /** The 64-hex community key (the envelope `space`). */
   readonly key: string;
@@ -244,6 +293,20 @@ export interface Community {
    * at log time, may plan it. Refused with the plain reason otherwise.
    */
   planDelivery(plan: DeliveryPlan, now: EpochMs): Promise<Result<EventEnvelope, PlanError>>;
+  /** The assigned driver confirms the arrival at an order (story 7.6). Refused with the plain reason otherwise. */
+  confirmDelivery(
+    input: DeliveryConfirmation,
+    now: EpochMs,
+  ): Promise<Result<EventEnvelope, ProofError>>;
+  /** A member confirms their own share of a delivery (story 7.6). The treasurer cannot do it for a member. */
+  confirmCollection(
+    input: CollectionConfirmation,
+    now: EpochMs,
+  ): Promise<Result<EventEnvelope, ProofError>>;
+  /** A member, or the treasurer, disputes a delivery. The confirmation stays; the dispute is a later event (story 7.6). */
+  disputeDelivery(input: DeliveryDispute, now: EpochMs): Promise<Result<EventEnvelope, ProofError>>;
+  /** An order's proof as the view holds it now: arrived, collected of members, disputes (story 7.6). */
+  orderProgress(order: string): Promise<OrderProgress>;
 }
 
 function wrap(
@@ -372,6 +435,26 @@ function wrap(
       const problem = await plannerProblem(standingOf(), space.view, me, at);
       if (problem !== undefined) return err("not_permitted", problem);
       return append(deps, space, key, "delivery.planned", plan as unknown as JsonObject, [], now);
+    },
+    async confirmDelivery(input, now) {
+      return appendProof(deps, space, key, "delivery.confirmed", input, now);
+    },
+    async confirmCollection(input, now) {
+      return appendProof(
+        deps,
+        space,
+        key,
+        "collection.confirmed",
+        { order: input.order, delivery: input.delivery, member: me },
+        now,
+      );
+    },
+    async disputeDelivery(input, now) {
+      return appendProof(deps, space, key, "delivery.disputed", input, now);
+    },
+    async orderProgress(order) {
+      await space.update();
+      return progressOf(space.view, order);
     },
     async addQuote(input, now) {
       await space.update();

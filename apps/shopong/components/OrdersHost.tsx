@@ -12,7 +12,10 @@ import {
   type AttachmentHost,
   type OrdersHost,
   type PaymentHost,
+  type ProofHost,
+  type ProofView,
 } from "@shopong/miniapp-orders";
+import type { OrderProgress } from "@shopong/community";
 
 import { useCommunity } from "../lib/CommunityProvider";
 import type { PickedFile } from "../lib/attachments";
@@ -59,8 +62,32 @@ async function pickImage(): Promise<PickedFile | undefined> {
   };
 }
 
+/** The record's view of an order's delivery, in the words the Orders screen reads (story 7.6). */
+function proofViewOf(progress: OrderProgress): ProofView {
+  const delivered = progress.delivered;
+  return {
+    arrived: progress.arrived,
+    ...(progress.plannedDriver === undefined ? {} : { plannedDriver: progress.plannedDriver }),
+    ...(delivered === undefined
+      ? {}
+      : {
+          delivered: {
+            event: delivered.event,
+            driver: delivered.driver,
+            photoSha512: delivered.photoSha512,
+            claimedAt: delivered.claimedAt,
+          },
+        }),
+    shares: progress.shares,
+    disputes: progress.disputes.map((dispute) => ({
+      by: dispute.by,
+      ...(dispute.note === undefined ? {} : { note: dispute.note }),
+    })),
+  };
+}
+
 export function OrdersHostProvider({ children }: { children: ReactNode }) {
-  const { canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder, files } =
+  const { canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder, files, proof } =
     useCommunity();
   const host = useMemo<OrdersHost>(() => {
     const payments: PaymentHost = {
@@ -100,7 +127,33 @@ export function OrdersHostProvider({ children }: { children: ReactNode }) {
             check: files.check,
             retry: files.retry,
           };
-    return { canAdd: canAddQuotes, addQuote, quotesFor, payments, attachments };
-  }, [canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder, files]);
+    // The driver's photo is picked here, as a file on an order is; the app then keeps it and queues the arrival.
+    const proofHost: ProofHost | undefined =
+      proof === null
+        ? undefined
+        : {
+            me: proof.me,
+            progressOf: async (order) => proofViewOf(await proof.progressOf(order)),
+            confirmArrival: async (order) => {
+              try {
+                const picked = await pickImage();
+                if (picked === undefined) return undefined;
+                return await proof.confirmArrival(order, picked);
+              } catch {
+                return READ_FAILED;
+              }
+            },
+            collect: (order) => proof.collect(order),
+            dispute: (order, note) => proof.dispute(order, note),
+          };
+    return {
+      canAdd: canAddQuotes,
+      addQuote,
+      quotesFor,
+      payments,
+      attachments,
+      proof: proofHost,
+    };
+  }, [canAddQuotes, addQuote, quotesFor, pledgeOrder, paymentOf, payOrder, files, proof]);
   return <OrdersHostContext.Provider value={host}>{children}</OrdersHostContext.Provider>;
 }

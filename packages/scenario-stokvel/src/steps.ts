@@ -593,11 +593,14 @@ export const STEPS: readonly StepDefinition[] = [
     title: "Every member confirms they collected their share",
     async run(w, t) {
       let slot = 0;
+      // The share names the delivery it collects from (the confirmation's event id) and the member's own did:key (story 7.6).
+      const delivery = [...w.events].find(([, e]) => e.type === "delivery.confirmed")?.[0];
+      if (delivery === undefined) throw new Error("nothing delivered yet");
       for (const m of MEMBERS) {
         await w.emit(
           w.person(m.key),
           "collection.confirmed",
-          { member: m.key, order: "o1" },
+          { order: "o1", delivery, member: w.person(m.key).actor },
           {
             at: at(t, slot++),
             label: `collect:${m.key}`,

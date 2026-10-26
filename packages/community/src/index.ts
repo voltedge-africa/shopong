@@ -10,9 +10,13 @@ export {
   createCommunity,
   joinCommunity,
   type Community,
+  type CollectionConfirmation,
   type CommunityDeps,
   type CommunityError,
+  type DeliveryConfirmation,
+  type DeliveryDispute,
   type GrantOptions,
+  type ProofError,
   type Member,
   type DeliveryPlan,
   type PlaceRecord,
@@ -21,6 +25,13 @@ export {
   type QuoteReceipt,
 } from "./community.js";
 export { DELIVERY_MESSAGES, plannerProblem } from "./delivery.js";
+export {
+  PROOF_MESSAGES,
+  progressOf,
+  type DeliveryRecord,
+  type DisputeRecord,
+  type OrderProgress,
+} from "./delivery-proof.js";
 export { isRoleStanding } from "./roles.js";
 export {
   PAYMENT_TYPE_MESSAGE,
