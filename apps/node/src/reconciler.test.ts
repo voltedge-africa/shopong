@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vite-plus/test";
+import { DiscrepancyStore } from "./discrepancies.ts";
 import { CheckingStore, type CheckingStore as Store } from "./payment-confirmation.ts";
 import { startChecking, type ReconcilerDeps } from "./reconciler.ts";
 
@@ -34,5 +35,45 @@ describe("the reconciler's schedule (simulated)", () => {
     const runs = lines.filter((l) => l === "payment check finished (simulated)").length;
     expect(runs).toBeGreaterThanOrEqual(3);
     expect(store.checking().checkedAt).toBe(1_000);
+  });
+});
+
+describe("discrepancies from a run (story 10.3)", () => {
+  it("opens a discrepancy with the event id and both sides' values for a payment with no pledge", async () => {
+    const discrepancies = new DiscrepancyStore(join(folder, "from-run.json"));
+    const reference = "d".repeat(128);
+    const request = {
+      externalReference: reference,
+      amount: { minor: 50_000, currency: "ZAR" },
+      status: "completed",
+    };
+    const deps: ReconcilerDeps = {
+      simulated: { payIn: { requests: () => [request] } } as unknown as ReconcilerDeps["simulated"],
+      ledger: {} as ReconcilerDeps["ledger"],
+      hub: {
+        heldCommunities: () => [],
+        journalOf: async () => [],
+      } as unknown as ReconcilerDeps["hub"],
+      masterKey: new Uint8Array(32),
+      nodeIdentity: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      store: new CheckingStore(join(folder, "from-run-checking.json")),
+      discrepancies,
+      now: () => 2_000,
+      log: () => undefined,
+    } as ReconcilerDeps;
+
+    const checking = startChecking(deps, 60_000);
+    await checking.lastRun;
+    checking.close();
+    const [item] = discrepancies.list();
+    expect(item).toMatchObject({
+      kind: "paid_no_pledge",
+      eventId: reference,
+      provider: "paid",
+      record: "no matching pledge",
+      books: "no matching pledge",
+    });
+    expect(item!.text).toContain("(simulated)");
+    expect(discrepancies.list()).toHaveLength(1);
   });
 });

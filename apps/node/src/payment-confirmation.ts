@@ -43,6 +43,7 @@ import {
   type WebhookDelivery,
 } from "@shopong/ports";
 import { postAndMirror, type MirrorHub } from "./ledger-mirror.ts";
+import type { DiscrepancyStore } from "./discrepancies.ts";
 import { memberIdOf, type PoolHub } from "./pool-read.ts";
 
 export const PAYMENT_COMPLETED = "payment.completed";
@@ -224,6 +225,8 @@ export interface ConfirmationDeps {
   readonly masterKey: Uint8Array;
   readonly nodeIdentity: Did;
   readonly store: CheckingStore;
+  /** The discrepancy list (story 10.3). Undefined in tests that do not need it. */
+  readonly discrepancies?: DiscrepancyStore;
   readonly now: () => number;
   /** Test seam: called after the books are written and before the record, to simulate a crash there. */
   readonly beforeRecord?: (eventType: string) => void;
