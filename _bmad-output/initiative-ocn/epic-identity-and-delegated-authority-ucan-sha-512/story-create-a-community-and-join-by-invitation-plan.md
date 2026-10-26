@@ -3,14 +3,14 @@ title: 'Create a community and join by invitation'
 type: 'feature'
 ticket: 3
 created: '2026-10-26'
-status: 'in-progress'
+status: 'built'
 baseline_revision: '613a996a7368c862dbedd6e956321291d05c2420'
 route: 'full'
 route_source: 'auto'
 risk: 'high'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 context: []
 ---
@@ -81,6 +81,24 @@ Every shortcut these choices take is in `_bmad-output/initiative-ocn/shortcuts.m
 ## Plan Change Log
 
 ## Review Triage Log
+
+Pass 1 (quick lens). 13 findings: 0 high, 0 medium, 3 low patched (as 3 groups), 6 low rejected, 4 false.
+
+| Finding | Verdict | Route | Evidence |
+|---|---|---|---|
+| `create` and `invite` in `lib/community.ts` throw when there is no identity or community, and `run` in `CommunityCard.tsx` has no try/finally, so a throw leaves the card busy for good | low | patch | Real: both throw, `run` sets busy before awaiting. The card normally hides these paths, but any unexpected exception also disables it. The matrix says "Make your identity first." as a plain answer. Smallest fix: return plain error results instead of throwing, and reset busy in a finally. |
+| No app-level tests for `invite` before `create`, or `create` with no identity (same root cause as above) | low | patch | Real gap, and the same missing path. Add those two service tests with the fix. |
+| `joined` in `apply.ts` checks "Already a member." before `joined/<invitation>`, so the second use of an invitation by the same person says "Already a member." (matrix says "This invitation was already used.") and the reuse branch is never exercised | low | patch | Real: with named invitations only the same person can reuse a token, so the member check always wins. Smallest fix: check `joined/<invitation>` first, and make the test expect the matrix text. |
+| `void Share.share(...)` in both cards discards the promise; on desktop web it rejects | low | patch | Real on web (no share sheet). Smallest fix: catch and ignore the rejection; the text stays selectable (S-2.3-11). |
+| The app never calls `joinCommunity`, so `member.joined` is never recorded in the app; the "Join" button leads to a check only | false | rejected | Plan decision 3: the app gets a Join screen that checks and gives the plain reason; a real join between phones waits for epic 3. Recorded as S-2.3-3. The screen says so. |
+| After an identity change the card keeps the old community until the next action (`serviceFor`) | low | rejected | The identity changes only once, from none to made; the app has no way to switch or remove it, so the case is unreachable. A fix adds an effect for no reachable case. |
+| `isUsed` in `check` only sees a community made in this run of the app | low | rejected | By design: each phone holds its own record until epic 3 (S-2.3-3, S-2.3-4). The rule itself is tested in the package. |
+| The expiry check in `apply` trusts the joiner's `claimedAt`, so a joiner can claim an earlier time | low | rejected | Real, planned, and recorded as S-2.3-7 (fix is story 3.6, log time). |
+| `member.invited` is not cross-checked against the token at join | false | rejected | Only the creator can sign a token that chains to the creator, so a token that verifies for the joiner's DID was issued by the creator. The cross-check would add nothing. |
+| `createEvent({...} as never)` hides the payload type | low | rejected | The cast bypasses compile-time pairing only; `createEvent` still validates the payload at run time, and the new schemas are tested. A typed payload union is more than a direct fix. |
+| Golden vector name no longer matches (invitee equals actor, extras accepted) and the generator line is long | low | rejected | Cosmetic. CI passes formatting, and the vector still proves canonical hashing. |
+| `packages/community/package.json` build and exports may not match the other packages | false | rejected | It matches `adapters-memory` (exports `./src/index.ts`, `tsc -p tsconfig.build.json`), and `vp run -r build` passes. |
+| The plan's `status` is edited in the working tree | false | rejected | `bmad-build` writes it; it is in its own plan commit, outside the code diff, and the PR notes it. |
 
 ## Design Notes
 
