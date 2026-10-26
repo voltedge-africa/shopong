@@ -3,7 +3,7 @@ title: 'Pooled funds and member balances view'
 type: 'feature'
 ticket: 6
 created: '2026-10-26'
-status: draft
+status: done
 baseline_revision: '788a54d8ab1c5cedcf4ab94ed00f62779eefa091'
 ---
 
