@@ -441,6 +441,71 @@ export class ReplicaHub implements SyncHub {
     return entry.members.includes(did);
   }
 
+  /** The creator of a community the Node holds, or undefined. */
+  creatorOf(communityKey: string): Did | undefined {
+    return this.#registry[communityKey]?.creator;
+  }
+
+  /** The admitted members of a community, in admission order. Empty when the Node does not hold it. */
+  membersOf(communityKey: string): readonly Did[] {
+    return [...(this.#registry[communityKey]?.members ?? [])];
+  }
+
+  /**
+   * Every applied entry of a community's record, in journal order, as the indexer holds it. Waits (bounded) first for
+   * the appends this Node acknowledged for the community, so a mirror just written is counted (story 4.6).
+   */
+  async journalOf(communityKey: string): Promise<JournalEntry<EventEnvelope>[]> {
+    const indexed = this.#indexedOf(communityKey);
+    if (indexed === undefined) return [];
+    const space = await indexed;
+    await space.update();
+    const suffix = `\n${communityKey}`;
+    const pending = new Set<string>();
+    for (const [key, ids] of this.#pending)
+      if (key.endsWith(suffix)) for (const id of ids) pending.add(id);
+    const deadline = Date.now() + (this.#options.readWaitMs ?? DEFAULT_READ_WAIT_MS);
+    while (pending.size > 0) {
+      for (const id of pending) if (await hasApplied(space, id as never)) pending.delete(id);
+      if (pending.size === 0 || Date.now() >= deadline) break;
+      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+      await space.update();
+    }
+    for (const [key, ids] of this.#pending) {
+      if (!key.endsWith(suffix)) continue;
+      for (const id of ids) if (!pending.has(id)) ids.delete(id);
+      if (ids.size === 0) this.#pending.delete(key);
+    }
+
+    const out: JournalEntry<EventEnvelope>[] = [];
+    const PAGE = 500;
+    let after = 0;
+    for (;;) {
+      const page = (await journalSince(space, after, PAGE)) as JournalEntry<EventEnvelope>[];
+      out.push(...page);
+      if (page.length < PAGE) break;
+      after = page[page.length - 1]!.position;
+    }
+    return out;
+  }
+
+  /**
+   * Appends an event to a community's record through the creator's replica, which the Node opens with the derived
+   * keys (story 3.5). Used for the Node's own ledger mirror (story 4.6). Undefined when the Node does not hold it.
+   */
+  async mirror(
+    communityKey: string,
+    event: EventEnvelope,
+  ): Promise<{ id: string; duplicate: boolean } | undefined> {
+    const entry = this.#registry[communityKey];
+    if (entry === undefined) return undefined;
+    const slot = await this.#slot(entry.creator, communityKey);
+    const receipt = await slot.space.append(event);
+    if (!receipt.ok) return undefined;
+    this.acknowledge(entry.creator, communityKey, receipt.value.id);
+    return { id: receipt.value.id, duplicate: receipt.value.duplicate };
+  }
+
   async onChange(
     communityKey: string,
     listener: (change: ViewChange) => void,

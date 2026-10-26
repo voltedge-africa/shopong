@@ -144,3 +144,58 @@ describe("the phone's signed client", () => {
     expect(failureOf(404, {})).toMatchObject({ reason: "The OCN Node did not accept it." });
   });
 });
+
+describe("the phone's pool call (story 4.6)", () => {
+  const poolBody = {
+    currency: "ZAR",
+    total: { minor: "50000", text: "The pool holds R500.00." },
+    target: null,
+    you: {
+      minor: "0",
+      text: "You have paid R0.00",
+      share: null,
+      shareText: null,
+      status: { kind: "no_target", label: "No target yet" },
+    },
+    members: [],
+    flags: [],
+    requestId: "r1",
+  };
+
+  it("sends a signed GET for the community's pool, with no body", async () => {
+    const phone = await phoneWith(() => ({ status: 200, body: poolBody }));
+    await phone.client.pool(KEY);
+    const [sent] = phone.sent;
+    expect(sent!.method).toBe("GET");
+    expect(sent!.url).toBe(`https://node.example/communities/${KEY}/pool`);
+    expect(sent!.body).toBeUndefined();
+    expect(sent!.headers["x-ocn-signature"]).toBeDefined();
+  });
+
+  it("answers ok with the Node's figures", async () => {
+    const phone = await phoneWith(() => ({ status: 200, body: poolBody }));
+    const reply = await phone.client.pool(KEY);
+    expect(reply.ok).toBe(true);
+    if (reply.ok) expect(reply.value.total.text).toBe("The pool holds R500.00.");
+  });
+
+  it("reads the books being unreadable as a plain refusal, not as an unreachable Node", async () => {
+    const phone = await phoneWith(() => ({
+      status: 503,
+      body: { problem: "books_unavailable", reason: "The books can't be read right now." },
+    }));
+    const reply = await phone.client.pool(KEY);
+    expect(reply.ok).toBe(false);
+    if (!reply.ok) {
+      expect(reply.failure.kind).toBe("refused");
+      expect(reply.failure.reason).toBe("The books can't be read right now.");
+    }
+  });
+
+  it("treats a timeout as the Node being unreachable", async () => {
+    const phone = await phoneWith(() => "hang");
+    const reply = await phone.client.pool(KEY);
+    expect(reply.ok).toBe(false);
+    if (!reply.ok) expect(reply.failure.kind).toBe("offline");
+  });
+});

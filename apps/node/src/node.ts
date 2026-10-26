@@ -1,12 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import type { AutobaseSharedRecord } from "@shopong/record-autobase";
+import type { Did, Ledger } from "@shopong/ports";
 import { buildApp } from "./app.ts";
 import { COMPONENT_NAMES, createStubComponent } from "./components.ts";
 import { loadConfig, type LoadOptions } from "./config.ts";
 import { ReplicaHub } from "./hub.ts";
 import { createLogger, type LogSink } from "./logger.ts";
-import { masterKeyOf, openRecordComponent } from "./record.ts";
+import { masterKeyOf, nodeIdentityOf, openRecordComponent } from "./record.ts";
 import { missingRequiredFor } from "./secrets.ts";
 import { readVersion } from "./version.ts";
 
@@ -19,12 +20,19 @@ export interface RunningNode {
   record: AutobaseSharedRecord<unknown> | undefined;
   /** The member replicas and the indexer's sync surface, or undefined when the record component is off. */
   hub: ReplicaHub | undefined;
+  /** The Node's own identity (record.ts), or undefined when the record component is off. */
+  nodeIdentity: Did | undefined;
   close(): Promise<void>;
 }
 
 export interface StartOptions extends LoadOptions {
   /** Where log lines go. Defaults to standard output. */
   sink?: LogSink;
+  /**
+   * The books the pool read uses (story 4.6). Absent, the pool route answers 503 "The books can't be read right now.".
+   * Configured by the caller; the ledger's own file and its wiring are not part of this story.
+   */
+  ledger?: Ledger;
 }
 
 /**
@@ -72,6 +80,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
   const auth = new IsoUcanCapabilityAuth();
   let hub: ReplicaHub | undefined;
   let app: FastifyInstance;
+  const identity = opened === undefined ? undefined : await nodeIdentityOf(masterKeyOf(secrets));
   try {
     hub =
       opened === undefined
@@ -90,6 +99,13 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
       auth,
       sync: hub === undefined ? {} : { hub },
       ...(hub === undefined ? {} : { communities: hub }),
+      pool: {
+        ...(hub === undefined ? {} : { hub }),
+        ...(options.ledger === undefined ? {} : { ledger: options.ledger }),
+        ...(identity === undefined
+          ? {}
+          : { masterKey: masterKeyOf(secrets), nodeIdentity: identity }),
+      },
       allowedCreators: config.allowedCreators,
       cors: { origins: config.corsOrigins, environment: config.environment },
     });
@@ -120,6 +136,7 @@ export async function startNode(options: StartOptions): Promise<RunningNode> {
     port,
     record: opened?.record,
     hub,
+    nodeIdentity: identity,
     close: () =>
       closeInOrder([() => app.close(), () => hub?.close(), () => opened?.record.close()]),
   };

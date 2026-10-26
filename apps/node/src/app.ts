@@ -10,6 +10,7 @@ import { registerCommitmentRoute } from "./commitment-route.ts";
 import { keepRawJsonBody } from "./signed.ts";
 import { registerCors, type CorsOptions } from "./cors.ts";
 import { registerCommunityRoutes, type CommunityHub } from "./community-routes.ts";
+import { registerPoolRoute, type PoolRouteOptions } from "./pool-routes.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import type { CapabilityAuth, Commitments } from "@shopong/ports";
@@ -42,6 +43,8 @@ export interface AppOptions {
   allowedCreators?: readonly string[];
   /** Size of each community route's one-time-number table (review N2). */
   communityNonces?: { readonly create?: number; readonly members?: number };
+  /** The pool read (story 4.6). Without a ledger the route answers 503. */
+  pool?: PoolRouteOptions;
 }
 
 async function report(options: AppOptions): Promise<HealthReport> {
@@ -92,6 +95,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     config: options.authority,
   });
   registerSyncRoutes(app, auth, options.sync ?? {});
+  registerPoolRoute(app, auth, options.pool ?? {});
   if (options.communities !== undefined) {
     registerCommunityRoutes(app, {
       hub: options.communities,

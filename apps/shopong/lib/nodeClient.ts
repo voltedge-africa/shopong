@@ -4,7 +4,7 @@
 // `waiting` (the Node may take it later: too many requests, or the writer is not yet admitted), or `refused`
 // (a plain refusal: park it and show the reason).
 
-import { signRequest, type RequestParts } from "@shopong/community";
+import { signRequest, type PoolView, type RequestParts } from "@shopong/community";
 import { webCryptoSha512, type EventEnvelope } from "@shopong/events";
 import type { CapabilityAuth, Did } from "@shopong/ports";
 
@@ -77,6 +77,8 @@ export interface NodeClient {
     event: EventEnvelope,
   ): Promise<NodeReply<{ id: string; duplicate: boolean }>>;
   pull(key: string, after: string, limit?: number): Promise<NodeReply<PulledPage>>;
+  /** The pool as the Node reads the books and the record (story 4.6). Members only. */
+  pool(key: string): Promise<NodeReply<PoolView>>;
 }
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -92,6 +94,10 @@ export function failureOf(status: number, body: unknown): NodeFailure {
     typeof json.reason === "string" && json.reason !== ""
       ? json.reason
       : "The OCN Node did not accept it.";
+  // The books being unreadable is a plain sentence from the Node, not a sign that the Node cannot be reached (story 4.6).
+  if (status === 503 && problem === "books_unavailable") {
+    return { kind: "refused", status, problem, reason };
+  }
   if (status >= 500) return { kind: "offline", reason: "The OCN Node is not answering." };
   if (status === 401 && problem === "clock_skew") {
     return { kind: "clock", status, problem, reason };
@@ -184,6 +190,8 @@ export function createNodeClient(options: NodeClientOptions): NodeClient {
         id: String(j.id),
         duplicate: j.duplicate === true,
       })),
+    pool: (key) =>
+      request("GET", `/communities/${key}/pool`, undefined, (j) => j as unknown as PoolView),
     pull: (key, after, limit = 100) =>
       request(
         "GET",
