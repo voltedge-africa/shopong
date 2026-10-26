@@ -39,3 +39,32 @@ describe("the words for a file on an order", () => {
     expect(checkWords("price-list", undefined)).toBe("Checking…");
   });
 });
+
+import { attachOrReason, READ_FAILED } from "./files";
+
+describe("review patch 2: the panel always gets a plain reason", () => {
+  it("turns a rejected attach into the plain sentence, so the panel shows something", async () => {
+    const reason = await attachOrReason(
+      async () => {
+        throw new Error("expo-file-system is not supported on web");
+      },
+      "March stock",
+      "price-list",
+      "Makro",
+    );
+    expect(reason).toBe(READ_FAILED);
+    expect(READ_FAILED).toBe("We could not read that file. Try another photo.");
+  });
+
+  it("passes a plain refusal and a start (no reason) through unchanged", async () => {
+    expect(
+      await attachOrReason(
+        async () => "Only the treasurer can attach a price list.",
+        "o",
+        "price-list",
+        "m",
+      ),
+    ).toBe("Only the treasurer can attach a price list.");
+    expect(await attachOrReason(async () => undefined, "o", "price-list", "m")).toBeUndefined();
+  });
+});

@@ -2,7 +2,9 @@ import type { MiniAppManifest } from "@shopong/miniapp";
 
 export { OrdersHostContext, type AttachmentHost, type OrdersHost, type PaymentHost } from "./host";
 export {
+  attachOrReason,
   checkWords,
+  READ_FAILED,
   stateWords,
   type FileCheck,
   type FilePurpose,

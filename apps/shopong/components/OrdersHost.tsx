@@ -3,11 +3,12 @@
 // `@shopong/community` and on the Node; the mini app only shows the answers. Mounted only around the Orders app
 // (see app/miniapp/[id].tsx).
 import * as ImagePicker from "expo-image-picker";
-import { File, Paths } from "expo-file-system";
 import * as WebBrowser from "expo-web-browser";
 import { useMemo, type ReactNode } from "react";
+import { Platform } from "react-native";
 import {
   OrdersHostContext,
+  READ_FAILED,
   type AttachmentHost,
   type OrdersHost,
   type PaymentHost,
@@ -15,6 +16,7 @@ import {
 
 import { useCommunity } from "../lib/CommunityProvider";
 import type { PickedFile } from "../lib/attachments";
+import { discardPickedCopy, readPickedBytes } from "../lib/pickedCopy";
 
 /**
  * Asks the person for one image from the library. Undefined when they choose nothing. The picker is asked not to read
@@ -30,17 +32,30 @@ async function pickImage(): Promise<PickedFile | undefined> {
   if (result.canceled) return undefined;
   const asset = result.assets[0];
   if (asset === undefined) return undefined;
-  const response = await fetch(asset.uri);
   const uri = asset.uri;
+  const bytes = await readPickedBytes(uri, {
+    isWeb: Platform.OS === "web",
+    fetchBytes: async (target) => new Uint8Array(await (await fetch(target)).arrayBuffer()),
+    readFile: async (target) => {
+      const { File } = await import("expo-file-system");
+      return new Uint8Array(await new File(target).arrayBuffer());
+    },
+  });
   return {
     name: asset.fileName ?? "photo",
-    bytes: new Uint8Array(await response.arrayBuffer()),
-    discard: async () => {
-      // Only the picker's copy in the app's cache is removed, never a file the person keeps elsewhere.
-      if (!uri.startsWith(Paths.cache.uri)) return;
-      const copy = new File(uri);
-      if (copy.exists) copy.delete();
-    },
+    bytes,
+    // Native only: on web the file system is never touched (expo-file-system is not supported there). The module is loaded
+    // when the copy is removed, never when this file is imported. Cleanup never fails the attach.
+    discard: () =>
+      discardPickedCopy(uri, {
+        isWeb: Platform.OS === "web",
+        cacheUri: async () => (await import("expo-file-system")).Paths.cache.uri,
+        removeFile: async (target) => {
+          const { File } = await import("expo-file-system");
+          const copy = new File(target);
+          if (copy.exists) copy.delete();
+        },
+      }).then(() => undefined),
   };
 }
 
@@ -71,11 +86,16 @@ export function OrdersHostProvider({ children }: { children: ReactNode }) {
             canAttachPriceList: canAddQuotes,
             canAttachPhoto: files.canAttachPhoto,
             filesFor: files.filesFor,
+            // Never rejects: any error becomes a plain sentence the panel shows (web regression, review patch 2).
             attach: async (order, purpose, supplier) => {
-              const picked = await pickImage();
-              // Choosing nothing is not a refusal: the screen just shows what is there.
-              if (picked === undefined) return undefined;
-              return files.attach(order, purpose, supplier, picked);
+              try {
+                const picked = await pickImage();
+                // Choosing nothing is not a refusal: the screen just shows what is there.
+                if (picked === undefined) return undefined;
+                return await files.attach(order, purpose, supplier, picked);
+              } catch {
+                return READ_FAILED;
+              }
             },
             check: files.check,
             retry: files.retry,

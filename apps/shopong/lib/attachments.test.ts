@@ -394,3 +394,43 @@ describe("review patch: what reaches the record and the phone", () => {
     expect(discarded).toBe(1);
   });
 });
+
+describe("review patch 2: cleanup and errors never fail an attach", () => {
+  it("a failing discard does not fail the attach", async () => {
+    const { service } = setup();
+    await service.start();
+    const result = await service.attach(KEY, "March stock", "delivery-photo", {
+      name: "front.jpg",
+      bytes: jpegWithGps(),
+      discard: async () => {
+        throw new Error("cannot delete");
+      },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("an error inside the attach becomes a plain reason, never a rejection", async () => {
+    const net = fakeNode();
+    const sy = fakeSync(net.log);
+    const service = createAttachmentService({
+      node: net.node,
+      sync: sy.sync,
+      pending: memoryByteStore(),
+      cache: memoryByteStore(),
+      did: DID,
+      sha512: async () => {
+        throw new Error("hashing failed");
+      },
+      viewOf: () => undefined,
+    });
+    await service.start();
+    const result = await service.attach(KEY, "March stock", "delivery-photo", {
+      name: "front.jpg",
+      bytes: jpegWithGps(),
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "We could not read that file. Try another photo.",
+    });
+  });
+});

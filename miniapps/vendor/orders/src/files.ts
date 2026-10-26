@@ -56,3 +56,23 @@ export const PURPOSE_HELP: { readonly [P in FilePurpose]: string } = {
   "price-list": "A PDF, JPEG or PNG up to 10 MB.",
   "delivery-photo": "A JPEG, PNG or WebP photo up to 5 MB.",
 };
+
+/** The plain sentence when an attach fails for any reason the app could not name. Never a raw error message. */
+export const READ_FAILED = "We could not read that file. Try another photo.";
+
+/**
+ * Runs an attach and turns any rejection into the plain sentence, so the panel always shows something (review patch 2:
+ * on web an attach rejected silently). A refusal or a start is passed through unchanged.
+ */
+export async function attachOrReason(
+  attach: (order: string, purpose: FilePurpose, supplier: string) => Promise<string | undefined>,
+  order: string,
+  purpose: FilePurpose,
+  supplier: string,
+): Promise<string | undefined> {
+  try {
+    return await attach(order, purpose, supplier);
+  } catch {
+    return READ_FAILED;
+  }
+}

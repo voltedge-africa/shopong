@@ -116,6 +116,9 @@ export interface AttachmentService {
   forgetCommunity(community: string): Promise<void>;
 }
 
+/** The plain sentence for any error while a file is read or attached. Never a raw error message. */
+export const READ_FAILED = "We could not read that file. Try another photo.";
+
 const FILE_KEY = (order: string) =>
   `files-of/${encodeURIComponent(order.trim().replace(/\s+/g, " "))}/`;
 const tidyOrder = (order: string) => order.trim().replace(/\s+/g, " ");
@@ -350,10 +353,11 @@ export function createAttachmentService(deps: AttachmentDeps): AttachmentService
           states.get(keyOf(community, wanted, hash))?.state === "saved" &&
           file.discard !== undefined
         ) {
-          await file.discard();
+          // Cleanup of the picker's copy never fails the attach (review patch 2).
+          await file.discard().catch(() => undefined);
         }
         return { ok: true, hash };
-      }),
+      }).catch((): AttachResult => ({ ok: false, reason: READ_FAILED })),
 
     retryPending: () =>
       serial(async () => {

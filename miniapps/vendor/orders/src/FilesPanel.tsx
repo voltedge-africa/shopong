@@ -7,6 +7,7 @@ import { Button, Input, Text } from "panelui-native";
 
 import type { AttachmentHost } from "./host";
 import {
+  attachOrReason,
   checkWords,
   PURPOSE_HELP,
   stateWords,
@@ -53,7 +54,13 @@ export function FilesPanel({ host, order }: { host: AttachmentHost; order: strin
   const attach = async (purpose: FilePurpose) => {
     setBusy(true);
     setProblem(undefined);
-    const reason = await host.attach(order, purpose, supplier);
+    // Any failure becomes a plain sentence here, so the person is never left with an empty panel.
+    const reason = await attachOrReason(
+      (o, p, s) => host.attach(o, p, s),
+      order,
+      purpose,
+      supplier,
+    );
     if (!mounted.current) return;
     setBusy(false);
     if (reason !== undefined) setProblem(reason);

@@ -101,11 +101,11 @@ function OrdersView({ host }: { host: OrdersHost }) {
         {ranking !== undefined && !loadFailed ? <RankingCard ranking={ranking} /> : null}
 
         {host.payments !== undefined && name !== "" ? (
-          <PayPanel key={name} payments={host.payments} order={name} />
+          <PayPanel key={`pay-${name}`} payments={host.payments} order={name} />
         ) : null}
 
         {host.attachments !== undefined && name !== "" ? (
-          <FilesPanel key={name} host={host.attachments} order={name} />
+          <FilesPanel key={`files-${name}`} host={host.attachments} order={name} />
         ) : null}
 
         {host.canAdd ? (
