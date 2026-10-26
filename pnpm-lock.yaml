@@ -67,6 +67,9 @@ importers:
       '@shopong/adapters-memory':
         specifier: workspace:*
         version: link:../../packages/adapters-memory
+      '@shopong/ports-contract':
+        specifier: workspace:*
+        version: link:../../packages/ports-contract
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
@@ -519,6 +522,9 @@ importers:
 
   packages/adapters-memory:
     dependencies:
+      '@shopong/events':
+        specifier: workspace:*
+        version: link:../events
       '@shopong/ports':
         specifier: workspace:*
         version: link:../ports

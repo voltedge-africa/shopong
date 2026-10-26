@@ -37,14 +37,15 @@ Components: `record` (on), `queue` (on), `ledger` (off), `payments` (off). Ledge
 
 Declared in code in `src/secrets.ts`. A secret is read **only** from the environment: `KEY`, or `KEY_FILE` holding a path to a file with the value (a trailing newline is stripped). Setting both is an error. A config file that contains a secret-looking key is refused.
 
-| Key                      | Needed when           |
-| ------------------------ | --------------------- |
-| `RECORD_MASTER_KEY`      | `record` is enabled   |
-| `STITCH_CLIENT_ID`       | `payments` is enabled |
-| `STITCH_CLIENT_SECRET`   | `payments` is enabled |
-| `LEDFRA_API_TOKEN`       | `ledger` is enabled   |
-| `STABLECOIN_SIGNING_KEY` | optional placeholder  |
-| `LLM_API_KEY`            | optional placeholder  |
+| Key                      | Needed when                                                                                                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RECORD_MASTER_KEY`      | `record` is enabled                                                                                                                                                                |
+| `STITCH_CLIENT_ID`       | `payments` is enabled                                                                                                                                                              |
+| `STITCH_CLIENT_SECRET`   | `payments` is enabled                                                                                                                                                              |
+| `LEDFRA_API_TOKEN`       | `ledger` is enabled                                                                                                                                                                |
+| `STABLECOIN_SIGNING_KEY` | optional placeholder                                                                                                                                                               |
+| `LLM_API_KEY`            | optional placeholder                                                                                                                                                               |
+| `COMMUNITY_SECRET`       | `POST /commitments` (story 2.7): treasurer only, 30 requests per ten minutes each. Not yet passed to the route by `startNode`, so it answers 503 until the community is configured |
 
 If a required secret for an enabled component is missing (or empty), the process prints one fatal line to stderr that names every missing key, and exits with code 1 before opening a port. Values are never printed: not in that error, not in logs, not in `/health`.
 

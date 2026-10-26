@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@shopong/adapters-memory": "workspace:*",
+    "@shopong/ports-contract": "workspace:*",
     "@types/node": "24.19.2",
     "typescript": "7.0.2",
     "vite-plus": "catalog:"

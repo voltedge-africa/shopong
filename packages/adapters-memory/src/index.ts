@@ -7,6 +7,7 @@ export * from "./ledger.js";
 export * from "./payments.js";
 export * from "./stable-rail.js";
 export * from "./ocr.js";
+export * from "./commitments.js";
 export * from "./decide.js";
 export * from "./routing.js";
 export * from "./geo.js";

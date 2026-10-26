@@ -3,7 +3,7 @@ title: 'Always-on seeder, indexer, relay and bootstrap on the OCN Node'
 type: 'feature'
 ticket: 5
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: 'f90eea4108f3dbdcd21e090488c642995961c015'
 route: 'full'
 route_source: 'auto'
@@ -111,3 +111,32 @@ Not re-checked this session: the contract and memory adapter files named in the 
 - B) Move the phone-side queue into 3.5 as well.
 
 **Unverified:** the `_bmad/render/bmad-build/*/plan-template.md` template is not in this checkout (`_bmad/render` holds only a `.gitignore`), so this plan follows the sibling 3.2 and 2.5 plans. I did not check whether Fastify's WebSocket plugin is already a dependency, and I did not run any tests.
+
+## Plan Change Log
+
+- 2026-10-26, product owner: the blocker (one local Autobase writer per replica, `exclusive` sessions) is resolved as **option A**. The Node keeps one Autobase replica per member, in its own store under the data folder, each opened with `open()` as that member using the derived keys and the existing API. Those replicas replicate over persistent in-process pipes into the Node's indexer replica (the seeder and only indexer). An append is acknowledged once the member replica's append is durably on disk (Q4). The `SharedRecord` port and the record adapter's exclusive-writer rule are unchanged. Costs are recorded as shortcut rows S-3.5-10 onward.
+- 2026-10-26, implementation under option A: the pull reads the indexer's journal, which `apply` writes one entry per applied event (position = apply order, so replicas agree). The cursor is an opaque string (`ocn-pull/v1:<position>`, base64url). Pulls are for members only (the view's `members/<did>`). The record adapter gains three read-only functions, `journalSince`, `journalHead` and `connectSpaces`; the `SharedRecord` port and the exclusive-writer rule are unchanged. The live notice is Server-Sent Events on `GET /spaces/:key/changes`, not a WebSocket: it needs no dependency, and phones poll the pull route alone (S-3.5-4). Relay and bootstrap stay out (Q5).
+
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 3 high, 8 medium, 9 low.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | A stranger with a valid-looking key could use up the one-time-number table and block every member for about 4 minutes | high, real | patch | The number is claimed only after the signature, skew and admission checks; test failed first; mutation-checked |
+| 2 | A stranger's first request made the Node create a record copy, folder, pipe and registry entry for them | high, real | patch | Nothing is created for anyone not admitted; 500 stranger GETs and 500 POSTs leave the folder and registry unchanged |
+| 3 | Two requests at once could open the same replica twice | high, real | patch | In-flight promises are shared; test with `Promise.all` on a fresh hub |
+| 4 | A failed join to the main copy left an unconnected replica | medium, real | patch | Rolled back and retried; tested |
+| 5 | A member's pull straight after its own acknowledged write could miss it | medium, real | patch | Bounded wait until the indexer has applied the acknowledged ids, then `behind: true`; tested |
+| 6 | Pull responses capped by count only; no body limit | medium, real | patch | 1 MiB pull cap with `more`, 64 KiB body limit (413); tested |
+| 7 | No bound on what one member can write; three stored copies per event | medium, real | defer | S-3.5-16 |
+| 8 | A failed start or stop could leave the record open | medium, real | patch | `closeInOrder`; tested |
+| 9 | Record off should answer 503, but answered 404 | medium, real | patch | Routes always registered; tested |
+| 10 | "Not a writer" had no test with the real record | medium, real | patch | Test added |
+| 11 | Nothing registers a community on the Node in production | medium, real gap | defer to the product owner | S-3.5-20; needs a signed create or register route before a phone can sync |
+| 12 | The query string was outside the signature | low, real | patch | Full URL signed; tested |
+| 13, 14 | SSE had no per-member cap, no backpressure, and a hijack ordering bug | low, real | patch | Cap of 3, slow readers closed; the backpressure path has no test of its own |
+| 15, 17, 19 | Concurrent duplicate appends; cursors past 2^53; nonce pruning assumes a monotonic clock | low | defer | S-3.5-17, S-3.5-18, S-3.5-19 |
+| 16, 18, 20 | Registry fsync and validation; re-registration dropped members; comments overstated ordering | low, real | patch | Done (directory fsync still open, S-3.5-21) |
+| 21 | (mutation check) the member check on the live-notice route changed no test | medium, real | patch | Stranger-on-`/changes` test added; mutation-checked |
+

@@ -16,6 +16,11 @@ export type Commitment = string & { readonly __brand: "Commitment" };
 
 export const MIN_COMMUNITY_SECRET_BYTES = 32;
 
+/** The plain sentences a person sees (matrix: commit an ID, short secret). */
+export const SECRET_TOO_SHORT_MESSAGE = "This community's secret is too short.";
+export const PHONE_NUMBER_MESSAGE = "That doesn't look like a phone number.";
+export const ID_NUMBER_MESSAGE = "That doesn't look like an ID number.";
+
 const HMAC_HEX = /^[0-9a-f]{128}$/;
 
 export function isCommitment(value: unknown): value is Commitment {
@@ -33,7 +38,7 @@ export async function keyedCommitment(
   hmac: HmacSha512,
 ): Promise<Commitment> {
   if (communitySecret.length < MIN_COMMUNITY_SECRET_BYTES) {
-    throw new RangeError(`community secret must be at least ${MIN_COMMUNITY_SECRET_BYTES} bytes`);
+    throw new RangeError(SECRET_TOO_SHORT_MESSAGE);
   }
   if (normalisedValue.length === 0) throw new RangeError("cannot commit to an empty value");
   const mac = await hmac(communitySecret, encodeUtf8(normalisedValue));
@@ -105,4 +110,82 @@ export function normalisePhoneNumber(input: string): string {
     );
   }
   return `+${international}`;
+}
+
+// Separators a person types into a 13-digit ID number: spaces and hyphens only (a phone number also takes
+// brackets and dots, see SEPARATORS above).
+const ID_SEPARATORS = /[\s-]/g;
+
+/** The Luhn check over a string of ASCII digits: the rule that gives a South African ID its 13th digit. */
+export function isLuhnValid(digits: string): boolean {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = digits.charCodeAt(digits.length - 1 - i) - 48;
+    if (i % 2 === 1) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+/**
+ * Normalise a South African ID number to its 13 digits. Spaces and hyphens are ignored. Only the check
+ * digit is checked: the birth date, the citizenship digit and the 8/9 digit are not (shortcut S-2.7-2).
+ * Non-ASCII digits are refused.
+ */
+export function normaliseIdNumber(input: string): string {
+  const digits = input.trim().replace(ID_SEPARATORS, "");
+  if (!/^[0-9]{13}$/.test(digits) || !isLuhnValid(digits)) {
+    throw new NormalisationError(ID_NUMBER_MESSAGE);
+  }
+  return digits;
+}
+
+/** Commit to an ID number: normalise to its 13 digits, then HMAC-SHA512 with the community's secret. */
+export async function commitIdNumber(
+  communitySecret: Uint8Array,
+  idNumber: string,
+  hmac: HmacSha512,
+): Promise<Commitment> {
+  return keyedCommitment(communitySecret, normaliseIdNumber(idNumber), hmac);
+}
+
+export type PersonalKind = "phone" | "id-number";
+
+export type PersonalCommitment =
+  | { readonly ok: true; readonly commitment: Commitment }
+  | {
+      readonly ok: false;
+      readonly problem: "not_recognised" | "secret_too_short";
+      /** The plain sentence to show. */
+      readonly message: string;
+    };
+
+/**
+ * Normalise and commit a raw personal value, returning a result rather than throwing, so the Node's
+ * `Commitments` adapter can map it to a port error. The secret is used here and nowhere else.
+ */
+export async function commitPersonal(
+  communitySecret: Uint8Array,
+  kind: PersonalKind,
+  raw: string,
+  hmac: HmacSha512,
+): Promise<PersonalCommitment> {
+  if (communitySecret.length < MIN_COMMUNITY_SECRET_BYTES) {
+    return { ok: false, problem: "secret_too_short", message: SECRET_TOO_SHORT_MESSAGE };
+  }
+  let normalised: string;
+  try {
+    normalised = kind === "phone" ? normalisePhoneNumber(raw) : normaliseIdNumber(raw);
+  } catch (error) {
+    if (!(error instanceof NormalisationError)) throw error;
+    return {
+      ok: false,
+      problem: "not_recognised",
+      message: kind === "phone" ? PHONE_NUMBER_MESSAGE : ID_NUMBER_MESSAGE,
+    };
+  }
+  return { ok: true, commitment: await keyedCommitment(communitySecret, normalised, hmac) };
 }

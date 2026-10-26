@@ -12,6 +12,7 @@
 
 import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
+import { Transform } from "node:stream";
 import { existsSync, readFileSync, renameSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import b4a from "b4a";
@@ -60,6 +61,11 @@ const keyOf = (did: string): string => `_sys/key/${did}`;
 const ownerOf = (hex: string): string => `_sys/owner/${hex}`;
 const writerOf = (did: string): string => `_sys/writer/${did}`;
 const loggedOf = (id: string): string => `_sys/logged/${id}`;
+/** The journal: the entries in apply order, keyed by a zero-padded position, and the last position. */
+const JOURNAL_HEAD = "_sys/head";
+const JOURNAL_PREFIX = "_sys/seq/";
+const journalOf = (position: number): string =>
+  `${JOURNAL_PREFIX}${String(position).padStart(16, "0")}`;
 
 /** What an Autobase node carries. */
 type Stored<E> =
@@ -180,6 +186,83 @@ export async function applyNodesForTest(
 export function baseOf(space: Space<unknown>): Autobase {
   if (!(space instanceof AutobaseSpace)) throw new Error("not a space from this adapter");
   return space.base;
+}
+
+/**
+ * Replicates two spaces of this adapter in this process, over a pipe that stays open until the returned
+ * function is called. The Node joins each member replica to its indexer replica with it (story 3.5).
+ */
+export interface ConnectOptions {
+  /**
+   * Test seam, read live: each chunk is held this many milliseconds in each direction. The object may be changed
+   * after the pipe is open; the next chunk sees the new value. Default none.
+   */
+  delayMs?: number;
+}
+
+export function connectSpaces(
+  a: Space<unknown>,
+  b: Space<unknown>,
+  options: ConnectOptions = {},
+): () => void {
+  const left = baseOf(a);
+  const right = baseOf(b);
+  const s1 = left.replicate(true);
+  const s2 = right.replicate(false);
+  s1.on("error", () => {});
+  s2.on("error", () => {});
+  const hold = () =>
+    new Transform({
+      transform(chunk, _encoding, callback) {
+        const ms = options.delayMs ?? 0;
+        if (ms > 0) setTimeout(() => callback(null, chunk), ms);
+        else callback(null, chunk);
+      },
+    });
+  const forward = hold();
+  const back = hold();
+  s1.pipe(forward).pipe(s2);
+  s2.pipe(back).pipe(s1);
+  return () => {
+    forward.destroy();
+    back.destroy();
+    s1.destroy();
+    s2.destroy();
+  };
+}
+
+/** Read-only: whether an entry with this event id has been applied to the space's view. */
+export async function hasApplied(space: Space<unknown>, id: EventId): Promise<boolean> {
+  if (!(space instanceof AutobaseSpace)) throw new Error("not a space from this adapter");
+  return space.hasApplied(id);
+}
+
+/** One applied entry, with its position in the journal (1 is the first). */
+export interface JournalEntry<E> {
+  readonly position: number;
+  readonly id: EventId;
+  readonly writer: Did;
+  readonly event: E;
+}
+
+/**
+ * Read-only: the entries applied after `after` (a position; 0 for the start), in order, at most `limit`.
+ * Positions are assigned by `apply`, so replicas that have applied the same entries agree on them. Not part of
+ * the `SharedRecord` port: the Node uses it to serve a pull (story 3.5).
+ */
+export async function journalSince<E>(
+  space: Space<unknown>,
+  after: number,
+  limit: number,
+): Promise<JournalEntry<E>[]> {
+  if (!(space instanceof AutobaseSpace)) throw new Error("not a space from this adapter");
+  return space.journalSince<E>(after, limit);
+}
+
+/** Read-only: the position of the last applied entry (0 when none). See `journalSince`. */
+export async function journalHead(space: Space<unknown>): Promise<number> {
+  if (!(space instanceof AutobaseSpace)) throw new Error("not a space from this adapter");
+  return space.journalHead();
 }
 
 type Autobase = any;
@@ -309,6 +392,11 @@ class AutobaseSpace<E> implements Space<E> {
 
       const entries = [{ id, writer: writer as Did, event: stored.event }];
       await this.#definition.apply(entries, viewWriter(hb), this.#host(hb, host));
+      // The journal is the order `apply` ran in, so every replica that applies the same entries keeps the same
+      // positions (deterministic, no clock). It is what a read of the log since a position returns.
+      const position = ((await read(hb, JOURNAL_HEAD)) as number | undefined) ?? 0;
+      await hb.put(journalOf(position + 1), { id, writer, event: stored.event } as JsonValue);
+      await hb.put(JOURNAL_HEAD, position + 1);
       applied++;
     }
     if (applied > 0) {
@@ -380,6 +468,30 @@ class AutobaseSpace<E> implements Space<E> {
     await this.#base.append({ t: "event", id, event } satisfies Stored<E>);
     await this.update();
     return ok({ id, duplicate: false });
+  }
+
+  async hasApplied(id: EventId): Promise<boolean> {
+    return (await read(this.#hb(), loggedOf(id))) !== undefined;
+  }
+
+  async journalHead(): Promise<number> {
+    return ((await read(this.#hb(), JOURNAL_HEAD)) as number | undefined) ?? 0;
+  }
+
+  async journalSince<E>(after: number, limit: number): Promise<JournalEntry<E>[]> {
+    const out: JournalEntry<E>[] = [];
+    if (limit <= 0) return out;
+    // "_sys/seq0" is the first key after every "_sys/seq/<position>" (the "0" sorts after "/").
+    for await (const node of this.#hb().createReadStream({
+      gte: journalOf(after + 1),
+      lt: "_sys/seq0",
+      limit,
+    })) {
+      const row = node.value as { id: EventId; writer: Did; event: E };
+      const position = Number(node.key.slice(JOURNAL_PREFIX.length));
+      out.push({ position, id: row.id, writer: row.writer, event: row.event });
+    }
+    return out;
   }
 
   subscribe(listener: (change: ViewChange) => void): Unsubscribe {
