@@ -1,14 +1,25 @@
-// The Delivery mini app's screen (story 7.4). The page shows the map, the route's line and its three sentences; this card
-// above it lets the treasurer or a driver plan the route between two registered places. Every member sees the planned
-// route. The phone shows the Node's words and place labels only: no coordinate, no address, and no route is computed here.
+// The Delivery mini app's screen (story 7.4, planned per order in story 8.6). The page shows the map, the route's line and
+// its three sentences; this card above it lets the treasurer or a driver plan an approved order's route between two
+// registered places, for a driver whose role stands. Every member sees the planned route. The phone shows the Node's
+// words, place labels and the arrival estimate only: no coordinate, no address, and no route is computed here.
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Text } from "panelui-native";
 import { View } from "react-native";
 
+import type { PlannedDelivery } from "@shopong/community";
+
 import { BundleMiniApp } from "./BundleMiniApp";
 import { useCommunity } from "../lib/CommunityProvider";
 import type { NodePlace } from "../lib/nodeClient";
-import { roadLabelOf, routeLoadMessage, type RoutePlace, type RouteScreen } from "../lib/route";
+import { shortDid } from "../lib/identitySeed";
+import {
+  arrivalSentence,
+  arrivalWords,
+  roadLabelOf,
+  routeLoadMessage,
+  type RoutePlace,
+  type RouteScreen,
+} from "../lib/route";
 
 type Props = {
   /** The Metro asset id of the built page. */
@@ -16,6 +27,9 @@ type Props = {
   /** The page's own messages (the demonstration round), used until a planned route is known. */
   messages: readonly unknown[];
 };
+
+/** An order the treasurer may plan a delivery for: one that has been approved (its status is open). */
+type PlannableOrder = { readonly id: string; readonly name: string };
 
 /** The page's message for the collection points: each a collection stop, with no legs (story 7.3). */
 function pointsLoadMessage(points: readonly NodePlace[]) {
@@ -36,35 +50,73 @@ function pointsLoadMessage(points: readonly NodePlace[]) {
 }
 
 export function DeliveryScreen({ asset, messages }: Props) {
-  const { placesOf, planRoute, routeScreen, nodePlacesOf } = useCommunity();
+  const { placesOf, planRoute, routeScreen, nodePlacesOf, ordersOf, driversOf, plannedDeliveries } =
+    useCommunity();
   const [places, setPlaces] = useState<readonly RoutePlace[]>([]);
   // The collection points with their coordinates, from the Node (story 7.3). Shown on the page until a route is planned.
   const [points, setPoints] = useState<readonly NodePlace[]>([]);
+  const [orders, setOrders] = useState<readonly PlannableOrder[]>([]);
+  const [drivers, setDrivers] = useState<readonly string[]>([]);
+  const [plans, setPlans] = useState<readonly PlannedDelivery[]>([]);
+  const [orderIndex, setOrderIndex] = useState(0);
+  const [driverIndex, setDriverIndex] = useState(0);
   const [from, setFrom] = useState(0);
   const [to, setTo] = useState(1);
   const [screen, setScreen] = useState<RouteScreen>({ state: "none" });
   const [notice, setNotice] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
+  const order = orders[orderIndex];
+  const driver = drivers[driverIndex];
+
   useEffect(() => {
     let current = true;
     void (async () => {
-      const [list, planned, onNode] = await Promise.all([
+      const [list, onNode, approved, standing, planned] = await Promise.all([
         placesOf(),
-        routeScreen(),
         nodePlacesOf(),
+        ordersOf(),
+        driversOf(),
+        plannedDeliveries(),
       ]);
       if (!current) return;
       setPlaces(list);
-      setScreen(planned);
       setPoints(onNode);
+      setOrders(
+        approved.orders
+          .filter((row) => row.status === "open")
+          .map((row) => ({ id: row.id, name: row.name })),
+      );
+      setDrivers(standing);
+      setPlans(planned);
     })();
     return () => {
       current = false;
     };
-  }, [placesOf, routeScreen, nodePlacesOf]);
+  }, [placesOf, nodePlacesOf, ordersOf, driversOf, plannedDeliveries]);
+
+  // The route of the order on screen, from the record's plan and the Node's line.
+  useEffect(() => {
+    let current = true;
+    void (async () => {
+      const planned =
+        order === undefined ? { state: "none" as const } : await routeScreen(order.id);
+      if (current) setScreen(planned);
+    })();
+    return () => {
+      current = false;
+    };
+  }, [order, routeScreen]);
 
   const route = screen.state === "shown" ? screen.route : undefined;
+  const sentPlan = plans.find((row) => row.order === order?.id);
+  // The arrival estimate: the planned start plus the Node's duration, in words (story 8.6).
+  const estimate =
+    sentPlan === undefined
+      ? undefined
+      : sentPlan.windowStart === undefined
+        ? `Driver ${shortDid(sentPlan.driver)}. Estimated time on the road: ${arrivalWords(sentPlan.durationSeconds)}.`
+        : `Driver ${shortDid(sentPlan.driver)}. ${arrivalSentence(sentPlan.windowStart, sentPlan.durationSeconds)}`;
   // With a planned route the page is sent its line and sentences; without one, its own demonstration round.
   // Without a planned route, the page shows the community's collection points when there are some, and its demonstration
   // round when there are none (the demonstration's own points are never mixed with a real community's).
@@ -78,22 +130,24 @@ export function DeliveryScreen({ asset, messages }: Props) {
     [route, points, messages],
   );
 
-  const plan = async () => {
+  const planThisRoute = async () => {
     const origin = places[from];
     const destination = places[to];
-    if (origin === undefined || destination === undefined) return;
+    if (origin === undefined || destination === undefined || order === undefined) return;
+    if (driver === undefined) return;
     setBusy(true);
     setNotice(undefined);
-    const planned = await planRoute(origin.id, destination.id);
+    const planned = await planRoute(order.id, origin.id, destination.id, driver);
     setBusy(false);
     if (planned.ok) {
       setScreen({ state: "shown", route: planned.route });
+      setPlans(await plannedDeliveries());
       return;
     }
     setNotice(planned.message);
   };
 
-  const canPlan = places.length >= 2 && from !== to;
+  const canPlan = places.length >= 2 && from !== to && order !== undefined && driver !== undefined;
 
   return (
     <View className="flex-1 bg-background">
@@ -102,13 +156,33 @@ export function DeliveryScreen({ asset, messages }: Props) {
           <Text muted>Two places must be registered before a route can be planned.</Text>
         ) : (
           <>
+            {orders.length === 0 ? (
+              <Text muted>An order must be approved before its delivery can be planned.</Text>
+            ) : (
+              <Button
+                variant="outline"
+                onPress={() => setOrderIndex((i) => (i + 1) % orders.length)}
+              >
+                {`Order: ${order?.name ?? ""}`}
+              </Button>
+            )}
+            {drivers.length === 0 ? (
+              <Text muted>Assign a driver before planning a route.</Text>
+            ) : (
+              <Button
+                variant="outline"
+                onPress={() => setDriverIndex((i) => (i + 1) % drivers.length)}
+              >
+                {`Driver: ${driver === undefined ? "" : shortDid(driver)}`}
+              </Button>
+            )}
             <Button variant="outline" onPress={() => setFrom((i) => (i + 1) % places.length)}>
               {`From: ${places[from]?.label ?? ""}`}
             </Button>
             <Button variant="outline" onPress={() => setTo((i) => (i + 1) % places.length)}>
               {`To: ${places[to]?.label ?? ""}`}
             </Button>
-            <Button fullWidth disabled={busy || !canPlan} onPress={() => void plan()}>
+            <Button fullWidth disabled={busy || !canPlan} onPress={() => void planThisRoute()}>
               {busy ? "Planning the route" : "Plan route"}
             </Button>
           </>
@@ -123,6 +197,7 @@ export function DeliveryScreen({ asset, messages }: Props) {
           </Alert>
         ) : null}
         {route === undefined ? null : <Text muted>{roadLabelOf(route)}</Text>}
+        {estimate === undefined ? null : <Text muted>{estimate}</Text>}
       </View>
       <View className="flex-1">
         <BundleMiniApp asset={asset} messages={pageMessages} />

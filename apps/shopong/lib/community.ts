@@ -36,6 +36,7 @@ import {
   addRefusal,
   type DeliveryPlan,
   type PlaceRecord,
+  type PlannedDelivery,
   type PlanError,
   type Refusal,
 } from "@shopong/community";
@@ -88,6 +89,10 @@ export type CommunityService = {
   currentDriver: (now: number) => Promise<string | undefined>;
   /** Records an order's planned route (story 7.4): place ids and the fingerprint, queued like every other event. */
   planDelivery: (plan: DeliveryPlan) => Promise<Result<unknown, PlanError>>;
+  /** The drivers whose role stands on the record's clock, for the treasurer to choose from (story 8.6). */
+  drivers: (now: number) => Promise<readonly string[]>;
+  /** The planned deliveries on the record, one per order, as this phone's copy holds them (story 8.6). */
+  deliveries: () => Promise<readonly PlannedDelivery[]>;
   /** Records a collection point the Node made (story 7.3): its id, label, area and address commitment. The treasurer only. */
   registerPlace: (place: PlaceRecord) => Promise<Result<unknown, PlanError>>;
   /** Records my suburb or town (story 7.3), coarsened as the record judges it. */
@@ -202,6 +207,12 @@ export function createCommunityService(
     },
     async currentDriver(now) {
       return current === null ? undefined : current.currentDriver(now);
+    },
+    async drivers(now) {
+      return current === null ? [] : current.drivers(now);
+    },
+    async deliveries() {
+      return current === null ? [] : current.deliveries();
     },
     async registerPlace(place) {
       if (current === null)

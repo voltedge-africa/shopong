@@ -570,6 +570,8 @@ export function createCommunityApply(env: CommunityApplyEnvironment): Apply<Even
       tileRelease: str(route, "tileRelease") ?? "",
       fingerprint: str(route, "fingerprint") ?? "",
       plannedBy: event.actor,
+      // The planned start, when the planner gave one (story 8.6): the record's own number, never a clock read here.
+      ...(typeof payload.windowStart === "number" ? { windowStart: payload.windowStart } : {}),
     });
     return undefined;
   }

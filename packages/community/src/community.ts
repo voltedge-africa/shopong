@@ -34,7 +34,14 @@ import {
   type SpaceDefinition,
 } from "@shopong/ports";
 import { createCommunityApply, FOUNDER_INVITATION } from "./apply.js";
-import { driverStands, placeAdderProblem, placeJson, plannerProblem } from "./delivery.js";
+import {
+  deliveriesOf,
+  driverStands,
+  placeAdderProblem,
+  placeJson,
+  plannerProblem,
+  type PlannedDelivery,
+} from "./delivery.js";
 import { PROOF_MESSAGES, progressOf, type OrderProgress } from "./delivery-proof.js";
 import { logTimeOf } from "./log-time.js";
 import {
@@ -338,6 +345,10 @@ export interface Community {
   selectionOf(order: string): Promise<Selection | undefined>;
   /** The driver whose role stands at log time, judged as `apply` judges a driver (patch of story 7.4). */
   currentDriver(now: EpochMs): Promise<string | undefined>;
+  /** Every driver whose role stands at log time: the ones the treasurer may name for a delivery (story 8.6). */
+  drivers(now: EpochMs): Promise<readonly string[]>;
+  /** The planned deliveries on the record, one per order, as this phone's copy of the view holds them (story 8.6). */
+  deliveries(): Promise<readonly PlannedDelivery[]>;
   /** Record a place the Node made (story 7.4). Only the treasurer may. */
   registerPlace(place: PlaceRecord, now: EpochMs): Promise<Result<EventEnvelope, PlanError>>;
   /**
@@ -474,6 +485,21 @@ function wrap(
         if (await driverStands(standingOf(), space.view, who, at)) return who;
       }
       return undefined;
+    },
+    async drivers(now) {
+      await space.update();
+      const at = (await logAt(space)) || now;
+      const out: string[] = [];
+      for (const row of await space.view.list("roles/")) {
+        if (!row.key.endsWith("/driver")) continue;
+        const who = row.key.slice("roles/".length, -"/driver".length);
+        if (await driverStands(standingOf(), space.view, who, at)) out.push(who);
+      }
+      return out;
+    },
+    async deliveries() {
+      await space.update();
+      return deliveriesOf(await space.view.list("delivery/"));
     },
     async registerPlace(place, now) {
       await space.update();

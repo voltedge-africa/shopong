@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { installedMiniApps } from "../components/miniapps";
+import { shortDid } from "./identitySeed";
 import {
+  deliveryNotificationsOf,
   demoNotifications,
   filterNotifications,
   markAllRead,
@@ -86,5 +88,62 @@ describe("timeAgo", () => {
 
   it("reads a time in the future as now", () => {
     expect(timeAgo(NOW + 5_000, NOW)).toBe("now");
+  });
+});
+
+// Story 8.6: each member's list gets one entry per planned delivery, read from the synced record on the phone.
+describe("delivery entries in the member list (story 8.6)", () => {
+  const DRIVER = "did:key:z6MkmtmqExampleDriverKeyVouVZtL";
+  const START = Date.UTC(2026, 9, 26, 12, 5); // 14:05 in South Africa
+
+  const label = (id: string) => (id === "hall" ? "Soweto hall" : undefined);
+
+  it("makes an entry 'Delivery planned to <place>' with the driver in short form and the arrival", () => {
+    const list = deliveryNotificationsOf({
+      deliveries: [
+        {
+          order: "o1",
+          driver: DRIVER,
+          origin: "depot",
+          destination: "hall",
+          durationSeconds: 2_400,
+          fingerprint: "f".repeat(128),
+          windowStart: START,
+        },
+      ],
+      placeLabel: label,
+    });
+    expect(list).toEqual([
+      {
+        id: "delivery-o1",
+        appId: "delivery",
+        title: "Delivery planned to Soweto hall",
+        body: `Driver ${shortDid(DRIVER)}. Planned start 14:05. Arrival about 14:45 (about 40 minutes).`,
+        at: START,
+        read: false,
+      },
+    ]);
+  });
+
+  it("says plainly when a place is not known, rather than showing an id", () => {
+    const [entry] = deliveryNotificationsOf({
+      deliveries: [
+        {
+          order: "o1",
+          driver: DRIVER,
+          origin: "depot",
+          destination: "unknown",
+          durationSeconds: 60,
+          fingerprint: "f".repeat(128),
+          windowStart: START,
+        },
+      ],
+      placeLabel: label,
+    });
+    expect(entry?.title).toBe("Delivery planned to the collection point");
+  });
+
+  it("makes no entry for an empty record", () => {
+    expect(deliveryNotificationsOf({ deliveries: [], placeLabel: label })).toEqual([]);
   });
 });
