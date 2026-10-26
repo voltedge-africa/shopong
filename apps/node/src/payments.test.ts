@@ -251,7 +251,8 @@ describe("the simulated payments on the Node", () => {
     expect(await replay.json()).toMatchObject({ applied: false, status: "completed" });
 
     const audits = auditLines(sink.text()).filter((line) => line["audit"] === "payment_webhook");
-    expect(audits.map((a) => a["outcome"])).toEqual(["applied", "not_applied"]);
+    // No pledge matches this payment, so the replay is flagged for the treasurer as well (story 4.5); nothing is posted.
+    expect(audits.map((a) => a["outcome"])).toEqual(["applied", "flagged"]);
     for (const line of audits) expect(line["simulated"]).toBe(true);
   });
 
@@ -277,11 +278,12 @@ describe("the simulated payments on the Node", () => {
     for (const line of refused) expect(line["simulated"]).toBe(true);
   });
 
-  it("answers 404 for a validly signed webhook about a payment that was never created", async () => {
+  it("acknowledges a validly signed webhook about a payment that was never created, and flags it (story 4.5)", async () => {
     running = await startNode({ env: env(), sink: captureSink() });
     const body = completionBody("pir_999", "150.50");
     const res = await postWebhook(running, body, signedWithKey(body));
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ applied: false, flagged: "unknown_payment" });
   });
 
   it("routes a signed disbursement event to the pay-out side, applied once", async () => {
@@ -514,7 +516,7 @@ describe("the simulated bank page as a capability (review)", () => {
       delivery.headers["x-simulated-signature"],
     );
     expect(res.status).toBe(503);
-    expect(await res.json()).toMatchObject({ problem: "state_unavailable" });
+    expect(await res.json()).toMatchObject({ problem: "state_unwritten" });
     const approve = await fetch(`${running.url}/simulated-bank/${made.id}/approve`, {
       method: "POST",
       redirect: "manual",

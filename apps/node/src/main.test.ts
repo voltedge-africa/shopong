@@ -63,7 +63,7 @@ describe("ocn node process", () => {
     const proc = run({});
     expect(await proc.exit).not.toBe(0);
     const { stderr } = proc.out();
-    for (const key of ["SIMULATED_WEBHOOK_SECRET", "LEDFRA_API_TOKEN"]) {
+    for (const key of ["SIMULATED_WEBHOOK_SECRET"]) {
       expect(stderr).toContain(key);
     }
   });

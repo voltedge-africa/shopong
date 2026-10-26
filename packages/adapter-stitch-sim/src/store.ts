@@ -177,6 +177,11 @@ export class SimulatedStore {
     return record?.kind === kind ? record : undefined;
   }
 
+  /** Every stored record of one kind, in no particular order. */
+  all(kind: Kind): StoredPayment[] {
+    return [...this.#records.values()].filter((r) => r.kind === kind);
+  }
+
   /** The request already made with this external reference, for the same kind. */
   byReference(kind: Kind, reference: EventId): StoredPayment | undefined {
     const id = this.#byReference.get(`${kind}\n${reference}`);

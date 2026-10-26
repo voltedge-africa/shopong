@@ -31,6 +31,14 @@ export function PoolCard() {
         <>
           {fresh !== undefined ? <Text muted>{fresh.checkedText}</Text> : null}
           {fresh?.stale ? <Text muted>These figures may be out of date.</Text> : null}
+          {sections.notice.map((line) => (
+            <Alert key={line} variant="info">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Description>{line}</Alert.Description>
+              </Alert.Content>
+            </Alert>
+          ))}
           {sections.figures.map((line) => (
             <Text key={line}>{line}</Text>
           ))}

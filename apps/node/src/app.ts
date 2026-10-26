@@ -13,6 +13,8 @@ import { registerCommunityRoutes, type CommunityHub } from "./community-routes.t
 import { registerPoolRoute, type PoolRouteOptions } from "./pool-routes.ts";
 import { registerSyncRoutes, type SyncOptions } from "./sync.ts";
 import { registerPaymentRoutes } from "./payments-routes.ts";
+import { registerCheckingRoute, type CheckingRouteOptions } from "./checking-routes.ts";
+import type { ConfirmationDeps } from "./payment-confirmation.ts";
 import { IsoUcanCapabilityAuth } from "@shopong/adapter-ucan-iso";
 import type { SimulatedStitch } from "@shopong/adapter-stitch-sim";
 import type { CapabilityAuth, Commitments } from "@shopong/ports";
@@ -49,6 +51,12 @@ export interface AppOptions {
   pool?: PoolRouteOptions;
   /** The simulated payments (story 4.4). Without it, the payment routes are not served. */
   payments?: SimulatedStitch;
+  /** Confirms a verified pay-in webhook: books, record, status, in order (story 4.5). Without it, the webhook only sets status. */
+  paymentConfirmation?: ConfirmationDeps;
+  /** The treasurer's "Needs checking" list (story 4.5). Without it, the route is not served. */
+  checking?: CheckingRouteOptions;
+  /** Sets up a new community's books chart when it is made (story 4.5). */
+  books?: { readonly configureCommunity: (communityKey: string) => Promise<void> };
 }
 
 async function report(options: AppOptions): Promise<HealthReport> {
@@ -100,12 +108,16 @@ export function buildApp(options: AppOptions): FastifyInstance {
   });
   registerSyncRoutes(app, auth, options.sync ?? {});
   registerPoolRoute(app, auth, options.pool ?? {});
-  if (options.payments !== undefined) registerPaymentRoutes(app, options.payments);
+  if (options.payments !== undefined) {
+    registerPaymentRoutes(app, options.payments, options.paymentConfirmation);
+  }
+  if (options.checking !== undefined) registerCheckingRoute(app, auth, options.checking);
   if (options.communities !== undefined) {
     registerCommunityRoutes(app, {
       hub: options.communities,
       auth,
       allowedCreators: options.allowedCreators ?? [],
+      ...(options.books === undefined ? {} : { onCreated: options.books.configureCommunity }),
       ...(options.communityNonces === undefined ? {} : { nonces: options.communityNonces }),
     });
   }

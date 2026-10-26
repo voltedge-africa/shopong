@@ -27,16 +27,23 @@ export function poolScreenOf(reply: NodeReply<PoolView>, now: number): PoolScree
 
 /** The sentences the card shows, in three groups: the figures, the people, and the flags (never hidden). */
 export interface PoolSections {
+  /** The Node's sentence that the figures include simulated payments; empty when the Node says they are real. */
+  readonly notice: readonly string[];
   readonly figures: readonly string[];
   readonly people: readonly string[];
   readonly flags: readonly string[];
 }
 
 export function poolSections(screen: PoolScreen): PoolSections {
-  if (screen.state === "loading") return { figures: ["Loading the pool."], people: [], flags: [] };
-  if (screen.state !== "shown") return { figures: [screen.message], people: [], flags: [] };
+  if (screen.state === "loading")
+    return { notice: [], figures: ["Loading the pool."], people: [], flags: [] };
+  if (screen.state !== "shown")
+    return { notice: [], figures: [screen.message], people: [], flags: [] };
   const { view } = screen;
+  // The Node says so beside the figures when they include simulated payments (review item 1).
+  const note = (view as { readonly simulatedNote?: unknown }).simulatedNote;
   return {
+    notice: typeof note === "string" && note !== "" ? [note] : [],
     figures: [
       view.total.text,
       view.target === null ? "No target yet." : view.target.text,
@@ -56,8 +63,8 @@ export function poolSections(screen: PoolScreen): PoolSections {
 
 /** Every sentence the card shows, top to bottom. */
 export function poolLines(screen: PoolScreen): string[] {
-  const { figures, people, flags } = poolSections(screen);
-  return [...figures, ...people, ...flags];
+  const { notice, figures, people, flags } = poolSections(screen);
+  return [...notice, ...figures, ...people, ...flags];
 }
 
 /** A figure older than this is marked as possibly out of date (triage 2). */

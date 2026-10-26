@@ -18,6 +18,9 @@ import { claimNonce, SeenNonces, verifySignedRequest, type SignedGate } from "./
 export const BOOKS_UNREADABLE = "The books can't be read right now.";
 export const NOT_A_MEMBER = "You are not a member of this community.";
 export const NOT_HELD = "This Node does not hold that community.";
+/** Said beside the figures whenever the Node's payments are the simulation (review item 1). */
+export const SIMULATED_POOL_NOTE =
+  "These figures include test payments (simulated). No real money has moved.";
 
 export interface PoolRouteOptions {
   /** Absent when the record is off: the route then answers 503. */
@@ -32,6 +35,8 @@ export interface PoolRouteOptions {
   /** The Node's own clock. Defaults to `Date.now`. */
   readonly now?: () => number;
   readonly maxNonces?: number;
+  /** True while the payments are the simulation: the answer then says so beside the figures. */
+  readonly simulated?: boolean;
 }
 
 export function registerPoolRoute(
@@ -111,7 +116,13 @@ export function registerPoolRoute(
         { audit: "pool", outcome: "accepted", actor, requestId: request.id },
         "pool read answered",
       );
-      return reply.code(200).send({ ...view, requestId: request.id });
+      return reply.code(200).send({
+        ...view,
+        requestId: request.id,
+        ...(options.simulated === true
+          ? { simulated: true, simulatedNote: SIMULATED_POOL_NOTE }
+          : {}),
+      });
     } catch (error) {
       // The reason is logged without the figures or the error text, which may name a path.
       request.log.error(

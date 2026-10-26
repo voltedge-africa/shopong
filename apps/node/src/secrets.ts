@@ -54,12 +54,6 @@ export const SECRET_DEFINITIONS: readonly SecretDefinition[] = [
     description: "Stitch client secret; needed once a real Stitch adapter exists",
   },
   {
-    key: "LEDFRA_API_TOKEN",
-    owner: "ledger",
-    required: true,
-    description: "Ledfra API token",
-  },
-  {
     key: "COMMUNITY_SECRET",
     owner: "record",
     required: false,
