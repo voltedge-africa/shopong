@@ -138,3 +138,23 @@ context: []
 - B) Show the Node's order without running `apply`.
 
 **Not verified:** I did not read PR #30 and did not call `gh`. I read the 3.5 plan's Plan Change Log and its S-3.5-* rows from the local branch `story/3-5-node-serves-the-record` with `git show`, not from this checkout; the draft 3.5 plan in this checkout has no change log. The HEAD commit says S-3.5-20 was folded into story 3.4, but that text is not in the 3.6 plan in this checkout. Nothing was run, and no phone build was tried. I did not check whether the Node sends CORS headers for web.
+
+## Review Triage Log
+
+Pass 1 (one Haiku read-only reviewer, 2026-10-26). 2 high, 6 medium, 9 low. The orchestrator also ran the real thing end to end (a real Node, the web app and the Android emulator): create a community, go offline, make a change, bring the Node back, and watch it converge.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| N1 | Unlimited identities could fill the Node's disk and memory (the cap was per creator) | high, real | patch | Global cap (default 50) and an optional allow-list of creators, checked before the one-time number is claimed and before any store opens; tests failed first; mutation-checked |
+| N2 | The one-time-number table could be filled so every create returned 429 | medium, real | patch | Own table per route; the allow-list keeps strangers out first |
+| N3, N4, N5 | Replayed admission requests still pay the full check; admission does not record the invitation as used; community key squatting before the creator registers | low | defer | S-3.4-20, S-3.4-21, S-3.4-22 |
+| P1 | A lost update in the offline queue (add and remove interleaving) could drop a change | high, real | patch | Every queue operation runs through one chain; a 1000-interleaving test failed first; mutation-checked |
+| P2 | A refused item was re-sent every 5 seconds for ever | medium, real | patch | Parked until Try again or Remove this change |
+| P3 | Join and create ignored a failed enqueue and still said "on your phone" | medium, real | patch | Plain failure message; tested |
+| P4 | Pulled entries were trusted and "Confirmed" was given for any id | medium, real | patch | Id, community and writer are checked and bad entries counted; mutation-checked |
+| P5 | One outbox file shared by every identity on the device | medium, latent | patch | Outbox named by the identity |
+| P6 | One unreadable entry blocked all future writes | medium, real | patch | The file is set aside and a fresh queue starts, with a plain message |
+| P7 | A clock-skew refusal parked the change | low, real | patch | Own kind, retried, "Check your phone's clock." |
+| P8, P9, P10 | Backoff reset by a good pull; network-change retries bypassed backoff; plain http accepted in release builds | low, real | patch | Tested |
+| P11, P12 | No size cap on Node responses; the invitation token is in the queue file in plain text | low | defer | S-3.4-23, S-3.4-24 |
+
