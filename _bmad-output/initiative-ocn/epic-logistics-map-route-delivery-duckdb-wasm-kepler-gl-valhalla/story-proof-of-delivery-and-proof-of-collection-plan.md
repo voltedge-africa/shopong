@@ -3,7 +3,7 @@ title: 'Proof of delivery and proof of collection'
 type: 'feature'
 ticket: 6
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: '2d1ef5d846450eee09b35853682df06a69a0c175'
 ---
 
