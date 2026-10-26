@@ -1,7 +1,7 @@
 ---
 title: "Tile build pipeline and hosting"
 ticket: 2
-status: draft
+status: done
 baseline_revision: '2d1ef5d846450eee09b35853682df06a69a0c175'
 ---
 

@@ -3,7 +3,7 @@ title: 'Rank quotes by a simple rule'
 type: 'feature'
 ticket: 9
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: 'bc9526b'
 route: 'full'
 route_source: 'auto'

@@ -3,7 +3,7 @@ title: 'Plan a route to the collection point'
 type: 'feature'
 ticket: 4
 created: '2026-10-26'
-status: 'draft'
+status: done
 baseline_revision: '2d1ef5d846450eee09b35853682df06a69a0c175'
 ---
 
